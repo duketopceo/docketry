@@ -522,6 +522,30 @@ export const webhookDeliveries = pgTable(
   (t) => [index().on(t.status, t.nextAttemptAt), index().on(t.endpointId)],
 );
 
+// external system refs on issues — importer dedupe + provenance (linear, etc.)
+export const issueExternalRefs = pgTable(
+  "issue_external_refs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    system: text("system").notNull(),
+    externalId: text("external_id").notNull(),
+    url: text("url"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    unique().on(t.workspaceId, t.system, t.externalId),
+    index().on(t.issueId),
+  ],
+);
+
 export type IssueRow = typeof issues.$inferSelect;
 export type NewIssue = typeof issues.$inferInsert;
 export type EventRow = typeof events.$inferSelect;

@@ -13,6 +13,7 @@ import { agentRoutes } from "./routes/agents.js";
 import { authRoutes, requireSession } from "./routes/auth.js";
 import { eventRoutes } from "./routes/events.js";
 import { githubRoutes } from "./routes/github.js";
+import { importRoutes } from "./routes/import.js";
 import { issueRoutes } from "./routes/issues.js";
 import { resourceRoutes } from "./routes/resources.js";
 import { tokenRoutes } from "./routes/tokens.js";
@@ -42,6 +43,7 @@ export const app = new Hono()
   .route("/v1", resourceRoutes)
   .route("/v1", tokenRoutes)
   .route("/v1", githubRoutes)
+  .route("/v1", importRoutes)
   .route("/v1", webhookEndpointRoutes)
   .onError((err, c) => {
     if (err instanceof HttpError) {
