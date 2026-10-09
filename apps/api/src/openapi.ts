@@ -224,6 +224,219 @@ export const openApiDoc = {
         responses: { "200": { description: "Events" } },
       },
     },
+    "/v1/workspaces/{ws}/issues/{key}/triage": {
+      post: {
+        summary:
+          "Triage action — accept (→ backlog) or decline (→ canceled); 409 unless the issue is in triage",
+        parameters: [wsParam, keyParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["action"],
+          properties: {
+            action: { type: "string", enum: ["accept", "decline"] },
+          },
+        }),
+        responses: {
+          "200": { description: "Issue transitioned" },
+          "409": { description: "Issue not in triage" },
+        },
+      },
+    },
+    "/v1/workspaces/{ws}/agents": {
+      get: {
+        summary: "List registered agents",
+        parameters: [wsParam],
+        responses: { "200": { description: "Agents" } },
+      },
+      post: {
+        summary: "Register an agent (human session only)",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["name", "harness"],
+          properties: {
+            name: { type: "string" },
+            harness: { type: "string" },
+            capabilities: { type: "array", items: { type: "string" } },
+          },
+        }),
+        responses: { "201": { description: "Agent registered" } },
+      },
+    },
+    "/v1/workspaces/{ws}/agents/{id}/keys": {
+      get: {
+        summary: "List an agent's keys, redacted (human session only)",
+        parameters: [wsParam],
+        responses: { "200": { description: "Agent keys" } },
+      },
+      post: {
+        summary:
+          "Mint an agent key — plaintext returned once (human session only)",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["name"],
+          properties: {
+            name: { type: "string" },
+            scopes: {
+              type: "array",
+              items: { type: "string", enum: ["read", "write"] },
+            },
+            expiresInDays: { type: "number" },
+          },
+        }),
+        responses: { "201": { description: "Agent key minted" } },
+      },
+    },
+    "/v1/auth/token": {
+      post: {
+        summary:
+          "Exchange a session cookie for a short-lived access JWT (15 min)",
+        responses: {
+          "200": { description: "access_token, token_type, expires_in" },
+          "401": { description: "No/expired session" },
+        },
+      },
+    },
+    "/v1/workspaces/{ws}/tokens": {
+      get: {
+        summary: "List your personal access tokens (human session only)",
+        parameters: [wsParam],
+        responses: { "200": { description: "Tokens" } },
+      },
+      post: {
+        summary:
+          "Mint a personal access token `dok_pat_*` — plaintext returned once (human session only)",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["name"],
+          properties: {
+            name: { type: "string" },
+            scopes: {
+              type: "array",
+              items: { type: "string", enum: ["read", "write"] },
+            },
+            expiresAt: { type: "string", format: "date-time" },
+          },
+        }),
+        responses: { "201": { description: "Token minted" } },
+      },
+    },
+    "/v1/workspaces/{ws}/tokens/{id}": {
+      delete: {
+        summary: "Revoke a personal access token",
+        parameters: [wsParam],
+        responses: { "200": { description: "Revoked" } },
+      },
+    },
+    "/v1/workspaces/{ws}/projects": {
+      get: {
+        summary: "List projects",
+        parameters: [wsParam],
+        responses: { "200": { description: "Projects" } },
+      },
+      post: {
+        summary: "Create project",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["name"],
+          properties: {
+            name: { type: "string" },
+            description: { type: "string" },
+            status: {
+              type: "string",
+              enum: [
+                "backlog",
+                "planned",
+                "started",
+                "paused",
+                "completed",
+                "canceled",
+              ],
+            },
+            teamKey: { type: "string" },
+          },
+        }),
+        responses: { "201": { description: "Project created" } },
+      },
+    },
+    "/v1/workspaces/{ws}/projects/{id}": {
+      patch: {
+        summary: "Update project",
+        parameters: [wsParam],
+        responses: { "200": { description: "Project" } },
+      },
+      delete: {
+        summary: "Delete project",
+        parameters: [wsParam],
+        responses: { "200": { description: "Deleted" } },
+      },
+    },
+    "/v1/workspaces/{ws}/cycles": {
+      get: {
+        summary:
+          "List cycles — `?team=<key>` filter, `?active=true` for in-flight",
+        parameters: [wsParam],
+        responses: { "200": { description: "Cycles" } },
+      },
+      post: {
+        summary: "Create cycle (auto-numbered per team)",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["teamKey", "startsAt", "endsAt"],
+          properties: {
+            teamKey: { type: "string" },
+            name: { type: "string" },
+            startsAt: { type: "string", format: "date-time" },
+            endsAt: { type: "string", format: "date-time" },
+          },
+        }),
+        responses: { "201": { description: "Cycle created" } },
+      },
+    },
+    "/v1/workspaces/{ws}/cycles/{id}": {
+      patch: {
+        summary: "Update cycle (name, window)",
+        parameters: [wsParam],
+        responses: { "200": { description: "Cycle" } },
+      },
+    },
+    "/v1/workspaces/{ws}/views": {
+      get: {
+        summary: "List saved views (own + shared)",
+        parameters: [wsParam],
+        responses: { "200": { description: "Views" } },
+      },
+      post: {
+        summary: "Create a saved view",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["name", "filters"],
+          properties: {
+            name: { type: "string" },
+            filters: { type: "object" },
+            shared: { type: "boolean" },
+          },
+        }),
+        responses: { "201": { description: "View created" } },
+      },
+    },
+    "/v1/workspaces/{ws}/views/{id}": {
+      patch: {
+        summary: "Update view (owner only)",
+        parameters: [wsParam],
+        responses: { "200": { description: "View" } },
+      },
+      delete: {
+        summary: "Delete view (owner only)",
+        parameters: [wsParam],
+        responses: { "200": { description: "Deleted" } },
+      },
+    },
     "/v1/workspaces/{ws}/labels": {
       get: {
         summary: "List labels",

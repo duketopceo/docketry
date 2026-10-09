@@ -393,6 +393,33 @@ export const issueRoutes = new Hono()
     return c.json({ events: rows });
   })
   .post(
+    "/workspaces/:ws/issues/:key/triage",
+    zValidator(
+      "json",
+      z.object({ action: z.enum(["accept", "decline"]) }),
+    ),
+    async (c) => {
+      const ws = await requireWorkspace(c);
+      const actor = actorFromHeaders(c);
+      const { action } = c.req.valid("json");
+      const issue = await findIssue(ws.id, c.req.param("key"));
+      if (issue.state !== "triage") {
+        throw new HttpError(
+          409,
+          "NOT_IN_TRIAGE",
+          `issue ${issue.key} is in '${issue.state}', not triage`,
+        );
+      }
+      const updated = await transitionIssue(
+        ws.id,
+        issue.key,
+        action === "accept" ? "backlog" : "canceled",
+        actor,
+      );
+      return c.json(updated);
+    },
+  )
+  .post(
     "/workspaces/:ws/labels",
     zValidator(
       "json",

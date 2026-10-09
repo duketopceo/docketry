@@ -7,12 +7,16 @@ import {
   agentKeys,
   agents,
   comments,
+  cycles,
   events,
   issues,
   labels,
+  projects,
   sessions,
   teams,
   users,
+  userTokens,
+  views,
   workspaces,
 } from "../db/schema.js";
 
@@ -72,6 +76,10 @@ beforeAll(async () => {
     labels,
     agentKeys,
     agents,
+    userTokens,
+    views,
+    cycles,
+    projects,
     sessions,
     users,
     teams,
@@ -95,6 +103,10 @@ afterAll(async () => {
         labels,
         agentKeys,
         agents,
+        userTokens,
+        views,
+        cycles,
+        projects,
         sessions,
         users,
         teams,
@@ -378,5 +390,170 @@ describe("api routes (real postgres)", () => {
       body: JSON.stringify({ name: "nested", harness: "x" }),
     });
     expect(agentMint.status).toBe(403);
+  });
+
+  it("personal access tokens: mint, scope enforcement, revoke", async () => {
+    const mint = await req(`/v1/workspaces/${SLUG}/tokens`, {
+      method: "POST",
+      body: JSON.stringify({ name: "ci-reader", scopes: ["read"] }),
+    });
+    expect(mint.status).toBe(201);
+    const pat = mint.body.token as string;
+    expect(pat).toMatch(/^dok_pat_/);
+
+    const listOk = await req(`/v1/workspaces/${SLUG}/issues`, {
+      headers: { authorization: `Bearer ${pat}` },
+    });
+    expect(listOk.status).toBe(200);
+
+    const overScope = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${pat}` },
+      body: JSON.stringify({ title: "pat write attempt" }),
+    });
+    expect(overScope.status).toBe(403);
+    expect(overScope.body.error!.code).toBe("FORBIDDEN_SCOPE");
+
+    // delegated credentials cannot mint further credentials
+    const nested = await req(`/v1/workspaces/${SLUG}/tokens`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${pat}` },
+      body: JSON.stringify({ name: "nested", scopes: ["read"] }),
+    });
+    expect(nested.status).toBe(403);
+
+    const listed = await req(`/v1/workspaces/${SLUG}/tokens`);
+    expect(listed.body.tokens).toHaveLength(1);
+    expect((listed.body.tokens as { id: string }[])[0]!.id).toBe(
+      mint.body.id,
+    );
+
+    const revoked = await req(
+      `/v1/workspaces/${SLUG}/tokens/${mint.body.id}`,
+      { method: "DELETE" },
+    );
+    expect(revoked.status).toBe(200);
+    const afterRevoke = await req(`/v1/workspaces/${SLUG}/issues`, {
+      headers: { authorization: `Bearer ${pat}` },
+    });
+    expect(afterRevoke.status).toBe(401);
+  });
+
+  it("session exchanges for a short-lived JWT that authenticates", async () => {
+    const exchanged = await req("/v1/auth/token", { method: "POST" });
+    expect(exchanged.status).toBe(200);
+    const jwt = exchanged.body.access_token as string;
+    expect(exchanged.body.expires_in).toBe(900);
+
+    const authed = await req(`/v1/workspaces/${SLUG}/issues`, {
+      headers: { authorization: `Bearer ${jwt}` },
+    });
+    expect(authed.status).toBe(200);
+
+    // JWTs can write (full user scopes) but cannot mint credentials
+    const mint = await req(`/v1/workspaces/${SLUG}/tokens`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${jwt}` },
+      body: JSON.stringify({ name: "from-jwt", scopes: ["read"] }),
+    });
+    expect(mint.status).toBe(403);
+
+    const garbage = await req(`/v1/workspaces/${SLUG}/issues`, {
+      headers: { authorization: "Bearer not-a-real-jwt" },
+    });
+    expect(garbage.status).toBe(401);
+  });
+
+  it("rate limiter returns 429 with Retry-After after the window", async () => {
+    const { Hono } = await import("hono");
+    const { createRateLimiter } = await import("../lib/rate-limit.js");
+    const mini = new Hono()
+      .use("*", createRateLimiter(2))
+      .get("/x", (c) => c.json({ ok: true }));
+
+    const r1 = await mini.fetch(new Request("http://t/x"));
+    const r2 = await mini.fetch(new Request("http://t/x"));
+    const r3 = await mini.fetch(new Request("http://t/x"));
+    expect(r1.status).toBe(200);
+    expect(r2.status).toBe(200);
+    expect(r3.status).toBe(429);
+    expect(r3.headers.get("retry-after")).toBeTruthy();
+    expect(r3.headers.get("x-ratelimit-limit")).toBe("2");
+  });
+
+  it("projects, cycles, and views CRUD", async () => {
+    const project = await req(`/v1/workspaces/${SLUG}/projects`, {
+      method: "POST",
+      body: JSON.stringify({ name: "Agent surface", teamKey: "ENG" }),
+    });
+    expect(project.status).toBe(201);
+    expect(project.body.status).toBe("planned");
+
+    const patched = await req(
+      `/v1/workspaces/${SLUG}/projects/${project.body.id}`,
+      { method: "PATCH", body: JSON.stringify({ status: "started" }) },
+    );
+    expect(patched.body.status).toBe("started");
+
+    const cycle = await req(`/v1/workspaces/${SLUG}/cycles`, {
+      method: "POST",
+      body: JSON.stringify({
+        teamKey: "ENG",
+        startsAt: new Date(Date.now() - 86400_000).toISOString(),
+        endsAt: new Date(Date.now() + 86400_000).toISOString(),
+      }),
+    });
+    expect(cycle.status).toBe(201);
+    expect(cycle.body.number).toBe(1);
+
+    const active = await req(
+      `/v1/workspaces/${SLUG}/cycles?active=true`,
+    );
+    expect(active.body.cycles).toHaveLength(1);
+
+    const view = await req(`/v1/workspaces/${SLUG}/views`, {
+      method: "POST",
+      body: JSON.stringify({
+        name: "My backlog",
+        filters: { state: ["backlog"], assignee: "me" },
+        shared: true,
+      }),
+    });
+    expect(view.status).toBe(201);
+    const views = await req(`/v1/workspaces/${SLUG}/views`);
+    expect(views.body.views).toHaveLength(1);
+  });
+
+  it("triage accept/decline transitions with audit events", async () => {
+    const triaged = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({ title: "triage me", state: "triage" }),
+    });
+    expect(triaged.status).toBe(201);
+    const key = triaged.body.key as string;
+
+    const accepted = await req(
+      `/v1/workspaces/${SLUG}/issues/${key}/triage`,
+      { method: "POST", body: JSON.stringify({ action: "accept" }) },
+    );
+    expect(accepted.status).toBe(200);
+    expect(accepted.body.state).toBe("backlog");
+
+    const triaged2 = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({ title: "decline me", state: "triage" }),
+    });
+    const declined = await req(
+      `/v1/workspaces/${SLUG}/issues/${triaged2.body.key}/triage`,
+      { method: "POST", body: JSON.stringify({ action: "decline" }) },
+    );
+    expect(declined.body.state).toBe("canceled");
+
+    // decline on a non-triage issue is an invalid transition
+    const bad = await req(
+      `/v1/workspaces/${SLUG}/issues/${key}/triage`,
+      { method: "POST", body: JSON.stringify({ action: "decline" }) },
+    );
+    expect(bad.status).toBe(409);
   });
 });

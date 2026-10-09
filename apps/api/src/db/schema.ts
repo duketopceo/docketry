@@ -1,5 +1,6 @@
 import {
   bigserial,
+  boolean,
   index,
   integer,
   jsonb,
@@ -308,6 +309,48 @@ export const events = pgTable(
     index().on(t.workspaceId, t.entityType, t.entityId),
     index().on(t.workspaceId, t.createdAt),
   ],
+);
+
+export const userTokens = pgTable(
+  "user_tokens",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    scopes: jsonb("scopes").$type<string[]>().notNull().default(["read"]),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.userId), index().on(t.workspaceId)],
+);
+
+export const views = pgTable(
+  "views",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    filters: jsonb("filters").$type<Record<string, unknown>>().notNull(),
+    shared: boolean("shared").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.workspaceId)],
 );
 
 export type IssueRow = typeof issues.$inferSelect;

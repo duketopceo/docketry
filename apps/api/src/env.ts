@@ -17,4 +17,6 @@ export const config_ = {
     "postgresql://postgres:postgres@localhost:5432/docketry",
   ),
   redisUrl: env("REDIS_URL", "redis://localhost:6380"),
+  jwtSecret: env("JWT_SECRET", "docketry-dev-secret-change-me"),
+  rateLimitPerMin: Number(env("RATE_LIMIT_PER_MIN", "600")),
 } as const;

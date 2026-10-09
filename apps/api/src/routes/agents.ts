@@ -6,6 +6,7 @@ import { db } from "../db/client.js";
 import { agentKeys, agents } from "../db/schema.js";
 import { apiError, HttpError } from "../lib/errors.js";
 import { createAgentKey } from "../services/agents.js";
+import { isCookieSession } from "./auth.js";
 import { requireWorkspace } from "./workspaces.js";
 
 const AGENT_SCOPES = ["read", "write"] as const;
@@ -32,8 +33,8 @@ export const agentRoutes = new Hono()
     "/workspaces/:ws/agents",
     zValidator("json", agentSchema),
     async (c) => {
-      if (!c.get("session")) {
-        return apiError(c, 403, "FORBIDDEN", "agent registry is human-only");
+      if (!isCookieSession(c)) {
+        return apiError(c, 403, "FORBIDDEN", "agent registry requires a human session");
       }
       const ws = await requireWorkspace(c);
       const body = c.req.valid("json");
@@ -71,8 +72,8 @@ export const agentRoutes = new Hono()
     "/workspaces/:ws/agents/:id/keys",
     zValidator("json", keySchema),
     async (c) => {
-      if (!c.get("session")) {
-        return apiError(c, 403, "FORBIDDEN", "key minting is human-only");
+      if (!isCookieSession(c)) {
+        return apiError(c, 403, "FORBIDDEN", "key minting requires a human session");
       }
       const ws = await requireWorkspace(c);
       const [agent] = await db
@@ -97,8 +98,8 @@ export const agentRoutes = new Hono()
     },
   )
   .get("/workspaces/:ws/agents/:id/keys", async (c) => {
-    if (!c.get("session")) {
-      return apiError(c, 403, "FORBIDDEN", "key listing is human-only");
+    if (!isCookieSession(c)) {
+      return apiError(c, 403, "FORBIDDEN", "key listing requires a human session");
     }
     const ws = await requireWorkspace(c);
     const rows = await db

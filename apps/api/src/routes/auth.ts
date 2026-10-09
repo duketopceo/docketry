@@ -16,6 +16,12 @@ import {
 } from "../services/auth.js";
 import { actorFromHeaders } from "../lib/actor.js";
 import { agentFromKey, type AgentAuth } from "../services/agents.js";
+import {
+  ACCESS_TOKEN_TTL_S,
+  signAccessToken,
+  userFromToken,
+  verifyAccessToken,
+} from "../services/tokens.js";
 import type { Actor } from "../services/issues.js";
 
 const bootstrapSchema = z.object({
@@ -119,6 +125,23 @@ export const authRoutes = new Hono()
     const session = await sessionFromToken(token);
     if (!session) return apiError(c, 401, "UNAUTHENTICATED", "session expired");
     return c.json(session);
+  })
+  // Exchange a session cookie for a short-lived access JWT — the
+  // programmatic-auth path for human users (agents mint dok_agt_ keys instead).
+  .post("/token", async (c) => {
+    const token = getCookie(c, SESSION_COOKIE);
+    if (!token) return apiError(c, 401, "UNAUTHENTICATED", "no session");
+    const session = await sessionFromToken(token);
+    if (!session) return apiError(c, 401, "UNAUTHENTICATED", "session expired");
+    const accessToken = await signAccessToken({
+      sub: session.userId,
+      ws: session.workspaceId,
+    });
+    return c.json({
+      access_token: accessToken,
+      token_type: "Bearer",
+      expires_in: ACCESS_TOKEN_TTL_S,
+    });
   });
 
 export function setSessionCookie(c: Parameters<typeof setCookie>[0], token: string) {
@@ -148,6 +171,31 @@ declare module "hono" {
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
+// Cookie sessions mint credentials; delegated credentials (PATs, JWTs) and
+// agent keys cannot mint or enumerate further credentials.
+export function isCookieSession(c: Context): boolean {
+  const session = c.get("session");
+  return (
+    session !== null &&
+    session !== undefined &&
+    !session.sessionId.startsWith("pat:") &&
+    !session.sessionId.startsWith("jwt:")
+  );
+}
+
+function scopeGuard(c: Context, scopes: string[]) {
+  const needed = SAFE_METHODS.has(c.req.method) ? "read" : "write";
+  if (!scopes.includes(needed)) {
+    return apiError(
+      c,
+      403,
+      "FORBIDDEN_SCOPE",
+      `token lacks '${needed}' scope`,
+    );
+  }
+  return null;
+}
+
 export async function requireSession(c: Context, next: Next) {
   if (c.req.path.startsWith("/v1/auth/")) return next();
   const token = getCookie(c, SESSION_COOKIE);
@@ -161,20 +209,48 @@ export async function requireSession(c: Context, next: Next) {
     }
   }
   const bearer = c.req.header("authorization");
-  if (bearer?.startsWith("Bearer dok_agt_")) {
-    const agent = await agentFromKey(bearer.slice(7));
+  const bearerToken = bearer?.startsWith("Bearer ") ? bearer.slice(7) : null;
+  if (bearerToken?.startsWith("dok_agt_")) {
+    const agent = await agentFromKey(bearerToken);
     if (agent) {
-      const needed = SAFE_METHODS.has(c.req.method) ? "read" : "write";
-      if (!agent.scopes.includes(needed)) {
-        return apiError(
-          c,
-          403,
-          "FORBIDDEN_SCOPE",
-          `key lacks '${needed}' scope`,
-        );
-      }
+      const denied = scopeGuard(c, agent.scopes);
+      if (denied) return denied;
       c.set("session", null);
       c.set("agentAuth", agent);
+      await next();
+      return;
+    }
+  }
+  if (bearerToken?.startsWith("dok_pat_")) {
+    const pat = await userFromToken(bearerToken);
+    if (pat) {
+      const denied = scopeGuard(c, pat.scopes);
+      if (denied) return denied;
+      c.set("session", {
+        sessionId: `pat:${pat.keyId}`,
+        userId: pat.userId,
+        workspaceId: pat.workspaceId,
+        workspaceSlug: pat.workspaceSlug,
+        name: pat.userName,
+      });
+      c.set("agentAuth", null);
+      await next();
+      return;
+    }
+  }
+  if (bearerToken && !bearerToken.startsWith("dok_")) {
+    const claims = await verifyAccessToken(bearerToken);
+    if (claims) {
+      const denied = scopeGuard(c, claims.scopes);
+      if (denied) return denied;
+      c.set("session", {
+        sessionId: `jwt:${claims.sub}`,
+        userId: claims.sub,
+        workspaceId: claims.ws,
+        workspaceSlug: "",
+        name: "",
+      });
+      c.set("agentAuth", null);
       await next();
       return;
     }
