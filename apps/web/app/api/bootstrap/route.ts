@@ -1,6 +1,6 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { API_URL, SESSION_COOKIE } from "@/lib/api";
+import { API_URL } from "@/lib/api";
+import { forwardSessionCookies } from "@/lib/session";
 
 export async function POST(req: Request) {
   const body = await req.text();
@@ -15,16 +15,10 @@ export async function POST(req: Request) {
     return NextResponse.json(data, { status: upstream.status });
   }
 
-  const setCookie = upstream.headers.get("set-cookie") ?? "";
-  const match = setCookie.match(/dok_session=([^;]+)/);
-  if (match) {
-    const jar = await cookies();
-    jar.set(SESSION_COOKIE, match[1]!, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 30 * 24 * 60 * 60,
-    });
-  }
+  const slug =
+    data && typeof data === "object" && "workspace" in data
+      ? (data as { workspace?: { slug?: string } }).workspace?.slug
+      : undefined;
+  await forwardSessionCookies(upstream, slug);
   return NextResponse.json({ ok: true });
 }

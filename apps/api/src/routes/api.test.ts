@@ -57,6 +57,20 @@ async function req(
 
 beforeAll(async () => {
   await runMigrations();
+  // bootstrap is single-use per deployment — wipe all workspaces so the
+  // suite owns the bootstrap path deterministically
+  for (const t of [
+    comments,
+    events,
+    issues,
+    labels,
+    sessions,
+    users,
+    teams,
+  ] as const) {
+    await db.delete(t);
+  }
+  await db.delete(workspaces);
 });
 
 afterAll(async () => {

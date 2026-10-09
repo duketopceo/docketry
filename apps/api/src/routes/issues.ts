@@ -34,7 +34,7 @@ import { createIssue, transitionIssue } from "../services/issues.js";
 import { findWorkspace } from "./workspaces.js";
 
 const createSchema = z.object({
-  teamKey: z.string().min(1).max(6),
+  teamKey: z.string().min(1).max(6).optional(),
   title: z.string().min(1).max(500),
   description: z.string().max(50_000).optional(),
   priority: z.enum(PRIORITIES).optional(),
@@ -96,10 +96,19 @@ export const issueRoutes = new Hono()
       const body = c.req.valid("json");
       const actor = actorFromHeaders(c);
 
-      const [team] = await db
-        .select()
-        .from(teams)
-        .where(and(eq(teams.workspaceId, ws.id), eq(teams.key, body.teamKey)));
+      const [team] = body.teamKey
+        ? await db
+            .select()
+            .from(teams)
+            .where(
+              and(eq(teams.workspaceId, ws.id), eq(teams.key, body.teamKey)),
+            )
+        : await db
+            .select()
+            .from(teams)
+            .where(eq(teams.workspaceId, ws.id))
+            .orderBy(teams.createdAt)
+            .limit(1);
       if (!team) throw new HttpError(404, "NOT_FOUND", "team not found");
 
       const issue = await createIssue({
@@ -117,6 +126,7 @@ export const issueRoutes = new Hono()
       if (body.labelIds?.length) {
         await setIssueLabels(issue.id, ws.id, body.labelIds);
       }
+      let result = issue;
       if (
         body.priority !== undefined ||
         body.assigneeId !== undefined ||
@@ -124,7 +134,7 @@ export const issueRoutes = new Hono()
         body.projectId !== undefined ||
         body.parentId !== undefined
       ) {
-        await db
+        const [updated] = await db
           .update(issues)
           .set({
             ...(body.priority !== undefined
@@ -144,10 +154,12 @@ export const issueRoutes = new Hono()
               ? { parentId: body.parentId }
               : {}),
           })
-          .where(eq(issues.id, issue.id));
+          .where(eq(issues.id, issue.id))
+          .returning();
+        if (updated) result = updated;
       }
 
-      return c.json(issue, 201);
+      return c.json(result, 201);
     },
   )
   .get(
