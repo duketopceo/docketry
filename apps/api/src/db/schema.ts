@@ -1,4 +1,5 @@
 import {
+  bigint,
   bigserial,
   boolean,
   index,
@@ -351,6 +352,58 @@ export const views = pgTable(
       .notNull(),
   },
   (t) => [index().on(t.workspaceId)],
+);
+
+export const githubInstallations = pgTable(
+  "github_installations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    installationId: bigint("installation_id", { mode: "number" })
+      .notNull()
+      .unique(),
+    accountLogin: text("account_login").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.workspaceId)],
+);
+
+export const githubRepos = pgTable(
+  "github_repos",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    installationId: bigint("installation_id", { mode: "number" }),
+    repoId: bigint("repo_id", { mode: "number" }),
+    fullName: text("full_name").notNull(),
+    enabled: boolean("enabled").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [unique().on(t.workspaceId, t.fullName), index().on(t.workspaceId)],
+);
+
+// durable delivery log — unique delivery_id is the dedupe/replay guard
+export const githubWebhookEvents = pgTable(
+  "github_webhook_events",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    deliveryId: text("delivery_id").notNull().unique(),
+    eventType: text("event_type").notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+  },
+  (t) => [index().on(t.eventType)],
 );
 
 export type IssueRow = typeof issues.$inferSelect;

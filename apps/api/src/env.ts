@@ -19,4 +19,7 @@ export const config_ = {
   redisUrl: env("REDIS_URL", "redis://localhost:6380"),
   jwtSecret: env("JWT_SECRET", "docketry-dev-secret-change-me"),
   rateLimitPerMin: Number(env("RATE_LIMIT_PER_MIN", "600")),
+  apiBaseUrl: env("API_BASE_URL", "http://localhost:4000"),
+  githubAppSlug: env("GITHUB_APP_SLUG", ""),
+  githubWebhookSecret: env("GITHUB_WEBHOOK_SECRET", ""),
 } as const;
