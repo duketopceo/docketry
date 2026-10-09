@@ -109,7 +109,7 @@ export const openApiDoc = {
     "/v1/workspaces/{ws}/issues": {
       get: {
         summary:
-          "List issues — filters: state, priority, team, assignee, cycle, label, source, search; cursor pagination",
+          "List issues — filters: state, priority, team, assignee, cycle, project, label, source, search; cursor pagination",
         parameters: [
           wsParam,
           { name: "state", in: "query", schema: { type: "string" } },
@@ -117,6 +117,7 @@ export const openApiDoc = {
           { name: "team", in: "query", schema: { type: "string" } },
           { name: "assignee", in: "query", schema: { type: "string" } },
           { name: "cycle", in: "query", schema: { type: "string" } },
+          { name: "project", in: "query", schema: { type: "string" } },
           { name: "label", in: "query", schema: { type: "string" } },
           { name: "source", in: "query", schema: { type: "string" } },
           { name: "search", in: "query", schema: { type: "string" } },
@@ -441,19 +442,101 @@ export const openApiDoc = {
               ],
             },
             teamKey: { type: "string" },
+            startDate: { type: "string", format: "date-time" },
+            targetDate: { type: "string", format: "date-time" },
           },
         }),
-        responses: { "201": { description: "Project created" } },
+        responses: {
+          "201": { description: "Project created" },
+          "400": { description: "targetDate before startDate" },
+        },
       },
     },
     "/v1/workspaces/{ws}/projects/{id}": {
       patch: {
-        summary: "Update project",
+        summary:
+          "Update project (name, description, status, startDate, targetDate — merged window validated)",
         parameters: [wsParam],
-        responses: { "200": { description: "Project" } },
+        requestBody: jsonBody({
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            description: { type: ["string", "null"] },
+            status: {
+              type: "string",
+              enum: [
+                "backlog",
+                "planned",
+                "started",
+                "paused",
+                "completed",
+                "canceled",
+              ],
+            },
+            startDate: { type: ["string", "null"], format: "date-time" },
+            targetDate: { type: ["string", "null"], format: "date-time" },
+          },
+        }),
+        responses: {
+          "200": { description: "Project" },
+          "422": { description: "Inverted start/target window" },
+        },
       },
       delete: {
-        summary: "Delete project",
+        summary:
+          "Delete project — its issues are unassigned, milestones cascade",
+        parameters: [wsParam],
+        responses: { "200": { description: "Deleted" } },
+      },
+    },
+    "/v1/workspaces/{ws}/milestones": {
+      get: {
+        summary:
+          "List every project milestone in the workspace (roadmap pulls this once)",
+        parameters: [wsParam],
+        responses: { "200": { description: "Milestones" } },
+      },
+    },
+    "/v1/workspaces/{ws}/projects/{id}/milestones": {
+      get: {
+        summary: "List a project's milestones (sortOrder, then createdAt)",
+        parameters: [wsParam],
+        responses: { "200": { description: "Milestones" } },
+      },
+      post: {
+        summary:
+          "Create a milestone — title + optional targetDate (undated = checklist item), sortOrder, done",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["title"],
+          properties: {
+            title: { type: "string" },
+            targetDate: { type: "string", format: "date-time" },
+            sortOrder: { type: "number" },
+            done: { type: "boolean" },
+          },
+        }),
+        responses: { "201": { description: "Milestone created" } },
+      },
+    },
+    "/v1/workspaces/{ws}/projects/{id}/milestones/{mid}": {
+      patch: {
+        summary: "Update a milestone (title, targetDate, sortOrder, done)",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            targetDate: { type: ["string", "null"], format: "date-time" },
+            sortOrder: { type: "number" },
+            done: { type: "boolean" },
+          },
+        }),
+        responses: { "200": { description: "Milestone" } },
+      },
+      delete: {
+        summary: "Delete a milestone",
         parameters: [wsParam],
         responses: { "200": { description: "Deleted" } },
       },

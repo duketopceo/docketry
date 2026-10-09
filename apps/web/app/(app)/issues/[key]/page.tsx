@@ -6,6 +6,10 @@ import {
   type CycleOption,
 } from "@/components/cycle-select";
 import {
+  ProjectSelect,
+  type ProjectOption,
+} from "@/components/project-select";
+import {
   CommentComposer,
   StateActions,
   SummarizeButton,
@@ -56,6 +60,7 @@ interface IssueDetail {
   source: string;
   teamId: string;
   cycleId: string | null;
+  projectId: string | null;
   createdAt: string;
   children: Child[];
   labels: Label[];
@@ -67,6 +72,12 @@ interface CycleRow {
   name: string | null;
   teamId: string;
   isActive: boolean;
+}
+
+interface ProjectRow {
+  id: string;
+  name: string;
+  teamId: string | null;
 }
 
 function ts(iso: string): string {
@@ -89,12 +100,18 @@ export default async function IssuePage({
     return <main className="p-8 text-sm text-ink-subtle">Not signed in.</main>;
   }
   const base = `/v1/workspaces/${me.data.workspaceSlug}/issues/${key}`;
-  const [issueRes, commentsRes, eventsRes, cyclesRes] = await Promise.all([
-    api<IssueDetail>(base),
-    api<{ comments: Comment[] }>(`${base}/comments`),
-    api<{ events: Event[] }>(`${base}/events`),
-    api<{ cycles: CycleRow[] }>(`/v1/workspaces/${me.data.workspaceSlug}/cycles`),
-  ]);
+  const [issueRes, commentsRes, eventsRes, cyclesRes, projectsRes] =
+    await Promise.all([
+      api<IssueDetail>(base),
+      api<{ comments: Comment[] }>(`${base}/comments`),
+      api<{ events: Event[] }>(`${base}/events`),
+      api<{ cycles: CycleRow[] }>(
+        `/v1/workspaces/${me.data.workspaceSlug}/cycles`,
+      ),
+      api<{ projects: ProjectRow[] }>(
+        `/v1/workspaces/${me.data.workspaceSlug}/projects`,
+      ),
+    ]);
   if (!issueRes.data) notFound();
   const issue = issueRes.data;
   const comments = commentsRes.data?.comments ?? [];
@@ -108,6 +125,11 @@ export default async function IssuePage({
       name: c.name,
       isActive: c.isActive,
     }));
+  // team-scoped projects only accept issues from their own team (the API
+  // rejects the PATCH otherwise) — workspace projects are always offered
+  const projectOptions: ProjectOption[] = (projectsRes.data?.projects ?? [])
+    .filter((p) => p.teamId === null || p.teamId === issue.teamId)
+    .map((p) => ({ id: p.id, name: p.name }));
 
   return (
     <main className="flex-1 overflow-y-auto">
@@ -144,6 +166,14 @@ export default async function IssuePage({
               issueKey={issue.key}
               cycles={cycleOptions}
               current={issue.cycleId}
+            />
+          </span>
+          <span className="flex items-center gap-1">
+            project:
+            <ProjectSelect
+              issueKey={issue.key}
+              projects={projectOptions}
+              current={issue.projectId}
             />
           </span>
           <span>created: {ts(issue.createdAt)}</span>

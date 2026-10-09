@@ -28,6 +28,7 @@ import {
   issueLabels,
   issues,
   labels,
+  projects,
   slackLinks,
   teams,
   users,
@@ -93,6 +94,7 @@ const listQuerySchema = z.object({
   team: z.string().optional(),
   assignee: z.uuid().optional(),
   cycle: z.uuid().optional(),
+  project: z.uuid().optional(),
   label: z.uuid().optional(),
   source: z.enum(ISSUE_SOURCES).optional(),
   search: z.string().max(200).optional(),
@@ -165,6 +167,32 @@ async function validateCycle(
   }
 }
 
+// Same rule as cycles: the project must live in the issue's workspace, and a
+// team-scoped project only accepts issues from its own team. Workspace-level
+// projects (teamId null) accept issues from any team.
+async function validateProject(
+  workspaceId: string,
+  teamId: string,
+  projectId: string,
+): Promise<void> {
+  const [project] = await db
+    .select({ teamId: projects.teamId })
+    .from(projects)
+    .where(
+      and(eq(projects.id, projectId), eq(projects.workspaceId, workspaceId)),
+    );
+  if (!project) {
+    throw new HttpError(422, "INVALID_PROJECT", "project not in workspace");
+  }
+  if (project.teamId !== null && project.teamId !== teamId) {
+    throw new HttpError(
+      422,
+      "INVALID_PROJECT",
+      "project belongs to a different team",
+    );
+  }
+}
+
 export const issueRoutes = new Hono()
   .post(
     "/workspaces/:ws/issues",
@@ -190,6 +218,8 @@ export const issueRoutes = new Hono()
             .limit(1);
       if (!team) throw new HttpError(404, "NOT_FOUND", "team not found");
       if (body.cycleId) await validateCycle(ws.id, team.id, body.cycleId);
+      if (body.projectId)
+        await validateProject(ws.id, team.id, body.projectId);
 
       const issue = await createIssue({
         workspaceId: ws.id,
@@ -272,6 +302,7 @@ export const issueRoutes = new Hono()
         filters.push(inArray(issues.priority, q.priority));
       if (q.assignee) filters.push(eq(issues.assigneeId, q.assignee));
       if (q.cycle) filters.push(eq(issues.cycleId, q.cycle));
+      if (q.project) filters.push(eq(issues.projectId, q.project));
       if (q.source) filters.push(eq(issues.source, q.source));
       if (q.search) filters.push(ilike(issues.title, `%${q.search}%`));
       if (q.team) {
@@ -371,9 +402,12 @@ export const issueRoutes = new Hono()
       if (body.assigneeId && body.assigneeType) {
         await validateAssignee(ws.id, body.assigneeType, body.assigneeId);
       }
-      if (body.cycleId) {
+      if (body.cycleId || body.projectId) {
         const issue = await findIssue(ws.id, key);
-        await validateCycle(ws.id, issue.teamId, body.cycleId);
+        if (body.cycleId)
+          await validateCycle(ws.id, issue.teamId, body.cycleId);
+        if (body.projectId)
+          await validateProject(ws.id, issue.teamId, body.projectId);
       }
       if (body.state !== undefined) {
         await transitionIssue(ws.id, key, body.state as IssueState, actor);

@@ -6,6 +6,7 @@ import { db } from "../db/client.js";
 import {
   cycles,
   issues,
+  projectMilestones,
   projects,
   teams,
   views,
@@ -25,17 +26,43 @@ const PROJECT_STATUSES = [
   "canceled",
 ] as const;
 
-const projectCreateSchema = z.object({
-  name: z.string().min(1).max(200),
-  description: z.string().max(10_000).optional(),
-  status: z.enum(PROJECT_STATUSES).default("planned"),
-  teamKey: z.string().min(1).max(6).optional(),
-});
+const projectCreateSchema = z
+  .object({
+    name: z.string().min(1).max(200),
+    description: z.string().max(10_000).optional(),
+    status: z.enum(PROJECT_STATUSES).default("planned"),
+    teamKey: z.string().min(1).max(6).optional(),
+    startDate: z.iso.datetime().optional(),
+    targetDate: z.iso.datetime().optional(),
+  })
+  .refine(
+    (v) =>
+      !v.startDate ||
+      !v.targetDate ||
+      new Date(v.targetDate) > new Date(v.startDate),
+    { message: "targetDate must be after startDate" },
+  );
 
 const projectPatchSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   description: z.string().max(10_000).nullable().optional(),
   status: z.enum(PROJECT_STATUSES).optional(),
+  startDate: z.iso.datetime().nullable().optional(),
+  targetDate: z.iso.datetime().nullable().optional(),
+});
+
+const milestoneCreateSchema = z.object({
+  title: z.string().min(1).max(200),
+  targetDate: z.iso.datetime().optional(),
+  sortOrder: z.number().optional(),
+  done: z.boolean().default(false),
+});
+
+const milestonePatchSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  targetDate: z.iso.datetime().nullable().optional(),
+  sortOrder: z.number().optional(),
+  done: z.boolean().optional(),
 });
 
 const cycleCreateSchema = z
@@ -83,6 +110,25 @@ async function findProject(workspaceId: string, id: string) {
     .from(projects)
     .where(and(eq(projects.id, id), eq(projects.workspaceId, workspaceId)));
   if (!row) throw new HttpError(404, "NOT_FOUND", "project not found");
+  return row;
+}
+
+async function findMilestone(
+  workspaceId: string,
+  projectId: string,
+  id: string,
+) {
+  const [row] = await db
+    .select()
+    .from(projectMilestones)
+    .where(
+      and(
+        eq(projectMilestones.id, id),
+        eq(projectMilestones.projectId, projectId),
+        eq(projectMilestones.workspaceId, workspaceId),
+      ),
+    );
+  if (!row) throw new HttpError(404, "NOT_FOUND", "milestone not found");
   return row;
 }
 
@@ -180,6 +226,12 @@ export const resourceRoutes = new Hono()
           ...(body.description !== undefined
             ? { description: body.description }
             : {}),
+          ...(body.startDate !== undefined
+            ? { startDate: new Date(body.startDate) }
+            : {}),
+          ...(body.targetDate !== undefined
+            ? { targetDate: new Date(body.targetDate) }
+            : {}),
         })
         .returning();
       return c.json(project, 201);
@@ -192,6 +244,26 @@ export const resourceRoutes = new Hono()
       const ws = await requireWorkspace(c);
       const project = await findProject(ws.id, c.req.param("id"));
       const body = c.req.valid("json");
+      // merged window check — patching one end can't invert the span
+      const startDate =
+        body.startDate !== undefined
+          ? body.startDate === null
+            ? null
+            : new Date(body.startDate)
+          : project.startDate;
+      const targetDate =
+        body.targetDate !== undefined
+          ? body.targetDate === null
+            ? null
+            : new Date(body.targetDate)
+          : project.targetDate;
+      if (startDate && targetDate && targetDate <= startDate) {
+        throw new HttpError(
+          422,
+          "INVALID_WINDOW",
+          "targetDate must be after startDate",
+        );
+      }
       const [updated] = await db
         .update(projects)
         .set({
@@ -200,6 +272,8 @@ export const resourceRoutes = new Hono()
             ? { description: body.description }
             : {}),
           ...(body.status !== undefined ? { status: body.status } : {}),
+          ...(body.startDate !== undefined ? { startDate } : {}),
+          ...(body.targetDate !== undefined ? { targetDate } : {}),
         })
         .where(eq(projects.id, project.id))
         .returning();
@@ -209,9 +283,113 @@ export const resourceRoutes = new Hono()
   .delete("/workspaces/:ws/projects/:id", async (c) => {
     const ws = await requireWorkspace(c);
     const project = await findProject(ws.id, c.req.param("id"));
-    await db.delete(projects).where(eq(projects.id, project.id));
+    await db.transaction(async (tx) => {
+      // issues.project_id has no ON DELETE rule — unassign before delete;
+      // project_milestones cascade with the project row
+      await tx
+        .update(issues)
+        .set({ projectId: null, updatedAt: new Date() })
+        .where(eq(issues.projectId, project.id));
+      await tx.delete(projects).where(eq(projects.id, project.id));
+    });
     return c.json({ ok: true });
   })
+  // ── Project milestones ───────────────────────────────────
+  .get("/workspaces/:ws/milestones", async (c) => {
+    // flat list — the roadmap pulls every milestone in one request
+    const ws = await requireWorkspace(c);
+    const rows = await db
+      .select()
+      .from(projectMilestones)
+      .where(eq(projectMilestones.workspaceId, ws.id))
+      .orderBy(asc(projectMilestones.sortOrder), asc(projectMilestones.createdAt));
+    return c.json({ milestones: rows });
+  })
+  .get("/workspaces/:ws/projects/:id/milestones", async (c) => {
+    const ws = await requireWorkspace(c);
+    const project = await findProject(ws.id, c.req.param("id"));
+    const rows = await db
+      .select()
+      .from(projectMilestones)
+      .where(eq(projectMilestones.projectId, project.id))
+      .orderBy(asc(projectMilestones.sortOrder), asc(projectMilestones.createdAt));
+    return c.json({ milestones: rows });
+  })
+  .post(
+    "/workspaces/:ws/projects/:id/milestones",
+    zValidator("json", milestoneCreateSchema),
+    async (c) => {
+      const ws = await requireWorkspace(c);
+      const project = await findProject(ws.id, c.req.param("id"));
+      const body = c.req.valid("json");
+      const [milestone] = await db
+        .insert(projectMilestones)
+        .values({
+          workspaceId: ws.id,
+          projectId: project.id,
+          title: body.title,
+          ...(body.targetDate !== undefined
+            ? { targetDate: new Date(body.targetDate) }
+            : {}),
+          ...(body.sortOrder !== undefined
+            ? { sortOrder: body.sortOrder }
+            : {}),
+          done: body.done,
+        })
+        .returning();
+      return c.json(milestone, 201);
+    },
+  )
+  .patch(
+    "/workspaces/:ws/projects/:id/milestones/:mid",
+    zValidator("json", milestonePatchSchema),
+    async (c) => {
+      const ws = await requireWorkspace(c);
+      const project = await findProject(ws.id, c.req.param("id"));
+      const milestone = await findMilestone(
+        ws.id,
+        project.id,
+        c.req.param("mid"),
+      );
+      const body = c.req.valid("json");
+      const [updated] = await db
+        .update(projectMilestones)
+        .set({
+          ...(body.title !== undefined ? { title: body.title } : {}),
+          ...(body.targetDate !== undefined
+            ? {
+                targetDate:
+                  body.targetDate === null
+                    ? null
+                    : new Date(body.targetDate),
+              }
+            : {}),
+          ...(body.sortOrder !== undefined
+            ? { sortOrder: body.sortOrder }
+            : {}),
+          ...(body.done !== undefined ? { done: body.done } : {}),
+        })
+        .where(eq(projectMilestones.id, milestone.id))
+        .returning();
+      return c.json(updated);
+    },
+  )
+  .delete(
+    "/workspaces/:ws/projects/:id/milestones/:mid",
+    async (c) => {
+      const ws = await requireWorkspace(c);
+      const project = await findProject(ws.id, c.req.param("id"));
+      const milestone = await findMilestone(
+        ws.id,
+        project.id,
+        c.req.param("mid"),
+      );
+      await db
+        .delete(projectMilestones)
+        .where(eq(projectMilestones.id, milestone.id));
+      return c.json({ ok: true });
+    },
+  )
   // ── Cycles ───────────────────────────────────────────────
   .get(
     "/workspaces/:ws/cycles",

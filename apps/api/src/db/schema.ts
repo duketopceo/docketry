@@ -129,11 +129,39 @@ export const projects = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     status: text("status").notNull().default("planned"),
+    // startDate/targetDate are the roadmap span; either may be null — an
+    // open project renders from createdAt to "now" (open-ended)
+    startDate: timestamp("start_date", { withTimezone: true }),
+    targetDate: timestamp("target_date", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
   (t) => [index().on(t.workspaceId)],
+);
+
+// Date markers on a project's roadmap span — undated milestones are
+// checklist items that never render on the axis. Cascade on project delete;
+// issues don't link to milestones (progress derives from project issues).
+export const projectMilestones = pgTable(
+  "project_milestones",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    targetDate: timestamp("target_date", { withTimezone: true }),
+    sortOrder: real("sort_order").notNull().default(0),
+    done: boolean("done").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.workspaceId), index().on(t.projectId)],
 );
 
 export const cycles = pgTable(
