@@ -1,0 +1,37 @@
+# Environment
+.env
+.env.local
+
+# Python
+*.pyc
+__pycache__/
+
+# OS
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Build output
+.next/
+dist/
+build/
+*.tsbuildinfo
+
+# Turborepo
+.turbo/
+
+# Coverage
+coverage/
+
+# Logs
+*.log
+
+# Editor
+.vscode/
+
+# Vercel
+.vercel/
+
+# docketry local state
+.docketry/

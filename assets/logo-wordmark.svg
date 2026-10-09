@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 118 32" fill="none" role="img" aria-labelledby="t">
+  <title id="t">docketry</title>
+  <style>
+    .card { fill: #10141b; }
+    .word { fill: #eef1f6; }
+    @media (prefers-color-scheme: light) {
+      .card { fill: #0b0e14; }
+      .edge { stroke: #a9b0bc; }
+      .word { fill: #151923; }
+    }
+  </style>
+  <!-- docket card: dark face, metallic hairline edge -->
+  <rect class="card" x="4" y="7" width="24" height="19" rx="3" stroke="#4b5360" stroke-width="1.5"/>
+  <!-- the silver lining: the lit top edge -->
+  <path class="edge" d="M8.5 7h15" stroke="#c9cdd4" stroke-width="1.6" stroke-linecap="round"/>
+  <!-- docket lines -->
+  <rect x="8.5" y="11.5" width="10" height="2.6" rx="1.3" fill="#7a8394"/>
+  <rect x="8.5" y="15.8" width="7" height="2.6" rx="1.3" fill="#626a79"/>
+  <rect x="8.5" y="20.1" width="4.5" height="2.6" rx="1.3" fill="#4c5362"/>
+  <!-- agent glint: four-point star, straight segments -->
+  <path d="M26 0.5L27.5 4.5L31.5 6L27.5 7.5L26 11.5L24.5 7.5L20.5 6L24.5 4.5Z" fill="#3ea1f7"/>
+  <!-- wordmark -->
+  <text class="word" x="40" y="21" font-family="Inter, system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="17" font-weight="600" letter-spacing="-0.2">docketry</text>
+</svg>
