@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   bigint,
   bigserial,
@@ -11,6 +12,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -148,11 +150,19 @@ export const cycles = pgTable(
     number: integer("number").notNull(),
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    isActive: boolean("is_active").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
-  (t) => [index().on(t.workspaceId, t.teamId)],
+  (t) => [
+    index().on(t.workspaceId, t.teamId),
+    // "one active cycle per team" is a hard invariant — the partial unique
+    // index backstops the application-level deactivate-others logic.
+    uniqueIndex("cycles_one_active_per_team")
+      .on(t.teamId)
+      .where(sql`${t.isActive}`),
+  ],
 );
 
 export const labels = pgTable(

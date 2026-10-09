@@ -89,6 +89,23 @@ export const openApiDoc = {
         },
       },
     },
+    "/v1/workspaces/{ws}/teams/{id}": {
+      patch: {
+        summary: "Update team (name, rolloverBehavior)",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            rolloverBehavior: {
+              type: "string",
+              enum: ["next_cycle", "backlog"],
+            },
+          },
+        }),
+        responses: { "200": { description: "Team" } },
+      },
+    },
     "/v1/workspaces/{ws}/issues": {
       get: {
         summary:
@@ -390,12 +407,13 @@ export const openApiDoc = {
     "/v1/workspaces/{ws}/cycles": {
       get: {
         summary:
-          "List cycles — `?team=<key>` filter, `?active=true` for in-flight",
+          "List cycles — `?team=<key>` filter, `?active=true` for the team's flagged current cycle",
         parameters: [wsParam],
         responses: { "200": { description: "Cycles" } },
       },
       post: {
-        summary: "Create cycle (auto-numbered per team)",
+        summary:
+          "Create cycle (auto-numbered per team; `isActive` demotes the team's previous active cycle)",
         parameters: [wsParam],
         requestBody: jsonBody({
           type: "object",
@@ -405,16 +423,36 @@ export const openApiDoc = {
             name: { type: "string" },
             startsAt: { type: "string", format: "date-time" },
             endsAt: { type: "string", format: "date-time" },
+            isActive: { type: "boolean" },
           },
         }),
         responses: { "201": { description: "Cycle created" } },
       },
     },
     "/v1/workspaces/{ws}/cycles/{id}": {
-      patch: {
-        summary: "Update cycle (name, window)",
+      get: {
+        summary: "Fetch one cycle",
         parameters: [wsParam],
         responses: { "200": { description: "Cycle" } },
+      },
+      patch: {
+        summary:
+          "Update cycle (name, window, `isActive` — activating demotes the team's previous active cycle)",
+        parameters: [wsParam],
+        responses: { "200": { description: "Cycle" } },
+      },
+      delete: {
+        summary: "Delete cycle (unassigns its issues first)",
+        parameters: [wsParam],
+        responses: { "200": { description: "Deleted" } },
+      },
+    },
+    "/v1/workspaces/{ws}/cycles/{id}/complete": {
+      post: {
+        summary:
+          "Complete a cycle — clears the active flag and rolls unfinished issues to the next cycle or the backlog per the team's rolloverBehavior",
+        parameters: [wsParam],
+        responses: { "200": { description: "Cycle + rollover summary" } },
       },
     },
     "/v1/workspaces/{ws}/views": {

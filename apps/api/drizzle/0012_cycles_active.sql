@@ -1,0 +1,2 @@
+ALTER TABLE "cycles" ADD COLUMN "is_active" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "cycles_one_active_per_team" ON "cycles" USING btree ("team_id") WHERE "cycles"."is_active";

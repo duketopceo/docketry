@@ -2,6 +2,10 @@ import type { IssueState } from "@docketry/types";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  CycleSelect,
+  type CycleOption,
+} from "@/components/cycle-select";
+import {
   CommentComposer,
   StateActions,
 } from "@/components/issue-detail-client";
@@ -49,9 +53,19 @@ interface IssueDetail {
   dueDate: string | null;
   creatorType: string;
   source: string;
+  teamId: string;
+  cycleId: string | null;
   createdAt: string;
   children: Child[];
   labels: Label[];
+}
+
+interface CycleRow {
+  id: string;
+  number: number;
+  name: string | null;
+  teamId: string;
+  isActive: boolean;
 }
 
 function ts(iso: string): string {
@@ -74,15 +88,25 @@ export default async function IssuePage({
     return <main className="p-8 text-sm text-ink-subtle">Not signed in.</main>;
   }
   const base = `/v1/workspaces/${me.data.workspaceSlug}/issues/${key}`;
-  const [issueRes, commentsRes, eventsRes] = await Promise.all([
+  const [issueRes, commentsRes, eventsRes, cyclesRes] = await Promise.all([
     api<IssueDetail>(base),
     api<{ comments: Comment[] }>(`${base}/comments`),
     api<{ events: Event[] }>(`${base}/events`),
+    api<{ cycles: CycleRow[] }>(`/v1/workspaces/${me.data.workspaceSlug}/cycles`),
   ]);
   if (!issueRes.data) notFound();
   const issue = issueRes.data;
   const comments = commentsRes.data?.comments ?? [];
   const events = eventsRes.data?.events ?? [];
+  // cycles are team-scoped — only offer ones from the issue's own team
+  const cycleOptions: CycleOption[] = (cyclesRes.data?.cycles ?? [])
+    .filter((c) => c.teamId === issue.teamId)
+    .map((c) => ({
+      id: c.id,
+      number: c.number,
+      name: c.name,
+      isActive: c.isActive,
+    }));
 
   return (
     <main className="flex-1 overflow-y-auto">
@@ -113,6 +137,14 @@ export default async function IssuePage({
           <span>priority: {issue.priority}</span>
           {issue.estimate !== null && <span>est: {issue.estimate}</span>}
           {issue.dueDate && <span>due: {ts(issue.dueDate)}</span>}
+          <span className="flex items-center gap-1">
+            cycle:
+            <CycleSelect
+              issueKey={issue.key}
+              cycles={cycleOptions}
+              current={issue.cycleId}
+            />
+          </span>
           <span>created: {ts(issue.createdAt)}</span>
         </div>
 

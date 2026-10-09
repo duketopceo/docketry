@@ -78,6 +78,7 @@ interface CycleRow {
   teamId: string;
   startsAt: string;
   endsAt: string;
+  isActive: boolean;
 }
 
 interface FeedEvent {
@@ -580,7 +581,7 @@ export const toolDefs: ToolDef[] = [
   defineTool({
     name: "list_cycles",
     description:
-      "List cycles in the workspace. Filter by team key, or `active` for the cycle containing now.",
+      "List cycles in the workspace. Filter by team key, or `active` for the team's flagged current cycle.",
     inputSchema: {
       team: z.string().optional(),
       active: z.boolean().optional(),
@@ -599,6 +600,7 @@ export const toolDefs: ToolDef[] = [
           teamId: c.teamId,
           startsAt: c.startsAt,
           endsAt: c.endsAt,
+          isActive: c.isActive,
         })),
       };
     },

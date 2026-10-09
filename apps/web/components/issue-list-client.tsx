@@ -2,7 +2,13 @@
 
 import type { IssueState, Priority } from "@docketry/types";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Sparkle, StateDot } from "@/components/primitives";
 
 const PRIORITY_BADGE: Partial<Record<Priority, string>> = {
@@ -19,6 +25,12 @@ export interface ListIssue {
   assigneeType?: string | null;
 }
 
+export interface IssueGroup {
+  key: string;
+  label: string;
+  issues: ListIssue[];
+}
+
 function isTypingTarget(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
   return (
@@ -29,9 +41,11 @@ function isTypingTarget(el: EventTarget | null): boolean {
 
 export function IssueListClient({
   issues,
+  groups,
   triage = false,
 }: {
-  issues: ListIssue[];
+  issues?: ListIssue[];
+  groups?: IssueGroup[] | undefined;
   triage?: boolean;
 }) {
   const router = useRouter();
@@ -39,6 +53,13 @@ export function IssueListClient({
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
+
+  // grouped rendering is a view concern only — selection/navigation always
+  // operates on one flat array, so keyboard semantics don't change
+  const flat = useMemo(
+    () => (groups ? groups.flatMap((g) => g.issues) : (issues ?? [])),
+    [groups, issues],
+  );
 
   const transition = useCallback(
     async (keys: ReadonlySet<string>, state: IssueState) => {
@@ -63,13 +84,13 @@ export function IssueListClient({
     function onKey(e: KeyboardEvent) {
       if (isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey)
         return;
-      const issue = issues[cursor];
+      const issue = flat[cursor];
       const targets = selected.size > 0 ? selected : new Set(issue ? [issue.key] : []);
       switch (e.key) {
         case "j":
         case "ArrowDown":
           e.preventDefault();
-          setCursor((c) => Math.min(c + 1, issues.length - 1));
+          setCursor((c) => Math.min(c + 1, flat.length - 1));
           break;
         case "k":
         case "ArrowUp":
@@ -101,7 +122,7 @@ export function IssueListClient({
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [cursor, issues, router, selected, transition, triage]);
+  }, [cursor, flat, router, selected, transition, triage]);
 
   useEffect(() => {
     listRef.current
@@ -109,46 +130,61 @@ export function IssueListClient({
       ?.scrollIntoView({ block: "nearest" });
   }, [cursor]);
 
+  const renderRow = (issue: ListIssue, i: number) => {
+    const agentTouched =
+      issue.creatorType === "agent" || issue.assigneeType === "agent";
+    const isCursor = i === cursor;
+    const isSelected = selected.has(issue.key);
+    return (
+      <li key={issue.key}>
+        <button
+          type="button"
+          data-index={i}
+          onClick={() => router.push(`/issues/${issue.key}`)}
+          onMouseEnter={() => setCursor(i)}
+          className={`flex h-9 w-full items-center gap-3 border-b border-lining-faint px-4 text-left text-[13px] focus-visible:outline-none ${
+            isCursor ? "bg-surface-2" : "hover:bg-surface-1"
+          } ${isSelected ? "border-l-2 border-l-accent" : "border-l-2 border-l-transparent"}`}
+        >
+          <StateDot state={issue.state} />
+          <span className="w-20 shrink-0 font-mono text-xs text-ink-tertiary">
+            {issue.key}
+          </span>
+          <span className="truncate text-ink-muted">{issue.title}</span>
+          {agentTouched && <Sparkle size={12} />}
+          {busy === issue.key ? (
+            <span className="ml-auto font-mono text-[11px] text-ink-tertiary">
+              …
+            </span>
+          ) : (
+            <span
+              className={`ml-auto font-mono text-[11px] ${PRIORITY_BADGE[issue.priority] ?? "text-ink-tertiary"}`}
+            >
+              {issue.priority !== "none" ? issue.priority : ""}
+            </span>
+          )}
+        </button>
+      </li>
+    );
+  };
+
+  let i = 0;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ul ref={listRef} className="flex-1 overflow-y-auto">
-        {issues.map((issue, i) => {
-          const agentTouched =
-            issue.creatorType === "agent" || issue.assigneeType === "agent";
-          const isCursor = i === cursor;
-          const isSelected = selected.has(issue.key);
-          return (
-            <li key={issue.key}>
-              <button
-                type="button"
-                data-index={i}
-                onClick={() => router.push(`/issues/${issue.key}`)}
-                onMouseEnter={() => setCursor(i)}
-                className={`flex h-9 w-full items-center gap-3 border-b border-lining-faint px-4 text-left text-[13px] focus-visible:outline-none ${
-                  isCursor ? "bg-surface-2" : "hover:bg-surface-1"
-                } ${isSelected ? "border-l-2 border-l-accent" : "border-l-2 border-l-transparent"}`}
-              >
-                <StateDot state={issue.state} />
-                <span className="w-20 shrink-0 font-mono text-xs text-ink-tertiary">
-                  {issue.key}
-                </span>
-                <span className="truncate text-ink-muted">{issue.title}</span>
-                {agentTouched && <Sparkle size={12} />}
-                {busy === issue.key ? (
-                  <span className="ml-auto font-mono text-[11px] text-ink-tertiary">
-                    …
-                  </span>
-                ) : (
-                  <span
-                    className={`ml-auto font-mono text-[11px] ${PRIORITY_BADGE[issue.priority] ?? "text-ink-tertiary"}`}
-                  >
-                    {issue.priority !== "none" ? issue.priority : ""}
-                  </span>
-                )}
-              </button>
-            </li>
-          );
-        })}
+        {groups
+          ? groups.map((g) => (
+              <li key={g.key}>
+                <div className="flex h-7 items-center gap-2 border-b border-lining-faint bg-surface-1 px-4 font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+                  {g.label}
+                  <span>{g.issues.length}</span>
+                </div>
+                <ul>
+                  {g.issues.map((issue) => renderRow(issue, i++))}
+                </ul>
+              </li>
+            ))
+          : flat.map((issue, idx) => renderRow(issue, idx))}
       </ul>
       <footer className="flex h-8 shrink-0 items-center gap-4 border-t border-lining-faint px-4 font-mono text-[10px] text-ink-tertiary">
         <span>

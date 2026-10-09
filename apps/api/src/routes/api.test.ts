@@ -505,6 +505,14 @@ describe("api routes (real postgres)", () => {
     });
     expect(cycle.status).toBe(201);
     expect(cycle.body.number).toBe(1);
+    expect(cycle.body.isActive).toBe(false);
+
+    const activated = await req(
+      `/v1/workspaces/${SLUG}/cycles/${cycle.body.id}`,
+      { method: "PATCH", body: JSON.stringify({ isActive: true }) },
+    );
+    expect(activated.status).toBe(200);
+    expect(activated.body.isActive).toBe(true);
 
     const active = await req(
       `/v1/workspaces/${SLUG}/cycles?active=true`,
