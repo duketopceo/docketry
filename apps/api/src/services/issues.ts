@@ -87,6 +87,7 @@ export async function transitionIssue(
   key: string,
   to: IssueState,
   actor: Actor,
+  extra?: Record<string, unknown>,
 ) {
   return db.transaction(async (tx) => {
     const [issue] = await tx
@@ -114,7 +115,7 @@ export async function transitionIssue(
       actorType: actor.type,
       actorId: actor.id,
       before: { state: issue.state },
-      after: { state: to },
+      after: { state: to, ...extra },
     });
 
     return updated!;

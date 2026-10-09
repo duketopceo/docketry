@@ -43,6 +43,13 @@
       "when": 1791525214712,
       "tag": "0005_brave_magus",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791525520897,
+      "tag": "0006_careful_midnight",
+      "breakpoints": true
     }
   ]
 }

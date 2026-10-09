@@ -7,6 +7,7 @@ import {
   githubInstallations,
   githubRepos,
   githubWebhookEvents,
+  teams,
 } from "../db/schema.js";
 import { config_ } from "../env.js";
 import { HttpError } from "../lib/errors.js";
@@ -16,6 +17,10 @@ const repoBodySchema = z.object({
   fullName: z
     .string()
     .regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/, "expected 'owner/repo'"),
+  teamKey: z
+    .string()
+    .regex(/^[A-Z][A-Z0-9]*$/)
+    .optional(),
 });
 
 export const githubRoutes = new Hono()
@@ -128,13 +133,25 @@ export const githubRoutes = new Hono()
     zValidator("json", repoBodySchema),
     async (c) => {
       const ws = await requireWorkspace(c);
-      const { fullName } = c.req.valid("json");
+      const { fullName, teamKey } = c.req.valid("json");
+      let teamId: string | null = null;
+      if (teamKey) {
+        const [team] = await db
+          .select()
+          .from(teams)
+          .where(and(eq(teams.workspaceId, ws.id), eq(teams.key, teamKey)))
+          .limit(1);
+        if (!team) {
+          throw new HttpError(404, "NOT_FOUND", `team '${teamKey}' not found`);
+        }
+        teamId = team.id;
+      }
       const [row] = await db
         .insert(githubRepos)
-        .values({ workspaceId: ws.id, fullName, enabled: true })
+        .values({ workspaceId: ws.id, fullName, teamId, enabled: true })
         .onConflictDoUpdate({
           target: [githubRepos.workspaceId, githubRepos.fullName],
-          set: { enabled: true },
+          set: { enabled: true, teamId },
         })
         .returning();
       return c.json(row);
