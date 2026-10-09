@@ -28,6 +28,7 @@ import {
   issueLabels,
   issues,
   labels,
+  slackLinks,
   teams,
   users,
 } from "../db/schema.js";
@@ -43,9 +44,11 @@ import {
 } from "../services/github-sync.js";
 import { createIssue, transitionIssue, type Actor } from "../services/issues.js";
 import { queueDeliveries } from "../services/outbound.js";
+import { createSlack } from "../services/slack.js";
 import { requireWorkspace } from "./workspaces.js";
 
 const assist = createAssist();
+const slack = createSlack();
 
 const createSchema = z.object({
   teamKey: z.string().min(1).max(6).optional(),
@@ -374,6 +377,11 @@ export const issueRoutes = new Hono()
       }
       if (body.state !== undefined) {
         await transitionIssue(ws.id, key, body.state as IssueState, actor);
+        // terminal transition → resolution reply in the linked slack thread
+        if (["done", "canceled", "duplicate"].includes(body.state)) {
+          const updated = await findIssue(ws.id, key);
+          slack.notifyResolution(updated.id, body.state, actor).catch(() => {});
+        }
       }
 
       const fields: Partial<typeof issues.$inferInsert> = {};
@@ -485,6 +493,9 @@ export const issueRoutes = new Hono()
           });
         }
       }
+
+      // slack mirror — best-effort, slack-originated bodies skip themselves
+      slack.mirrorComment(issue.id, body.body).catch(() => {});
 
       return c.json(comment, 201);
     },
@@ -638,6 +649,21 @@ export const issueRoutes = new Hono()
       .from(labels)
       .where(eq(labels.workspaceId, ws.id));
     return c.json({ labels: rows });
+  })
+  .get("/workspaces/:ws/issues/:key/slack-link", async (c) => {
+    const ws = await requireWorkspace(c);
+    const issue = await findIssue(ws.id, c.req.param("key"));
+    const [link] = await db
+      .select()
+      .from(slackLinks)
+      .where(eq(slackLinks.issueId, issue.id));
+    return c.json({ link: link ?? null });
+  })
+  .delete("/workspaces/:ws/issues/:key/slack-link", async (c) => {
+    const ws = await requireWorkspace(c);
+    const issue = await findIssue(ws.id, c.req.param("key"));
+    await db.delete(slackLinks).where(eq(slackLinks.issueId, issue.id));
+    return c.json({ ok: true });
   });
 
 async function findIssue(workspaceId: string, key: string) {
