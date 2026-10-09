@@ -8,6 +8,7 @@ import {
 import {
   CommentComposer,
   StateActions,
+  SummarizeButton,
 } from "@/components/issue-detail-client";
 import { Sparkle, StatePill } from "@/components/primitives";
 import { SessionTimeline } from "@/components/session-timeline";
@@ -167,6 +168,7 @@ export default async function IssuePage({
             {issue.description || "No description."}
           </p>
         </div>
+        <SummarizeButton issueKey={issue.key} />
 
         {issue.children.length > 0 && (
           <section className="mt-6">

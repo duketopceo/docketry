@@ -33,11 +33,15 @@ import {
 } from "../db/schema.js";
 import { actorFromHeaders } from "../lib/actor.js";
 import { apiError, HttpError } from "../lib/errors.js";
+import { createAssist } from "../services/assist.js";
+import { llmEnabled } from "../services/llm.js";
 import { decodeCursor, encodeCursor } from "../lib/pagination.js";
 import { createDispatch } from "../services/dispatch.js";
 import { createIssue, transitionIssue, type Actor } from "../services/issues.js";
 import { queueDeliveries } from "../services/outbound.js";
 import { requireWorkspace } from "./workspaces.js";
+
+const assist = createAssist();
 
 const createSchema = z.object({
   teamKey: z.string().min(1).max(6).optional(),
@@ -231,6 +235,20 @@ export const issueRoutes = new Hono()
         if (updated) result = updated;
       }
 
+      // `?dupCheck=1` runs semantic duplicate detection on the way out —
+      // opt-in per request, LLM-disabled workspaces just get the issue back
+      if (c.req.query("dupCheck") && llmEnabled()) {
+        try {
+          const possibleDuplicates = await assist.checkDuplicates(
+            ws.id,
+            body.title,
+            body.description,
+          );
+          return c.json({ ...result, possibleDuplicates }, 201);
+        } catch {
+          // dup detection is advisory — never fail the create over it
+        }
+      }
       return c.json(result, 201);
     },
   )

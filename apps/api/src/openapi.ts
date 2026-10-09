@@ -234,6 +234,46 @@ export const openApiDoc = {
         responses: { "201": { description: "Comment created" } },
       },
     },
+    "/v1/workspaces/{ws}/issues/{key}/summarize": {
+      post: {
+        summary:
+          "LLM-generated issue summary (title + description + comments). 503 LLM_DISABLED when no DOCKETRY_LLM_API_KEY is configured",
+        parameters: [wsParam, keyParam],
+        responses: { "200": { description: "Summary text" } },
+      },
+    },
+    "/v1/workspaces/{ws}/issues/{key}/triage-suggest": {
+      post: {
+        summary:
+          "LLM triage verdict — {action: accept|decline, reason}. Advisory only; does not transition the issue",
+        parameters: [wsParam, keyParam],
+        responses: { "200": { description: "Triage suggestion" } },
+      },
+    },
+    "/v1/workspaces/{ws}/issues/dup-check": {
+      post: {
+        summary:
+          "Semantic duplicate detection — compares a title/description against open issues; also available as `?dupCheck=1` on issue create",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["title"],
+          properties: {
+            title: { type: "string" },
+            description: { type: "string" },
+          },
+        }),
+        responses: { "200": { description: "Possible duplicates" } },
+      },
+    },
+    "/v1/workspaces/{ws}/llm/status": {
+      get: {
+        summary:
+          "LLM assist status — {enabled, model}; the UI hides assist controls when disabled",
+        parameters: [wsParam],
+        responses: { "200": { description: "Status" } },
+      },
+    },
     "/v1/workspaces/{ws}/issues/{key}/events": {
       get: {
         summary: "Activity/audit feed for an issue (append-only)",
