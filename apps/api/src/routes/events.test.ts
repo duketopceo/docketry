@@ -226,9 +226,11 @@ describe("workspace events feed + SSE stream", () => {
       body: JSON.stringify({ slug: SLUG2, name: "Other WS" }),
     });
     expect(other.status).toBe(201);
+    // credentials are workspace-bound — this session belongs to SLUG and
+    // cannot read another workspace's feed even though it exists
     const res = await req(`/v1/workspaces/${SLUG2}/events`);
-    expect(res.status).toBe(200);
-    expect(res.body.events).toEqual([]);
+    expect(res.status).toBe(403);
+    expect(res.body.error!.code).toBe("FORBIDDEN_WORKSPACE");
   });
 
   it("rejects unauthenticated stream and list requests", async () => {

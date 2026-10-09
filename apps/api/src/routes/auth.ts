@@ -14,7 +14,6 @@ import {
   sessionFromToken,
   verifyPassword,
 } from "../services/auth.js";
-import { actorFromHeaders } from "../lib/actor.js";
 import { agentFromKey, type AgentAuth } from "../services/agents.js";
 import {
   ACCESS_TOKEN_TTL_S,
@@ -22,7 +21,6 @@ import {
   userFromToken,
   verifyAccessToken,
 } from "../services/tokens.js";
-import type { Actor } from "../services/issues.js";
 
 const bootstrapSchema = z.object({
   workspaceSlug: z
@@ -292,12 +290,12 @@ export async function requireSession(c: Context, next: Next) {
       return;
     }
   }
-  const actor = actorFromHeaders(c) as Actor;
-  if (actor.type === "agent" && actor.id) {
-    c.set("session", null);
-    c.set("agentAuth", null);
-    await next();
-    return;
-  }
-  return apiError(c, 401, "UNAUTHENTICATED", "sign in or present agent credentials");
+  // x-actor-* headers alone are NOT credentials — they only shape attribution
+  // on an otherwise-authenticated request.
+  return apiError(
+    c,
+    401,
+    "UNAUTHENTICATED",
+    "sign in or present agent credentials",
+  );
 }
