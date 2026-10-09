@@ -1,30 +1,7 @@
-import { legalTransitions, type IssueState } from "@docketry/types";
+import { findPath, type IssueState } from "@docketry/types";
 import { ApiError, type ApiClient, type Issue } from "./client.js";
 
-// BFS over the state machine — returns the shortest list of intermediate
-// targets [s1, s2, ..., to], or null when `to` is unreachable from `from`.
-// Stays correct if the machine gains states/edges: we never hardcode paths.
-export function findPath(
-  from: IssueState,
-  to: IssueState,
-): IssueState[] | null {
-  if (from === to) return [];
-  const seen = new Set<IssueState>([from]);
-  const queue: { state: IssueState; path: IssueState[] }[] = [
-    { state: from, path: [] },
-  ];
-  while (queue.length > 0) {
-    const { state, path } = queue.shift()!;
-    for (const next of legalTransitions(state)) {
-      if (seen.has(next)) continue;
-      const p = [...path, next];
-      if (next === to) return p;
-      seen.add(next);
-      queue.push({ state: next, path: p });
-    }
-  }
-  return null;
-}
+export { findPath };
 
 const MAX_ATTEMPTS = 8;
 

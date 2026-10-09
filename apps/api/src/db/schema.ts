@@ -382,6 +382,7 @@ export const githubRepos = pgTable(
     installationId: bigint("installation_id", { mode: "number" }),
     repoId: bigint("repo_id", { mode: "number" }),
     fullName: text("full_name").notNull(),
+    teamId: uuid("team_id").references(() => teams.id),
     enabled: boolean("enabled").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -404,6 +405,33 @@ export const githubWebhookEvents = pgTable(
     processedAt: timestamp("processed_at", { withTimezone: true }),
   },
   (t) => [index().on(t.eventType)],
+);
+
+// GitHub issue ↔ docketry issue map — intake dedupe + bidirectional sync (#60)
+export const githubIssueLinks = pgTable(
+  "github_issue_links",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    repoId: uuid("repo_id")
+      .notNull()
+      .references(() => githubRepos.id, { onDelete: "cascade" }),
+    ghIssueId: bigint("gh_issue_id", { mode: "number" }).notNull(),
+    ghIssueNumber: integer("gh_issue_number").notNull(),
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    unique().on(t.repoId, t.ghIssueId),
+    index().on(t.workspaceId),
+    index().on(t.issueId),
+  ],
 );
 
 export type IssueRow = typeof issues.$inferSelect;

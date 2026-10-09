@@ -47,6 +47,7 @@ export type IssueSource = (typeof ISSUE_SOURCES)[number];
 
 export {
   canTransition,
+  findPath,
   legalTransitions,
   InvalidTransitionError,
 } from "./state-machine.js";

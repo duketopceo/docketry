@@ -10,6 +10,7 @@ import {
   comments,
   cycles,
   events,
+  githubIssueLinks,
   githubInstallations,
   githubRepos,
   githubWebhookEvents,
@@ -123,6 +124,9 @@ afterAll(async () => {
     .where(eq(workspaces.slug, SLUG));
   if (ws) {
     for (const t of [
+      githubIssueLinks,
+      events,
+      issues,
       githubRepos,
       githubInstallations,
       sessions,
@@ -285,5 +289,181 @@ describe("installation binding + repo connect", () => {
       body: JSON.stringify({ fullName: "no-slash" }),
     });
     expect(res.status).toBe(400);
+  });
+});
+
+describe("branch/PR automation (#19)", () => {
+  let deliveryCounter = 0;
+  const REPO = { full_name: "duketopceo/docketry" };
+
+  async function deliver(event: string, payload: object) {
+    const body = JSON.stringify({ ...payload, repository: REPO });
+    const res = await webhook(body, {
+      signature: sign(body),
+      event,
+      delivery: `auto-${++deliveryCounter}`,
+    });
+    expect(res.status).toBe(200);
+  }
+
+  async function stateOf(key: string) {
+    const { body } = await req(`/v1/workspaces/${SLUG}/issues/${key}`);
+    return (body as { state: string }).state;
+  }
+
+  it("push to a matching branch moves issue to in_progress", async () => {
+    // issue GH-1 sits in backlog — push walks backlog→todo→in_progress
+    await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({ title: "automation target", state: "backlog" }),
+    });
+    await req(`/v1/workspaces/${SLUG}/github/repos/connect`, {
+      method: "POST",
+      body: JSON.stringify({ fullName: "duketopceo/docketry" }),
+    });
+
+    await deliver("push", { ref: "refs/heads/GH-1-branch-fix" });
+    expect(await stateOf("GH-1")).toBe("in_progress");
+  });
+
+  it("repeat push is a no-op (transition fires once)", async () => {
+    await deliver("push", { ref: "refs/heads/GH-1-branch-fix" });
+    expect(await stateOf("GH-1")).toBe("in_progress");
+  });
+
+  it("push to non-matching branch does nothing", async () => {
+    await deliver("push", { ref: "refs/heads/random-feature" });
+    expect(await stateOf("GH-1")).toBe("in_progress");
+  });
+
+  it("review_requested moves to in_review", async () => {
+    await deliver("pull_request", {
+      action: "review_requested",
+      pull_request: {
+        number: 42,
+        head: { ref: "GH-1-branch-fix" },
+        html_url: "https://github.com/duketopceo/docketry/pull/42",
+      },
+    });
+    expect(await stateOf("GH-1")).toBe("in_review");
+  });
+
+  it("PR review verdict lands on the issue timeline", async () => {
+    await deliver("pull_request_review", {
+      action: "submitted",
+      review: {
+        state: "approved",
+        html_url: "https://github.com/duketopceo/docketry/pull/42#r1",
+        user: { login: "octocat" },
+      },
+      pull_request: { number: 42, head: { ref: "GH-1-branch-fix" } },
+    });
+    const rows = await db
+      .select()
+      .from(events)
+      .where(eq(events.action, "github_review"));
+    expect(rows.length).toBeGreaterThanOrEqual(1);
+    const after = rows[0]!.after as { verdict: string; reviewer: string };
+    expect(after.verdict).toBe("approved");
+    expect(after.reviewer).toBe("octocat");
+  });
+
+  it("merged PR closes the issue as done with PR link", async () => {
+    await deliver("pull_request", {
+      action: "closed",
+      pull_request: {
+        number: 42,
+        merged: true,
+        head: { ref: "GH-1-branch-fix" },
+        html_url: "https://github.com/duketopceo/docketry/pull/42",
+      },
+    });
+    expect(await stateOf("GH-1")).toBe("done");
+    const done = await db
+      .select()
+      .from(events)
+      .where(eq(events.action, "state_changed"));
+    const last = done[done.length - 1]!.after as {
+      state: string;
+      github?: { pr: number };
+    };
+    expect(last.state).toBe("done");
+    expect(last.github?.pr).toBe(42);
+  });
+
+  it("disabled repos are ignored", async () => {
+    await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({ title: "untouched", state: "backlog" }),
+    });
+    await req(`/v1/workspaces/${SLUG}/github/repos/disconnect`, {
+      method: "POST",
+      body: JSON.stringify({ fullName: "duketopceo/docketry" }),
+    });
+    await deliver("push", { ref: "refs/heads/GH-2-nope" });
+    expect(await stateOf("GH-2")).toBe("backlog");
+  });
+});
+
+describe("github issue intake (#20)", () => {
+  it("issues.opened creates a triage issue and link row", async () => {
+    await req(`/v1/workspaces/${SLUG}/github/repos/connect`, {
+      method: "POST",
+      body: JSON.stringify({ fullName: "duketopceo/docketry", teamKey: "GH" }),
+    });
+    const body = JSON.stringify({
+      action: "opened",
+      repository: { full_name: "duketopceo/docketry" },
+      issue: {
+        id: 9001,
+        number: 55,
+        title: "bug: board flickers",
+        body: "steps to repro…",
+        html_url: "https://github.com/duketopceo/docketry/issues/55",
+        user: { login: "reporter" },
+      },
+    });
+    const res = await webhook(body, {
+      signature: sign(body),
+      event: "issues",
+      delivery: "intake-1",
+    });
+    expect(res.status).toBe(200);
+
+    const [link] = await db
+      .select()
+      .from(githubIssueLinks)
+      .where(eq(githubIssueLinks.ghIssueId, 9001));
+    expect(link).toBeDefined();
+    const [created] = await db
+      .select()
+      .from(issues)
+      .where(eq(issues.id, link!.issueId));
+    expect(created!.state).toBe("triage");
+    expect(created!.title).toBe("bug: board flickers");
+    expect(created!.source).toBe("github");
+    expect(created!.key).toMatch(/^GH-\d+$/);
+  });
+
+  it("a second delivery for the same GH issue does not re-intake", async () => {
+    const before = await db.select().from(githubIssueLinks);
+    const body = JSON.stringify({
+      action: "opened",
+      repository: { full_name: "duketopceo/docketry" },
+      issue: {
+        id: 9001,
+        number: 55,
+        title: "bug: board flickers",
+        body: "dup",
+        html_url: "https://github.com/duketopceo/docketry/issues/55",
+      },
+    });
+    await webhook(body, {
+      signature: sign(body),
+      event: "issues",
+      delivery: "intake-2",
+    });
+    const after = await db.select().from(githubIssueLinks);
+    expect(after).toHaveLength(before.length);
   });
 });
