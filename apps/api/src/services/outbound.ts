@@ -1,7 +1,14 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { and, asc, eq, lte } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { webhookDeliveries, webhookEndpoints } from "../db/schema.js";
+import {
+  agents,
+  comments,
+  dispatches,
+  events,
+  webhookDeliveries,
+  webhookEndpoints,
+} from "../db/schema.js";
 
 const MAX_ATTEMPTS = 5;
 const BASE_BACKOFF_MS = 30_000;
@@ -69,9 +76,122 @@ export async function queueDeliveries(ev: OutboundEvent): Promise<void> {
   }
 }
 
+interface DeliveryTarget {
+  url: string;
+  secret: string;
+}
+
+// agent dispatch → durable delivery. First attempt is synchronous (adapter
+// sees the immediate outcome); failures retry via sweepDeliveries and write
+// back to the dispatch record + issue thread on terminal states.
+export async function queueDispatchDelivery(input: {
+  workspaceId: string;
+  dispatchId: string;
+  payload: Record<string, unknown>;
+}): Promise<void> {
+  const [row] = await db
+    .insert(webhookDeliveries)
+    .values({
+      workspaceId: input.workspaceId,
+      dispatchId: input.dispatchId,
+      action: "dispatch.dispatched",
+      payload: input.payload,
+    })
+    .returning();
+  const target = await dispatchTarget(input.dispatchId);
+  if (!target) {
+    await db
+      .update(webhookDeliveries)
+      .set({ status: "failed", lastError: "agent endpoint removed" })
+      .where(eq(webhookDeliveries.id, row!.id));
+    await dispatchWriteback(row!, "failed", "agent endpoint removed");
+    return;
+  }
+  await deliver(row!, target);
+  const [after] = await db
+    .select({ status: webhookDeliveries.status })
+    .from(webhookDeliveries)
+    .where(eq(webhookDeliveries.id, row!.id))
+    .limit(1);
+  if (after?.status === "delivered") {
+    await dispatchWriteback(row!, "delivered", null);
+  } else if (after?.status === "failed") {
+    await dispatchWriteback(row!, "failed", "dispatch delivery failed");
+  }
+}
+
+async function dispatchTarget(
+  dispatchId: string,
+): Promise<DeliveryTarget | null> {
+  const [row] = await db
+    .select({
+      url: agents.endpointUrl,
+      secret: agents.endpointSecret,
+    })
+    .from(dispatches)
+    .innerJoin(agents, eq(dispatches.agentId, agents.id))
+    .where(eq(dispatches.id, dispatchId))
+    .limit(1);
+  if (!row?.url || !row.secret) return null;
+  return { url: row.url, secret: row.secret };
+}
+
+// terminal writeback for dispatch deliveries: delivered → claimed; exhausted
+// → dispatch_failed. Always visible on the issue thread.
+async function dispatchWriteback(
+  row: typeof webhookDeliveries.$inferSelect,
+  outcome: "delivered" | "failed",
+  reason: string | null,
+): Promise<void> {
+  if (!row.dispatchId) return;
+  const [dispatch] = await db
+    .select()
+    .from(dispatches)
+    .where(eq(dispatches.id, row.dispatchId))
+    .limit(1);
+  if (!dispatch || dispatch.status !== "queued") return;
+  const status = outcome === "delivered" ? "claimed" : "dispatch_failed";
+  const lastError = reason ?? row.lastError;
+  await db
+    .update(dispatches)
+    .set({ status, ...(status === "dispatch_failed" ? { reason: lastError } : {}), updatedAt: new Date() })
+    .where(eq(dispatches.id, dispatch.id));
+  const action =
+    outcome === "delivered" ? "dispatch_delivered" : "dispatch_failed";
+  const after = { dispatchId: dispatch.id, ...(reason ? { reason: lastError } : {}) };
+  await db.insert(events).values({
+    workspaceId: dispatch.workspaceId,
+    entityType: "issue",
+    entityId: dispatch.issueId,
+    action,
+    actorType: "system",
+    actorId: null,
+    after,
+  });
+  await queueDeliveries({
+    workspaceId: dispatch.workspaceId,
+    entityType: "issue",
+    entityId: dispatch.issueId,
+    action,
+    actorType: "system",
+    actorId: null,
+    after,
+  });
+  await db.insert(comments).values({
+    workspaceId: dispatch.workspaceId,
+    issueId: dispatch.issueId,
+    actorType: "system",
+    actorId: null,
+    body:
+      outcome === "delivered"
+        ? "dispatch handed off — endpoint acknowledged"
+        : `dispatch_failed: endpoint unreachable after ${MAX_ATTEMPTS} attempts${lastError ? ` (${lastError})` : ""}`,
+  });
+}
+
 async function deliver(
   row: typeof webhookDeliveries.$inferSelect,
-  endpoint: typeof webhookEndpoints.$inferSelect,
+  target: DeliveryTarget,
 ): Promise<void> {
   const body = JSON.stringify({
     id: row.id,
@@ -79,13 +199,13 @@ async function deliver(
     ...(row.payload as Record<string, unknown>),
   });
   try {
-    const res = await fetch(endpoint.url, {
+    const res = await fetch(target.url, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         "x-docketry-event": row.action,
         "x-docketry-delivery": row.id,
-        "x-docketry-signature": signDelivery(body, endpoint.secret),
+        "x-docketry-signature": signDelivery(body, target.secret),
       },
       body,
       signal: AbortSignal.timeout(8000),
@@ -131,14 +251,32 @@ export async function sweepDeliveries(now = new Date()): Promise<number> {
     .limit(100);
   let attempted = 0;
   for (const row of due) {
-    const [endpoint] = await db
-      .select()
-      .from(webhookEndpoints)
-      .where(eq(webhookEndpoints.id, row.endpointId))
-      .limit(1);
-    if (!endpoint?.enabled) continue;
-    await deliver(row, endpoint);
+    let target: DeliveryTarget | null = null;
+    if (row.endpointId) {
+      const [endpoint] = await db
+        .select()
+        .from(webhookEndpoints)
+        .where(eq(webhookEndpoints.id, row.endpointId))
+        .limit(1);
+      if (endpoint?.enabled) target = endpoint;
+    } else if (row.dispatchId) {
+      target = await dispatchTarget(row.dispatchId);
+    }
+    if (!target) continue;
+    await deliver(row, target);
     attempted++;
+    if (row.dispatchId) {
+      const [after] = await db
+        .select({ status: webhookDeliveries.status })
+        .from(webhookDeliveries)
+        .where(eq(webhookDeliveries.id, row.id))
+        .limit(1);
+      if (after?.status === "delivered") {
+        await dispatchWriteback(row, "delivered", null);
+      } else if (after?.status === "failed") {
+        await dispatchWriteback(row, "failed", null);
+      }
+    }
   }
   return attempted;
 }
