@@ -165,6 +165,36 @@ export const cycles = pgTable(
   ],
 );
 
+// Velocity snapshot per completed cycle — written by completeCycle (manual
+// or boundary sweep) so Insights queries never have to reconstruct it from
+// the event log.
+export const cycleVelocity = pgTable(
+  "cycle_velocity",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id),
+    cycleId: uuid("cycle_id")
+      .notNull()
+      .references(() => cycles.id),
+    completedAt: timestamp("completed_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    issueCount: integer("issue_count").notNull(),
+    doneCount: integer("done_count").notNull(),
+    estimateDone: integer("estimate_done").notNull().default(0),
+    estimateTotal: integer("estimate_total").notNull().default(0),
+  },
+  (t) => [
+    index().on(t.workspaceId, t.teamId),
+    uniqueIndex("cycle_velocity_cycle_unique").on(t.cycleId),
+  ],
+);
+
 export const labels = pgTable(
   "labels",
   {

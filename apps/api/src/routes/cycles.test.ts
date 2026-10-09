@@ -7,6 +7,7 @@ import {
   agentKeys,
   agents,
   comments,
+  cycleVelocity,
   cycles,
   events,
   issues,
@@ -19,6 +20,7 @@ import {
   views,
   workspaces,
 } from "../db/schema.js";
+import { sweepExpiredCycles } from "../services/cycles.js";
 
 const SLUG = `cycles-test-${Date.now()}`;
 
@@ -105,6 +107,7 @@ beforeAll(async () => {
     agents,
     userTokens,
     views,
+    cycleVelocity,
     cycles,
     projects,
     sessions,
@@ -150,6 +153,7 @@ afterAll(async () => {
       agents,
       userTokens,
       views,
+      cycleVelocity,
       cycles,
       projects,
       sessions,
@@ -412,5 +416,81 @@ describe("cycles engine (real postgres)", () => {
       { method: "PATCH", body: JSON.stringify({ name: "nope" }) },
     );
     expect(missing.status).toBe(404);
+  });
+
+  it("boundary sweep completes expired active cycles — audited + idempotent", async () => {
+    // an already-expired active cycle with open + done issues
+    const expired = await createCycle("ENG", {
+      name: "expired",
+      isActive: true,
+      startsAt: iso(-3 * day),
+      endsAt: iso(-day), // window closed yesterday
+    });
+    const open = await createIssue({
+      title: "swept",
+      cycleId: expired.id,
+    });
+    const finished = await createIssue({
+      title: "kept",
+      cycleId: expired.id,
+    });
+    await db
+      .update(issues)
+      .set({ estimate: 3 })
+      .where(eq(issues.key, open.key as string));
+    await db
+      .update(issues)
+      .set({ state: "done", estimate: 5 })
+      .where(eq(issues.key, finished.key as string));
+    // a live active cycle (other team — same-team would demote `expired`)
+    // must not be swept
+    const live = await createCycle("OPS", {
+      name: "live",
+      isActive: true,
+      endsAt: iso(2 * day),
+    });
+
+    const swept = await sweepExpiredCycles(new Date());
+    expect(swept).toBe(1);
+
+    const openAfter = await req(
+      `/v1/workspaces/${SLUG}/issues/${open.key}`,
+    );
+    // ENG rollover is "backlog" now (flipped earlier in this suite)
+    expect(openAfter.body.cycleId).toBeNull();
+    expect(openAfter.body.state).toBe("backlog");
+    const liveAfter = await req(
+      `/v1/workspaces/${SLUG}/cycles/${live.id}`,
+    );
+    expect(liveAfter.body.isActive).toBe(true);
+
+    // per-issue audit event + velocity snapshot + system actor
+    const evRows = await db
+      .select()
+      .from(events)
+      .where(eq(events.entityId, openAfter.body.id as string));
+    expect(evRows.map((e) => e.action)).toContain("rolled_over");
+    const roll = evRows.find((e) => e.action === "rolled_over")!;
+    expect(roll.actorType).toBe("system");
+    expect((roll.before as { cycleId: string }).cycleId).toBe(expired.id);
+    expect((roll.after as { cycleId: null }).cycleId).toBeNull();
+
+    const [vel] = await db
+      .select()
+      .from(cycleVelocity)
+      .where(eq(cycleVelocity.cycleId, expired.id as string));
+    expect(vel).toBeDefined();
+    expect(vel!.issueCount).toBe(2);
+    expect(vel!.doneCount).toBe(1);
+    expect(vel!.estimateDone).toBe(5);
+    expect(vel!.estimateTotal).toBe(8);
+
+    // re-run is a no-op — no duplicate events, no error
+    expect(await sweepExpiredCycles(new Date())).toBe(0);
+    const manualRetry = await req(
+      `/v1/workspaces/${SLUG}/cycles/${expired.id}/complete`,
+      { method: "POST" },
+    );
+    expect(manualRetry.status).toBe(409);
   });
 });
