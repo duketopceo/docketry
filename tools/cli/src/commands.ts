@@ -26,6 +26,7 @@ import {
   slimIssue,
 } from "./format.js";
 import { transitionTo } from "./transition.js";
+import { branchName, buildWorkPrompt, harnessBin } from "./work.js";
 
 // --- shared plumbing --------------------------------------------------------
 
@@ -735,6 +736,132 @@ dok events --after 41     # resume the workspace feed; --follow to stream
 - API failures print \`CODE: message\` on stderr.
 `;
 
+const workCmd: Command = {
+  usage:
+    "docketry work [--once] [--interval N] [--cmd <binary>] [--dry-run] " +
+    "[--follow]",
+  summary:
+    "run claimed dispatches — spawn the local harness in an isolated " +
+    "worktree seeded with issue context",
+  options: {
+    once: { type: "boolean" },
+    follow: { type: "boolean", short: "f" },
+    interval: { type: "string" },
+    cmd: { type: "string" },
+    "dry-run": { type: "boolean" },
+  },
+  needsApi: true,
+  async run(ctx) {
+    const me = await resolveIdentity(ctx, true);
+    if (me!.type !== "agent") {
+      throw usage("work requires an agent identity (DOCKETRY_AGENT_ID)");
+    }
+    const { agents } = await ctx.client.listAgents();
+    const agent = agents.find((a) => a.id === me!.id);
+    if (!agent) throw fail("agent identity not found in workspace");
+
+    const bin =
+      strFlag(ctx.flags, "cmd") ??
+      ctx.io.env.DOCKETRY_WORK_CMD ??
+      harnessBin(agent.harness);
+    const dryRun = boolFlag(ctx.flags, "dry-run");
+    if (!bin && !dryRun) {
+      throw fail(
+        `no harness binary for '${agent.harness}' — pass --cmd or set DOCKETRY_WORK_CMD`,
+      );
+    }
+    const interval = intFlag(ctx.flags, "interval", 15, 3600);
+    const follow = boolFlag(ctx.flags, "follow") && !boolFlag(ctx.flags, "once");
+
+    const spawn = (await import("node:child_process")).spawn;
+    const { execFile } = await import("node:child_process");
+    const exec = (cmd: string, args: string[], cwd: string) =>
+      new Promise<{ code: number; stdout: string }>((resolve, reject) => {
+        execFile(cmd, args, { cwd }, (err, stdout) => {
+          if (err) reject(err);
+          else resolve({ code: 0, stdout: stdout.toString() });
+        });
+      });
+
+    for (;;) {
+      const { dispatches } = await ctx.client.listDispatches({
+        status: "claimed",
+        agentId: me!.id,
+      });
+      for (const d of dispatches) {
+        const [issue, { comments }] = await Promise.all([
+          ctx.client.getIssue(d.issueKey),
+          ctx.client.listComments(d.issueKey),
+        ]);
+        const branch = branchName(issue.key, issue.title);
+        const prompt = buildWorkPrompt({
+          issue,
+          comments,
+          agentName: agent.name,
+          workspace: ctx.client.workspace,
+        });
+
+        if (dryRun) {
+          ctx.io.out(
+            `${issue.key} → ${branch} via ${bin ?? agent.harness}`,
+          );
+          if (ctx.json) emit(ctx, { issue: issue.key, branch, prompt });
+          continue;
+        }
+
+        // session isolation: a git worktree when cwd is a repo, else cwd
+        let workDir = ctx.io.cwd;
+        let inWorktree = false;
+        try {
+          const root = (await exec("git", ["rev-parse", "--show-toplevel"], ctx.io.cwd)).stdout.trim();
+          workDir = join(root, ".docketry", issue.key);
+          try {
+            await exec("git", ["worktree", "add", workDir, "-b", branch], ctx.io.cwd);
+          } catch {
+            // branch may already exist — reuse it
+            await exec("git", ["worktree", "add", workDir, branch], ctx.io.cwd);
+          }
+          inWorktree = true;
+        } catch {
+          // not a git repo — work in cwd, note it in the report
+        }
+
+        const ctxFile = join(workDir, ".docketry-context.md");
+        await writeFile(ctxFile, prompt);
+        ctx.io.out(`${issue.key} → ${workDir} (${bin})`);
+
+        let outcome: "completed" | "failed" = "completed";
+        let reason: string | undefined;
+        try {
+          await new Promise<void>((resolve, reject) => {
+            const child = spawn(bin!, [ctxFile], {
+              cwd: workDir,
+              stdio: "inherit",
+            });
+            child.on("close", (code) =>
+              code === 0 ? resolve() : reject(new Error(`${bin} exited ${code}`)),
+            );
+            child.on("error", reject);
+          });
+        } catch (err) {
+          outcome = "failed";
+          reason = err instanceof Error ? err.message : String(err);
+        }
+        await ctx.client.reportDispatch(d.id, {
+          outcome,
+          ...(reason !== undefined ? { reason } : {}),
+          ...(inWorktree ? { branch } : {}),
+        });
+        ctx.io.out(
+          `${issue.key} session ${outcome}${inWorktree ? ` — ${branch}` : ""}`,
+        );
+      }
+      if (!follow) break;
+      await new Promise((r) => setTimeout(r, interval * 1000));
+    }
+  },
+};
+
 const initCmd: Command = {
   usage:
     "docketry init --workspace <slug> [--api-url url] [--agent-id id|name] " +
@@ -826,5 +953,6 @@ export const commands: Record<string, Command> = {
   show: showCmd,
   triage: triageCmd,
   events: eventsCmd,
+  work: workCmd,
   init: initCmd,
 };

@@ -88,6 +88,22 @@ export interface Agent {
   createdAt: string;
 }
 
+export interface Dispatch {
+  id: string;
+  status: string;
+  trigger: string;
+  adapter: string | null;
+  reason: string | null;
+  commentBody: string | null;
+  agentId: string;
+  agentName: string;
+  issueId: string;
+  issueKey: string;
+  issueTitle: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Workspace {
   id: string;
   slug: string;
@@ -275,6 +291,24 @@ export class ApiClient {
 
   listAgents(): Promise<{ agents: Agent[] }> {
     return this.req("GET", "/agents");
+  }
+
+  listDispatches(query: {
+    status?: string;
+    agentId?: string;
+  }): Promise<{ dispatches: Dispatch[] }> {
+    return this.req("GET", "/dispatches", {
+      query: { status: query.status, agentId: query.agentId },
+    });
+  }
+
+  reportDispatch(
+    id: string,
+    body: { outcome: "completed" | "failed"; reason?: string; branch?: string; prUrl?: string },
+  ): Promise<{ ok: boolean; status: string }> {
+    return this.req("POST", `/dispatches/${encodeURIComponent(id)}/report`, {
+      body,
+    });
   }
 
   getWorkspace(): Promise<Workspace> {

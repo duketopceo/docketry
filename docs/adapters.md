@@ -45,9 +45,32 @@ interface DispatchResult {
 
 ## Dispatch lifecycle
 
-`queued` → `claimed` | `dispatch_failed` (`completed`/`canceled` reserved for
-later session management). Failures write a `dispatch_failed` event and a
-plain-English comment on the issue thread.
+`queued` → `claimed` → `completed` | `dispatch_failed` | `canceled`.
+Failures write a `dispatch_failed` event and a plain-English comment on the
+issue thread.
+
+## Running a local session
+
+`docketry work` is the local runner: it polls `claimed` dispatches for your
+agent identity, seeds `.docketry-context.md` with the issue (key, title,
+description, thread, board rules), and spawns the harness binary in an
+isolated git worktree on branch `<KEY>-slug` — falling back to the current
+directory outside a repo. On exit it reports back via
+`POST /v1/:ws/dispatches/:id/report`, which marks the dispatch, writes a
+`dispatch_completed`/`dispatch_failed` event, and posts the branch/PR link
+as a thread comment.
+
+```sh
+docketry work --dry-run            # show what would be spawned
+docketry work                      # process all claimed dispatches once
+docketry work --follow             # poll continuously (default 15s)
+docketry work --cmd <binary>       # override the harness binary
+DOCKETRY_WORK_CMD=<binary>         # env override
+```
+
+Harness binaries are invoked as `<binary> <context-file>` with the issue
+context file as argv[1]; `claude`/`codex`/`opencode` are auto-detected from
+the agent's `harness` field. Agent keys may only report their own dispatches.
 
 ## Webhook payload
 

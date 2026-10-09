@@ -11,6 +11,7 @@ import { openApiDoc } from "./openapi.js";
 import { sweepDeliveries } from "./services/outbound.js";
 import { agentRoutes } from "./routes/agents.js";
 import { authRoutes, requireSession } from "./routes/auth.js";
+import { dispatchRoutes } from "./routes/dispatches.js";
 import { eventRoutes } from "./routes/events.js";
 import { githubRoutes } from "./routes/github.js";
 import { importRoutes } from "./routes/import.js";
@@ -45,6 +46,7 @@ export const app = new Hono()
   .route("/v1", githubRoutes)
   .route("/v1", importRoutes)
   .route("/v1", webhookEndpointRoutes)
+  .route("/v1", dispatchRoutes)
   .onError((err, c) => {
     if (err instanceof HttpError) {
       return apiError(c, err.status, err.code, err.message);

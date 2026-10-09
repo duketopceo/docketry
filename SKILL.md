@@ -36,11 +36,14 @@ Claim etiquette — the contract that keeps multi-agent boards sane:
 1. `docketry ready` — pick unassigned (or yours) `todo` work, priority-ordered.
 2. `docketry claim <KEY>` — assign to yourself BEFORE working. A claimed
    issue is a promise: another agent may see it and leave it alone.
-3. `docketry start <KEY>` — flips to `in_progress`. Do the work.
-4. Comment progress on anything non-trivial:
+3. `docketry work` — if you were *dispatched* (assigned/@mentioned), this
+   spawns your harness with full issue context in an isolated worktree and
+   reports the session back automatically. Local runs only.
+4. `docketry start <KEY>` — flips to `in_progress`. Do the work.
+5. Comment progress on anything non-trivial:
    `docketry comment <KEY> "what I found / what I'm doing"`. If you stall or
    get blocked, comment that too — don't hold a claim silently.
-5. `docketry done <KEY>` — walks to `done` through legal transitions. Mark
+6. `docketry done <KEY>` — walks to `done` through legal transitions. Mark
    done only when the work is verifiably complete; `in_review` exists for a
    reason.
 

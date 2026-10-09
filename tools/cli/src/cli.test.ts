@@ -11,6 +11,7 @@ import {
   agents,
   comments,
   cycles,
+  dispatches,
   events,
   issues,
   labels,
@@ -20,6 +21,8 @@ import {
   users,
   userTokens,
   views,
+  webhookDeliveries,
+  webhookEndpoints,
   workspaces,
 } from "../../../apps/api/src/db/schema.js";
 import { run } from "./cli.js";
@@ -130,6 +133,9 @@ async function setState(key: string, state: string): Promise<number> {
 const ALL_TABLES = [
   comments,
   events,
+  webhookDeliveries,
+  webhookEndpoints,
+  dispatches,
   issues,
   labels,
   agentKeys,
@@ -173,7 +179,7 @@ beforeAll(async () => {
     method: "POST",
     body: JSON.stringify({
       name: "cli-bot",
-      harness: "vitest",
+      harness: "claude-code",
       capabilities: ["test"],
     }),
   });
@@ -182,7 +188,7 @@ beforeAll(async () => {
 
   const other = await api(`/v1/workspaces/${SLUG}/agents`, {
     method: "POST",
-    body: JSON.stringify({ name: "other-bot", harness: "vitest" }),
+    body: JSON.stringify({ name: "other-bot", harness: "local" }),
   });
   otherAgentId = other.body.id as string;
 
@@ -441,6 +447,71 @@ describe("docketry cli (in-process api)", () => {
     });
     expect(noWorkspace.code).toBe(2);
     expect(noWorkspace.err[0]).toContain("DOCKETRY_WORKSPACE");
+  });
+
+  it("work --dry-run plans the session; --cmd runs and reports it", async () => {
+    // assigning an issue to the configured agent lands a claimed dispatch
+    const issue = await createIssue("dispatch me");
+    const claim = await cli(["claim", issue.key, "--json"]);
+    expect(claim.code).toBe(0);
+
+    const dry = await cli(["work", "--dry-run"]);
+    expect(dry.code).toBe(0);
+    expect(dry.out[0]).toContain(issue.key);
+    expect(dry.out[0]).toContain(`${issue.key}-dispatch-me`);
+
+    // real run: `true` is a harness that exits 0 — cwd isn't a git repo, so
+    // the session works in place and the report carries no branch
+    const ran = await cli(["work", "--cmd", "true"]);
+    expect(ran.code).toBe(0);
+    expect(ran.out.join("\n")).toContain(`${issue.key} session completed`);
+
+    // dispatch reported → completion comment landed on the issue
+    const shown = await cli(["show", issue.key, "--json"]);
+    const detail = shown.json() as { comments: { body: string }[] };
+    expect(
+      detail.comments.some((c) => c.body.includes("session completed")),
+    ).toBe(true);
+    expect(existsSync(join(tmpCwd, ".docketry-context.md"))).toBe(true);
+  });
+
+  it("work in a git repo isolates the session in a worktree + reports the branch", async () => {
+    const { execFileSync } = await import("node:child_process");
+    const repo = await mkdtemp(join(tmpdir(), "dok-repo-"));
+    const git = (args: string[]) =>
+      execFileSync(
+        "git",
+        ["-c", "user.email=t@t.co", "-c", "user.name=t", ...args],
+        { cwd: repo },
+      );
+    git(["init", "-b", "main"]);
+    git(["commit", "--allow-empty", "-m", "init"]);
+
+    const issue = await createIssue("worktree me");
+    await cli(["claim", issue.key]);
+
+    const ran = await cli(["work", "--cmd", "true"], { cwd: repo });
+    expect(ran.code).toBe(0);
+    const branch = `${issue.key}-worktree-me`;
+    expect(ran.out.join("\n")).toContain(branch);
+
+    // isolated worktree exists on its own branch
+    const worktreeDir = join(repo, ".docketry", issue.key);
+    expect(existsSync(join(worktreeDir, ".docketry-context.md"))).toBe(true);
+    const head = execFileSync("git", ["branch", "--show-current"], {
+      cwd: worktreeDir,
+    })
+      .toString()
+      .trim();
+    expect(head).toBe(branch);
+
+    // completion report links the branch back on the issue
+    const shown = await cli(["show", issue.key, "--json"]);
+    const detail = shown.json() as { comments: { body: string }[] };
+    expect(
+      detail.comments.some((c) => c.body.includes(branch)),
+    ).toBe(true);
+    await rm(repo, { recursive: true, force: true });
   });
 
   it("init writes .docketry config + agent context file", async () => {
