@@ -1,26 +1,44 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
+import { InvalidTransitionError } from "@docketry/types";
 import { runMigrations } from "./db/migrate.js";
 import { config_ } from "./env.js";
 import { checkHealth } from "./health.js";
+import { apiError, HttpError } from "./lib/errors.js";
+import { openApiDoc } from "./openapi.js";
+import { issueRoutes } from "./routes/issues.js";
+import { workspaceRoutes } from "./routes/workspaces.js";
+import { NotFoundError } from "./services/issues.js";
 
-const app = new Hono();
-
-app.get("/health", async (c) => {
-  const report = await checkHealth(config_.databaseUrl, config_.redisUrl);
-  return c.json(report, report.status === "ok" ? 200 : 503);
-});
-
-app.get("/openapi.json", (c) => {
-  return c.json({
-    openapi: "3.1.0",
-    info: { title: "docketry API", version: "0.0.0" },
-    paths: { "/health": { get: { summary: "Liveness + dependency check" } } },
+export const app = new Hono()
+  .get("/health", async (c) => {
+    const report = await checkHealth(config_.databaseUrl, config_.redisUrl);
+    return c.json(report, report.status === "ok" ? 200 : 503);
+  })
+  .get("/openapi.json", (c) => c.json(openApiDoc))
+  .route("/v1", workspaceRoutes)
+  .route("/v1", issueRoutes)
+  .onError((err, c) => {
+    if (err instanceof HttpError) {
+      return apiError(c, err.status, err.code, err.message);
+    }
+    if (err instanceof InvalidTransitionError) {
+      return apiError(c, 409, err.code, err.message);
+    }
+    if (err instanceof NotFoundError) {
+      return apiError(c, 404, err.code, err.message);
+    }
+    if (err instanceof HTTPException) {
+      return apiError(c, err.status, "HTTP_ERROR", err.message);
+    }
+    console.error(err);
+    return apiError(c, 500, "INTERNAL", "internal server error");
   });
-});
 
-await runMigrations();
-
-serve({ fetch: app.fetch, port: config_.port }, (info) => {
-  console.log(`api listening on http://localhost:${info.port}`);
-});
+if (process.env.NODE_ENV !== "test") {
+  await runMigrations();
+  serve({ fetch: app.fetch, port: config_.port }, (info) => {
+    console.log(`api listening on http://localhost:${info.port}`);
+  });
+}

@@ -235,7 +235,7 @@ export const comments = pgTable(
       .notNull()
       .references(() => issues.id, { onDelete: "cascade" }),
     actorType: actorTypeEnum("actor_type").notNull(),
-    actorId: uuid("actor_id").notNull(),
+    actorId: uuid("actor_id"),
     body: text("body").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -247,7 +247,7 @@ export const comments = pgTable(
 export const events = pgTable(
   "events",
   {
-    id: bigserial("id", { mode: "bigint" }).primaryKey(),
+    id: bigserial("id", { mode: "number" }).primaryKey(),
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id),
