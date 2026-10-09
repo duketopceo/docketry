@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { db } from "../db/client.js";
 import { teams, workspaces } from "../db/schema.js";
-import { apiError } from "../lib/errors.js";
+import { apiError, HttpError } from "../lib/errors.js";
 
 const createWorkspaceSchema = z.object({
   slug: z
@@ -85,4 +85,12 @@ export async function findWorkspace(slug: string) {
     .from(workspaces)
     .where(eq(workspaces.slug, slug));
   return ws ?? null;
+}
+
+export async function requireWorkspace(c: {
+  req: { param: (k: string) => string };
+}) {
+  const ws = await findWorkspace(c.req.param("ws"));
+  if (!ws) throw new HttpError(404, "NOT_FOUND", "workspace not found");
+  return ws;
 }

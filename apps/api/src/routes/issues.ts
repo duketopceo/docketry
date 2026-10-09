@@ -20,18 +20,20 @@ import {
 } from "@docketry/types";
 import { db } from "../db/client.js";
 import {
+  agents,
   comments,
   events,
   issueLabels,
   issues,
   labels,
   teams,
+  users,
 } from "../db/schema.js";
 import { actorFromHeaders } from "../lib/actor.js";
 import { apiError, HttpError } from "../lib/errors.js";
 import { decodeCursor, encodeCursor } from "../lib/pagination.js";
 import { createIssue, transitionIssue } from "../services/issues.js";
-import { findWorkspace } from "./workspaces.js";
+import { requireWorkspace } from "./workspaces.js";
 
 const createSchema = z.object({
   teamKey: z.string().min(1).max(6).optional(),
@@ -87,6 +89,28 @@ const commentSchema = z.object({
   body: z.string().min(1).max(50_000),
 });
 
+async function validateAssignee(
+  workspaceId: string,
+  type: "human" | "agent",
+  id: string,
+): Promise<void> {
+  if (type === "agent") {
+    const [a] = await db
+      .select({ id: agents.id })
+      .from(agents)
+      .where(and(eq(agents.id, id), eq(agents.workspaceId, workspaceId)));
+    if (!a)
+      throw new HttpError(422, "INVALID_ASSIGNEE", "agent not in workspace");
+  } else {
+    const [u] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.id, id), eq(users.workspaceId, workspaceId)));
+    if (!u)
+      throw new HttpError(422, "INVALID_ASSIGNEE", "user not in workspace");
+  }
+}
+
 export const issueRoutes = new Hono()
   .post(
     "/workspaces/:ws/issues",
@@ -123,6 +147,9 @@ export const issueRoutes = new Hono()
         creator: actor,
       });
 
+      if (body.assigneeId && body.assigneeType) {
+        await validateAssignee(ws.id, body.assigneeType, body.assigneeId);
+      }
       if (body.labelIds?.length) {
         await setIssueLabels(issue.id, ws.id, body.labelIds);
       }
@@ -272,6 +299,9 @@ export const issueRoutes = new Hono()
       if (body.state !== undefined) {
         await transitionIssue(ws.id, key, body.state as IssueState, actor);
       }
+      if (body.assigneeId && body.assigneeType) {
+        await validateAssignee(ws.id, body.assigneeType, body.assigneeId);
+      }
 
       const fields: Partial<typeof issues.$inferInsert> = {};
       if (body.title !== undefined) fields.title = body.title;
@@ -390,14 +420,6 @@ export const issueRoutes = new Hono()
       .where(eq(labels.workspaceId, ws.id));
     return c.json({ labels: rows });
   });
-
-async function requireWorkspace(c: {
-  req: { param: (k: string) => string };
-}) {
-  const ws = await findWorkspace(c.req.param("ws"));
-  if (!ws) throw new HttpError(404, "NOT_FOUND", "workspace not found");
-  return ws;
-}
 
 async function findIssue(workspaceId: string, key: string) {
   const [issue] = await db
