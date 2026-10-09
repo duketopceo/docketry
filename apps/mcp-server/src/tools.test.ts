@@ -1,0 +1,475 @@
+import { randomBytes } from "node:crypto";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { app } from "../../api/src/index.js";
+import { closeDb, db } from "../../api/src/db/client.js";
+import { runMigrations } from "../../api/src/db/migrate.js";
+import {
+  agentKeys,
+  agents,
+  comments,
+  cycles,
+  events,
+  issueLabels,
+  issues,
+  labels,
+  projects,
+  sessions,
+  teams,
+  users,
+  userTokens,
+  views,
+  workspaces,
+} from "../../api/src/db/schema.js";
+import { hashKey } from "../../api/src/services/agents.js";
+import { hashToken } from "../../api/src/services/tokens.js";
+import { DocketryClient } from "./client.js";
+import { MissingEnvError, loadConfig } from "./env.js";
+import { createMcpServer } from "./server.js";
+import { runTool } from "./tools.js";
+
+vi.hoisted(() => {
+  // keep the api app from binding a port / running migrations on import
+  process.env.NODE_ENV ??= "test";
+});
+
+const SLUG = `mcp-${Date.now()}`;
+
+const WIPE_ORDER = [
+  comments,
+  events,
+  issueLabels,
+  issues,
+  labels,
+  agentKeys,
+  agents,
+  userTokens,
+  views,
+  cycles,
+  projects,
+  sessions,
+  users,
+  teams,
+] as const;
+
+type Json = Record<string, unknown> & { error?: { code: string } };
+
+let wsId = "";
+const teamKey = "MCP";
+let agentId = "";
+let rwClient: DocketryClient;
+let roClient: DocketryClient;
+let patClient: DocketryClient;
+
+function clientFor(token: string): DocketryClient {
+  return new DocketryClient({
+    apiUrl: "http://mcp.test",
+    token,
+    workspace: SLUG,
+    fetchImpl: async (input, init) => app.fetch(new Request(input, init)),
+  });
+}
+
+async function call(
+  name: string,
+  args: Record<string, unknown>,
+  client: DocketryClient = rwClient,
+): Promise<{ res: CallToolResult; data: Json }> {
+  const res = await runTool(name, args, client);
+  const first = res.content[0];
+  const data = (first && first.type === "text"
+    ? JSON.parse(first.text)
+    : {}) as Json;
+  return { res, data };
+}
+
+beforeAll(async () => {
+  await runMigrations();
+  for (const t of WIPE_ORDER) await db.delete(t);
+  await db.delete(workspaces);
+
+  const [ws] = await db
+    .insert(workspaces)
+    .values({ slug: SLUG, name: "MCP Test" })
+    .returning();
+  wsId = ws!.id;
+  await db
+    .insert(teams)
+    .values({ workspaceId: wsId, key: teamKey, name: "MCP Team" });
+
+  const [user] = await db
+    .insert(users)
+    .values({ workspaceId: wsId, email: "mcp@t.co", name: "MCP Human" })
+    .returning();
+  const [agent] = await db
+    .insert(agents)
+    .values({
+      workspaceId: wsId,
+      name: "mcp-agent",
+      harness: "vitest",
+      capabilities: ["code"],
+    })
+    .returning();
+  agentId = agent!.id;
+
+  const rwToken = `dok_agt_${randomBytes(24).toString("base64url")}`;
+  const roToken = `dok_agt_${randomBytes(24).toString("base64url")}`;
+  await db.insert(agentKeys).values([
+    {
+      agentId,
+      workspaceId: wsId,
+      name: "rw",
+      tokenHash: hashKey(rwToken),
+      scopes: ["read", "write"],
+    },
+    {
+      agentId,
+      workspaceId: wsId,
+      name: "ro",
+      tokenHash: hashKey(roToken),
+      scopes: ["read"],
+    },
+  ]);
+  const pat = `dok_pat_${randomBytes(24).toString("base64url")}`;
+  await db.insert(userTokens).values({
+    userId: user!.id,
+    workspaceId: wsId,
+    name: "pat",
+    tokenHash: hashToken(pat),
+    scopes: ["read", "write"],
+  });
+
+  rwClient = clientFor(rwToken);
+  roClient = clientFor(roToken);
+  patClient = clientFor(pat);
+});
+
+afterAll(async () => {
+  for (const t of WIPE_ORDER) await db.delete(t);
+  await db.delete(workspaces);
+  await closeDb();
+});
+
+describe("config", () => {
+  it("fails fast on missing env, defaults API URL", () => {
+    expect(() => loadConfig({})).toThrow(MissingEnvError);
+    try {
+      loadConfig({ DOCKETRY_TOKEN: "dok_agt_x" });
+    } catch (e) {
+      expect((e as MissingEnvError).missing).toEqual(["DOCKETRY_WORKSPACE"]);
+    }
+    const cfg = loadConfig({
+      DOCKETRY_TOKEN: "dok_agt_x",
+      DOCKETRY_WORKSPACE: "acme",
+    });
+    expect(cfg.apiUrl).toBe("http://localhost:4000");
+    expect(cfg.workspace).toBe("acme");
+  });
+});
+
+describe("tool surface over the real API", () => {
+  it("whoami resolves the agent key to its agent identity + scopes", async () => {
+    const { data } = await call("whoami", {});
+    expect(data.type).toBe("agent");
+    expect(data.id).toBe(agentId);
+    expect(data.name).toBe("mcp-agent");
+    expect(data.scopes).toContain("write");
+    expect(data.workspaceSlug).toBe(SLUG);
+
+    const pat = await call("whoami", {}, patClient);
+    expect(pat.data.type).toBe("human");
+    expect(pat.data.name).toBe("MCP Human");
+  });
+
+  it("create_issue → list_issues → get_issue roundtrip", async () => {
+    const created = await call("create_issue", {
+      title: "Wire MCP tools",
+      priority: "high",
+      description: "end to end",
+    });
+    expect(created.res.isError).toBeFalsy();
+    expect(created.data.key).toBe(`${teamKey}-1`);
+    expect(created.data.state).toBe("backlog");
+
+    const listed = await call("list_issues", {});
+    const keys = (listed.data.issues as { key: string }[]).map((i) => i.key);
+    expect(keys).toContain(`${teamKey}-1`);
+
+    const filtered = await call("list_issues", { state: ["triage"] });
+    expect(
+      (filtered.data.issues as { state: string }[]).every(
+        (i) => i.state === "triage",
+      ),
+    ).toBe(true);
+
+    const got = await call("get_issue", {
+      key: `${teamKey}-1`,
+      includeComments: true,
+    });
+    expect(got.data.title).toBe("Wire MCP tools");
+    expect(got.data.description).toBe("end to end");
+    expect(got.data.comments).toEqual([]);
+  });
+
+  it("update_issue mutates fields and enforces the state machine", async () => {
+    const ok = await call("update_issue", {
+      key: `${teamKey}-1`,
+      priority: "urgent",
+      state: "todo",
+    });
+    expect(ok.res.isError).toBeFalsy();
+    expect(ok.data.state).toBe("todo");
+    expect(ok.data.priority).toBe("urgent");
+
+    const illegal = await call("update_issue", {
+      key: `${teamKey}-1`,
+      state: "done",
+    });
+    expect(illegal.res.isError).toBe(true);
+    expect(illegal.data.error!.code).toBe("INVALID_TRANSITION");
+  });
+
+  it("triage_issue accepts and declines, rejects non-triage issues", async () => {
+    const t = await call("create_issue", {
+      title: "triage me",
+      state: "triage",
+    });
+    const tKey = t.data.key as string;
+    const accepted = await call("triage_issue", { key: tKey, action: "accept" });
+    expect(accepted.data.state).toBe("backlog");
+
+    const again = await call("triage_issue", { key: tKey, action: "accept" });
+    expect(again.res.isError).toBe(true);
+    expect(again.data.error!.code).toBe("NOT_IN_TRIAGE");
+  });
+
+  it("claim assigns the caller and walks backlog→todo→in_progress", async () => {
+    const created = await call("create_issue", { title: "claim me" });
+    const res = await call("claim", { key: created.data.key });
+    expect(res.res.isError).toBeFalsy();
+    expect(res.data.state).toBe("in_progress");
+    expect(res.data.assigneeType).toBe("agent");
+    expect(res.data.assigneeId).toBe(agentId);
+
+    const detail = await call("get_issue", { key: created.data.key });
+    expect(detail.data.assigneeId).toBe(agentId);
+    expect(detail.data.state).toBe("in_progress");
+  });
+
+  it("claim on a triage issue fails with guidance", async () => {
+    const created = await call("create_issue", {
+      title: "still triage",
+      state: "triage",
+    });
+    const res = await call("claim", { key: created.data.key });
+    expect(res.res.isError).toBe(true);
+    expect(res.data.error!.code).toBe("INVALID_STATE");
+    expect(JSON.stringify(res.data)).toContain("triage_issue");
+  });
+
+  it("comment posts as the agent identity and shows in get_issue", async () => {
+    const c = await call("comment", {
+      key: `${teamKey}-1`,
+      body: "picked this up",
+    });
+    expect(c.res.isError).toBeFalsy();
+    expect(c.data.actorType).toBe("agent");
+    expect(c.data.actorId).toBe(agentId);
+
+    const got = await call("get_issue", {
+      key: `${teamKey}-1`,
+      includeComments: true,
+    });
+    const bodies = (got.data.comments as { body: string }[]).map((x) => x.body);
+    expect(bodies).toContain("picked this up");
+  });
+
+  it("ready returns todo issues ordered by priority", async () => {
+    await call("create_issue", { title: "low todo", priority: "low" });
+    await call("create_issue", { title: "urgent todo", priority: "urgent" });
+    // move both to todo (backlog→todo is a legal transition); assign the
+    // low-priority one to this agent so `mine` has something to find
+    const l = await call("list_issues", { search: "low todo" });
+    const u = await call("list_issues", { search: "urgent todo" });
+    const lowKey = (l.data.issues as { key: string }[])[0]!.key;
+    const urgentKey = (u.data.issues as { key: string }[])[0]!.key;
+    await call("update_issue", {
+      key: lowKey,
+      state: "todo",
+      assigneeType: "agent",
+      assigneeId: agentId,
+    });
+    await call("update_issue", { key: urgentKey, state: "todo" });
+
+    const res = await call("ready", {});
+    const priorities = (res.data.issues as { priority: string }[]).map(
+      (i) => i.priority,
+    );
+    expect(
+      (res.data.issues as { state: string }[]).every(
+        (i) => i.state === "todo",
+      ),
+    ).toBe(true);
+    expect(priorities.indexOf("urgent")).toBeLessThan(
+      priorities.lastIndexOf("low"),
+    );
+
+    const mine = await call("ready", { mine: true });
+    const mineKeys = (mine.data.issues as { key: string }[]).map(
+      (i) => i.key,
+    );
+    expect(mineKeys).toEqual([lowKey]);
+  });
+
+  it("lists agents, teams, labels, projects, cycles, and the event feed", async () => {
+    await db.insert(labels).values({
+      workspaceId: wsId,
+      name: "mcp-label",
+      color: "#3ea1f7",
+    });
+    await db.insert(projects).values({
+      workspaceId: wsId,
+      name: "Agent surface",
+      status: "started",
+    });
+    await db.insert(cycles).values({
+      workspaceId: wsId,
+      teamId: (
+        await db.query.teams.findFirst({
+          where: (t, { eq }) => eq(t.workspaceId, wsId),
+        })
+      )!.id,
+      number: 1,
+      startsAt: new Date(Date.now() - 86_400_000),
+      endsAt: new Date(Date.now() + 86_400_000),
+    });
+
+    const agentsRes = await call("list_agents", {});
+    expect(
+      (agentsRes.data.agents as { name: string }[]).map((a) => a.name),
+    ).toContain("mcp-agent");
+
+    const teamsRes = await call("list_teams", {});
+    expect(
+      (teamsRes.data.teams as { key: string }[]).map((t) => t.key),
+    ).toContain(teamKey);
+
+    const labelsRes = await call("list_labels", {});
+    expect(
+      (labelsRes.data.labels as { name: string }[]).map((l) => l.name),
+    ).toContain("mcp-label");
+
+    const projectsRes = await call("list_projects", {});
+    expect(
+      (projectsRes.data.projects as { name: string }[]).map((p) => p.name),
+    ).toContain("Agent surface");
+
+    const cyclesRes = await call("list_cycles", { active: true });
+    expect(cyclesRes.data.cycles).toHaveLength(1);
+    expect((cyclesRes.data.cycles as { number: number }[])[0]!.number).toBe(1);
+
+    const feed = await call("list_events", { limit: 50 });
+    const actions = (feed.data.events as { action: string }[]).map(
+      (e) => e.action,
+    );
+    expect(actions).toContain("created");
+    expect(actions).toContain("state_changed");
+    expect(
+      (feed.data.events as { actorName: string | null }[]).some(
+        (e) => e.actorName === "mcp-agent",
+      ),
+    ).toBe(true);
+  });
+
+  it("surfaces API errors as tool errors — 404, 401, and FORBIDDEN_SCOPE", async () => {
+    const missing = await call("get_issue", { key: "NOPE-999" });
+    expect(missing.res.isError).toBe(true);
+    expect(missing.data.error!.code).toBe("NOT_FOUND");
+
+    const badAuth = await call(
+      "list_issues",
+      {},
+      clientFor("dok_agt_bogus"),
+    );
+    expect(badAuth.res.isError).toBe(true);
+    expect(badAuth.data.error!.code).toBe("UNAUTHENTICATED");
+
+    // read-scoped agent key: reads pass, mutations surface 403
+    const readOk = await call("list_issues", {}, roClient);
+    expect(readOk.res.isError).toBeFalsy();
+
+    const denied = await call(
+      "create_issue",
+      { title: "ro write attempt" },
+      roClient,
+    );
+    expect(denied.res.isError).toBe(true);
+    expect(denied.data.error!.code).toBe("FORBIDDEN_SCOPE");
+    expect(JSON.stringify(denied.data)).toContain("write");
+
+    const deniedComment = await call(
+      "comment",
+      { key: `${teamKey}-1`, body: "nope" },
+      roClient,
+    );
+    expect(deniedComment.res.isError).toBe(true);
+    expect(deniedComment.data.error!.code).toBe("FORBIDDEN_SCOPE");
+  });
+});
+
+describe("MCP protocol end-to-end (InMemoryTransport)", () => {
+  it("lists tools and calls list_issues through a real MCP client", async () => {
+    const server = createMcpServer(rwClient);
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await server.connect(serverTransport);
+    const mcp = new Client({ name: "vitest", version: "0.0.0" });
+    await mcp.connect(clientTransport);
+
+    const listed = await mcp.listTools();
+    const names = listed.tools.map((t) => t.name);
+    for (const t of [
+      "list_issues",
+      "get_issue",
+      "create_issue",
+      "update_issue",
+      "triage_issue",
+      "comment",
+      "claim",
+      "ready",
+      "list_agents",
+      "list_projects",
+      "list_cycles",
+      "list_teams",
+      "list_labels",
+      "list_events",
+      "whoami",
+    ]) {
+      expect(names).toContain(t);
+    }
+
+    const res = await mcp.callTool({
+      name: "list_issues",
+      arguments: { limit: 5 },
+    });
+    const content = res.content as { type: string; text: string }[];
+    const parsed = JSON.parse(content[0]!.text) as {
+      issues: { key: string }[];
+    };
+    expect(parsed.issues.length).toBeGreaterThan(0);
+
+    // error path over the wire: unknown key → isError + API code
+    const err = await mcp.callTool({
+      name: "get_issue",
+      arguments: { key: "NOPE-999" },
+    });
+    expect(err.isError).toBe(true);
+    const errContent = err.content as { type: string; text: string }[];
+    expect(JSON.parse(errContent[0]!.text).error.code).toBe("NOT_FOUND");
+
+    await mcp.close();
+    await server.close();
+  });
+});

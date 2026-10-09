@@ -298,6 +298,19 @@ export const openApiDoc = {
         },
       },
     },
+    "/v1/whoami": {
+      get: {
+        summary:
+          "Credential introspection — resolves the bearer credential to {type, id, name, scopes, workspaceId, workspaceSlug}",
+        responses: {
+          "200": {
+            description:
+              "type: 'agent' for dok_agt_* keys, 'human' for sessions/PATs/JWTs",
+          },
+          "401": { description: "Unauthenticated" },
+        },
+      },
+    },
     "/v1/workspaces/{ws}/tokens": {
       get: {
         summary: "List your personal access tokens (human session only)",
