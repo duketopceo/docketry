@@ -35,3 +35,6 @@ coverage/
 
 # docketry local state
 .docketry/
+
+# Local compose overrides (port remaps for sibling worktrees, etc.)
+docker-compose.override.yml

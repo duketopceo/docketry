@@ -22,6 +22,7 @@ import { db } from "../db/client.js";
 import {
   agents,
   comments,
+  cycles,
   dispatches,
   events,
   issueLabels,
@@ -130,6 +131,29 @@ async function validateAssignee(
   }
 }
 
+// A cycle assignment is only meaningful inside the issue's own team —
+// cross-team or foreign-workspace cycle ids are rejected, not silently kept.
+async function validateCycle(
+  workspaceId: string,
+  teamId: string,
+  cycleId: string,
+): Promise<void> {
+  const [cycle] = await db
+    .select({ teamId: cycles.teamId })
+    .from(cycles)
+    .where(and(eq(cycles.id, cycleId), eq(cycles.workspaceId, workspaceId)));
+  if (!cycle) {
+    throw new HttpError(422, "INVALID_CYCLE", "cycle not in workspace");
+  }
+  if (cycle.teamId !== teamId) {
+    throw new HttpError(
+      422,
+      "INVALID_CYCLE",
+      "cycle belongs to a different team",
+    );
+  }
+}
+
 export const issueRoutes = new Hono()
   .post(
     "/workspaces/:ws/issues",
@@ -154,6 +178,7 @@ export const issueRoutes = new Hono()
             .orderBy(teams.createdAt)
             .limit(1);
       if (!team) throw new HttpError(404, "NOT_FOUND", "team not found");
+      if (body.cycleId) await validateCycle(ws.id, team.id, body.cycleId);
 
       const issue = await createIssue({
         workspaceId: ws.id,
@@ -316,11 +341,17 @@ export const issueRoutes = new Hono()
       const body = c.req.valid("json");
       const actor = actorFromHeaders(c);
 
-      if (body.state !== undefined) {
-        await transitionIssue(ws.id, key, body.state as IssueState, actor);
-      }
+      // Validate mutations before committing any of them — a 422 must not
+      // leave a half-applied patch (e.g. state moved, cycle rejected).
       if (body.assigneeId && body.assigneeType) {
         await validateAssignee(ws.id, body.assigneeType, body.assigneeId);
+      }
+      if (body.cycleId) {
+        const issue = await findIssue(ws.id, key);
+        await validateCycle(ws.id, issue.teamId, body.cycleId);
+      }
+      if (body.state !== undefined) {
+        await transitionIssue(ws.id, key, body.state as IssueState, actor);
       }
 
       const fields: Partial<typeof issues.$inferInsert> = {};

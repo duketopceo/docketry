@@ -25,6 +25,13 @@ const createTeamSchema = z.object({
   rolloverBehavior: z.enum(["next_cycle", "backlog"]).default("next_cycle"),
 });
 
+const patchTeamSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  rolloverBehavior: z.enum(["next_cycle", "backlog"]).optional(),
+}).refine((v) => Object.values(v).some((x) => x !== undefined), {
+  message: "patch body must set at least one field",
+});
+
 export const workspaceRoutes = new Hono()
   .post("/workspaces", zValidator("json", createWorkspaceSchema), async (c) => {
     const body = c.req.valid("json");
@@ -39,16 +46,14 @@ export const workspaceRoutes = new Hono()
     return c.json(ws, 201);
   })
   .get("/workspaces/:ws", async (c) => {
-    const ws = await findWorkspace(c.req.param("ws"));
-    if (!ws) return apiError(c, 404, "NOT_FOUND", "workspace not found");
+    const ws = await requireWorkspace(c);
     return c.json(ws);
   })
   .post(
     "/workspaces/:ws/teams",
     zValidator("json", createTeamSchema),
     async (c) => {
-      const ws = await findWorkspace(c.req.param("ws"));
-      if (!ws) return apiError(c, 404, "NOT_FOUND", "workspace not found");
+      const ws = await requireWorkspace(c);
       const body = c.req.valid("json");
       const [existing] = await db
         .select({ id: teams.id })
@@ -70,14 +75,38 @@ export const workspaceRoutes = new Hono()
     },
   )
   .get("/workspaces/:ws/teams", async (c) => {
-    const ws = await findWorkspace(c.req.param("ws"));
-    if (!ws) return apiError(c, 404, "NOT_FOUND", "workspace not found");
+    const ws = await requireWorkspace(c);
     const rows = await db
       .select()
       .from(teams)
       .where(eq(teams.workspaceId, ws.id));
     return c.json({ teams: rows });
-  });
+  })
+  .patch(
+    "/workspaces/:ws/teams/:id",
+    zValidator("json", patchTeamSchema),
+    async (c) => {
+      const ws = await requireWorkspace(c);
+      const body = c.req.valid("json");
+      const [team] = await db
+        .update(teams)
+        .set({
+          ...(body.name !== undefined ? { name: body.name } : {}),
+          ...(body.rolloverBehavior !== undefined
+            ? { rolloverBehavior: body.rolloverBehavior }
+            : {}),
+        })
+        .where(
+          and(
+            eq(teams.id, c.req.param("id")),
+            eq(teams.workspaceId, ws.id),
+          ),
+        )
+        .returning();
+      if (!team) return apiError(c, 404, "NOT_FOUND", "team not found");
+      return c.json(team);
+    },
+  );
 
 export async function findWorkspace(slug: string) {
   const [ws] = await db

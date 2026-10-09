@@ -1,9 +1,18 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, asc, desc, eq, gt, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, ne, notInArray, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
+import { TERMINAL_STATES } from "@docketry/types";
 import { db } from "../db/client.js";
-import { cycles, projects, teams, views } from "../db/schema.js";
+import {
+  cycles,
+  events,
+  issues,
+  projects,
+  teams,
+  views,
+} from "../db/schema.js";
+import { actorFromHeaders } from "../lib/actor.js";
 import { apiError, HttpError } from "../lib/errors.js";
 import { requireWorkspace } from "./workspaces.js";
 
@@ -29,17 +38,23 @@ const projectPatchSchema = z.object({
   status: z.enum(PROJECT_STATUSES).optional(),
 });
 
-const cycleCreateSchema = z.object({
-  teamKey: z.string().min(1).max(6),
-  name: z.string().max(120).optional(),
-  startsAt: z.iso.datetime(),
-  endsAt: z.iso.datetime(),
-});
+const cycleCreateSchema = z
+  .object({
+    teamKey: z.string().min(1).max(6),
+    name: z.string().max(120).optional(),
+    startsAt: z.iso.datetime(),
+    endsAt: z.iso.datetime(),
+    isActive: z.boolean().default(false),
+  })
+  .refine((v) => new Date(v.endsAt) > new Date(v.startsAt), {
+    message: "endsAt must be after startsAt",
+  });
 
 const cyclePatchSchema = z.object({
   name: z.string().max(120).nullable().optional(),
   startsAt: z.iso.datetime().optional(),
   endsAt: z.iso.datetime().optional(),
+  isActive: z.boolean().optional(),
 });
 
 const cycleQuerySchema = z.object({
@@ -96,6 +111,44 @@ async function teamForKey(workspaceId: string, key: string) {
     .where(and(eq(teams.workspaceId, workspaceId), eq(teams.key, key)));
   if (!team) throw new HttpError(404, "NOT_FOUND", `team ${key} not found`);
   return team;
+}
+
+type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+// One active cycle per team: before flagging a cycle active, clear the flag
+// on every other cycle of the same team. Runs inside the caller's tx so the
+// partial unique index never sees two active rows.
+async function deactivateOtherCycles(
+  tx: DbTx,
+  teamId: string,
+  keepId?: string,
+) {
+  const cond = [eq(cycles.teamId, teamId), eq(cycles.isActive, true)];
+  if (keepId) cond.push(ne(cycles.id, keepId));
+  await tx.update(cycles).set({ isActive: false }).where(and(...cond));
+}
+
+// Concurrent activations of the same team's cycles can both pass
+// deactivateOtherCycles under READ COMMITTED; the loser then trips
+// cycles_one_active_per_team. Surface that as a conflict, not a 500.
+async function withActiveRaceConflict<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (
+      e instanceof Error &&
+      "code" in e &&
+      (e as { code?: string }).code === "23505" &&
+      e.message.includes("cycles_one_active_per_team")
+    ) {
+      throw new HttpError(
+        409,
+        "ACTIVE_CYCLE_CONFLICT",
+        "another cycle was activated concurrently — retry",
+      );
+    }
+    throw e;
+  }
 }
 
 export const resourceRoutes = new Hono()
@@ -167,11 +220,13 @@ export const resourceRoutes = new Hono()
       const ws = await requireWorkspace(c);
       const q = c.req.valid("query");
       const filters = [eq(cycles.workspaceId, ws.id)];
-      if (q.team) filters.push(eq(cycles.teamId, (await teamForKey(ws.id, q.team)).id));
-      if (q.active) {
-        const now = new Date();
-        filters.push(lte(cycles.startsAt, now), gt(cycles.endsAt, now));
-      }
+      if (q.team)
+        filters.push(
+          eq(cycles.teamId, (await teamForKey(ws.id, q.team)).id),
+        );
+      // `active` is the team's flagged current cycle, not a date-window
+      // probe — the flag is what the Cycle view and rollover act on.
+      if (q.active) filters.push(eq(cycles.isActive, true));
       const rows = await db
         .select()
         .from(cycles)
@@ -187,27 +242,38 @@ export const resourceRoutes = new Hono()
       const ws = await requireWorkspace(c);
       const body = c.req.valid("json");
       const team = await teamForKey(ws.id, body.teamKey);
-      const [latest] = await db
-        .select({ number: cycles.number })
-        .from(cycles)
-        .where(eq(cycles.teamId, team.id))
-        .orderBy(desc(cycles.number))
-        .limit(1);
-      const number = (latest?.number ?? 0) + 1;
-      const [cycle] = await db
-        .insert(cycles)
-        .values({
-          workspaceId: ws.id,
-          teamId: team.id,
-          number,
-          ...(body.name !== undefined ? { name: body.name } : {}),
-          startsAt: new Date(body.startsAt),
-          endsAt: new Date(body.endsAt),
-        })
-        .returning();
+      const cycle = await withActiveRaceConflict(() =>
+        db.transaction(async (tx) => {
+        if (body.isActive) await deactivateOtherCycles(tx, team.id);
+        const [latest] = await tx
+          .select({ number: cycles.number })
+          .from(cycles)
+          .where(eq(cycles.teamId, team.id))
+          .orderBy(desc(cycles.number))
+          .limit(1);
+        const number = (latest?.number ?? 0) + 1;
+        const [created] = await tx
+          .insert(cycles)
+          .values({
+            workspaceId: ws.id,
+            teamId: team.id,
+            number,
+            ...(body.name !== undefined ? { name: body.name } : {}),
+            startsAt: new Date(body.startsAt),
+            endsAt: new Date(body.endsAt),
+            isActive: body.isActive,
+          })
+          .returning();
+        return created!;
+        }),
+      );
       return c.json(cycle, 201);
     },
   )
+  .get("/workspaces/:ws/cycles/:id", async (c) => {
+    const ws = await requireWorkspace(c);
+    return c.json(await findCycle(ws.id, c.req.param("id")));
+  })
   .patch(
     "/workspaces/:ws/cycles/:id",
     zValidator("json", cyclePatchSchema),
@@ -215,22 +281,165 @@ export const resourceRoutes = new Hono()
       const ws = await requireWorkspace(c);
       const cycle = await findCycle(ws.id, c.req.param("id"));
       const body = c.req.valid("json");
-      const [updated] = await db
-        .update(cycles)
-        .set({
-          ...(body.name !== undefined ? { name: body.name } : {}),
-          ...(body.startsAt !== undefined
-            ? { startsAt: new Date(body.startsAt) }
-            : {}),
-          ...(body.endsAt !== undefined
-            ? { endsAt: new Date(body.endsAt) }
-            : {}),
-        })
-        .where(eq(cycles.id, cycle.id))
-        .returning();
+      const startsAt =
+        body.startsAt !== undefined
+          ? new Date(body.startsAt)
+          : cycle.startsAt;
+      const endsAt =
+        body.endsAt !== undefined ? new Date(body.endsAt) : cycle.endsAt;
+      if (endsAt <= startsAt) {
+        throw new HttpError(
+          422,
+          "INVALID_WINDOW",
+          "endsAt must be after startsAt",
+        );
+      }
+      const updated = await withActiveRaceConflict(() =>
+        db.transaction(async (tx) => {
+        // activating a cycle demotes the team's previous active one — the
+        // partial unique index backstops this if the ordering is ever lost
+        if (body.isActive === true) {
+          await deactivateOtherCycles(tx, cycle.teamId, cycle.id);
+        }
+        const [row] = await tx
+          .update(cycles)
+          .set({
+            ...(body.name !== undefined ? { name: body.name } : {}),
+            ...(body.startsAt !== undefined ? { startsAt } : {}),
+            ...(body.endsAt !== undefined ? { endsAt } : {}),
+            ...(body.isActive !== undefined
+              ? { isActive: body.isActive }
+              : {}),
+          })
+          .where(eq(cycles.id, cycle.id))
+          .returning();
+        return row!;
+        }),
+      );
       return c.json(updated);
     },
   )
+  .post("/workspaces/:ws/cycles/:id/complete", async (c) => {
+    const ws = await requireWorkspace(c);
+    const actor = actorFromHeaders(c);
+    const cycle = await findCycle(ws.id, c.req.param("id"));
+    const [team] = await db
+      .select()
+      .from(teams)
+      .where(and(eq(teams.id, cycle.teamId), eq(teams.workspaceId, ws.id)));
+    if (!team) throw new HttpError(404, "NOT_FOUND", "team not found");
+    // idempotent: a completed cycle already has its feed event — retries
+    // (double-click, client retry) must not append duplicates
+    const [done] = await db
+      .select({ id: events.id })
+      .from(events)
+      .where(
+        and(
+          eq(events.entityType, "cycle"),
+          eq(events.entityId, cycle.id),
+          eq(events.action, "completed"),
+        ),
+      )
+      .limit(1);
+    if (done) {
+      throw new HttpError(409, "ALREADY_COMPLETED", "cycle already completed");
+    }
+
+    const result = await db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(cycles)
+        .set({ isActive: false })
+        .where(eq(cycles.id, cycle.id))
+        .returning();
+
+      const open = await tx
+        .select({ id: issues.id })
+        .from(issues)
+        .where(
+          and(
+            eq(issues.workspaceId, ws.id),
+            eq(issues.cycleId, cycle.id),
+            notInArray(issues.state, [...TERMINAL_STATES]),
+          ),
+        );
+
+      // "next cycle" is strictly the team's next cycle by start time —
+      // completing early still lands issues in the following window.
+      const [next] = await tx
+        .select({ id: cycles.id })
+        .from(cycles)
+        .where(
+          and(
+            eq(cycles.workspaceId, ws.id),
+            eq(cycles.teamId, team.id),
+            gt(cycles.startsAt, cycle.startsAt),
+            ne(cycles.id, cycle.id),
+          ),
+        )
+        .orderBy(asc(cycles.startsAt))
+        .limit(1);
+
+      const destination =
+        team.rolloverBehavior === "next_cycle"
+          ? next
+            ? "next_cycle"
+            : "unscheduled"
+          : "backlog";
+
+      if (open.length > 0) {
+        const ids = open.map((i) => i.id);
+        if (destination === "next_cycle") {
+          await tx
+            .update(issues)
+            .set({ cycleId: next!.id, updatedAt: new Date() })
+            .where(inArray(issues.id, ids));
+        } else {
+          await tx
+            .update(issues)
+            .set({
+              cycleId: null,
+              updatedAt: new Date(),
+              // "backlog" rollover literally returns work to the backlog;
+              // "unscheduled" just drops the cycle pointer
+              ...(destination === "backlog"
+                ? { state: "backlog" as const }
+                : {}),
+            })
+            .where(inArray(issues.id, ids));
+        }
+      }
+
+      await tx.insert(events).values({
+        workspaceId: ws.id,
+        entityType: "cycle",
+        entityId: cycle.id,
+        action: "completed",
+        actorType: actor.type,
+        actorId: actor.id,
+        after: {
+          number: cycle.number,
+          movedIssues: open.length,
+          destination,
+        },
+      });
+
+      return { cycle: updated!, movedIssues: open.length, destination };
+    });
+    return c.json(result);
+  })
+  .delete("/workspaces/:ws/cycles/:id", async (c) => {
+    const ws = await requireWorkspace(c);
+    const cycle = await findCycle(ws.id, c.req.param("id"));
+    await db.transaction(async (tx) => {
+      // issues.cycle_id has no ON DELETE rule — unassign before delete
+      await tx
+        .update(issues)
+        .set({ cycleId: null, updatedAt: new Date() })
+        .where(eq(issues.cycleId, cycle.id));
+      await tx.delete(cycles).where(eq(cycles.id, cycle.id));
+    });
+    return c.json({ ok: true });
+  })
   // ── Views (saved filters) ────────────────────────────────
   .get("/workspaces/:ws/views", async (c) => {
     const ws = await requireWorkspace(c);

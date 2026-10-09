@@ -344,6 +344,7 @@ describe("tool surface over the real API", () => {
       number: 1,
       startsAt: new Date(Date.now() - 86_400_000),
       endsAt: new Date(Date.now() + 86_400_000),
+      isActive: true,
     });
 
     const agentsRes = await call("list_agents", {});
