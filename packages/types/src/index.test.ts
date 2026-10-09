@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   ACTIVE_STATES,
+  canTransition,
   ISSUE_KEY_PATTERN,
   ISSUE_STATES,
+  legalTransitions,
   TERMINAL_STATES,
 } from "./index.js";
 
@@ -23,6 +25,36 @@ describe("issue states", () => {
       expect(order(ACTIVE_STATES[i]!)).toBeGreaterThan(
         order(ACTIVE_STATES[i - 1]!),
       );
+    }
+  });
+});
+
+describe("state machine", () => {
+  it.each([
+    ["triage", "backlog"],
+    ["backlog", "todo"],
+    ["todo", "in_progress"],
+    ["in_progress", "in_review"],
+    ["in_review", "done"],
+    ["in_review", "in_progress"],
+    ["in_progress", "backlog"],
+  ] as const)("allows %s -> %s", (from, to) => {
+    expect(canTransition(from, to)).toBe(true);
+  });
+
+  it.each([
+    ["triage", "done"],
+    ["backlog", "in_progress"],
+    ["done", "todo"],
+    ["canceled", "backlog"],
+    ["in_review", "todo"],
+  ] as const)("rejects %s -> %s", (from, to) => {
+    expect(canTransition(from, to)).toBe(false);
+  });
+
+  it("duplicate is reachable from every active state", () => {
+    for (const state of ACTIVE_STATES) {
+      expect(legalTransitions(state)).toContain("duplicate");
     }
   });
 });

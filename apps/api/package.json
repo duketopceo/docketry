@@ -12,14 +12,17 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@docketry/types": "workspace:*",
     "@hono/node-server": "^2.1.4",
     "dotenv": "^18.0.6",
+    "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",
     "ioredis": "^6.0.0",
     "pg": "^8.23.1"
   },
   "devDependencies": {
     "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
     "tsx": "^4.23.15"
   }
 }
