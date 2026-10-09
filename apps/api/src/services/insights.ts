@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { cycleVelocity, cycles, events, teams } from "../db/schema.js";
 
@@ -42,6 +42,10 @@ function weekStart(d: Date): string {
 }
 
 const DAY = 86_400_000;
+// Weekly series cover a rolling window; the append-only log is still the
+// source of truth, but dashboard requests must not materialize all of it —
+// pre-window burnup baselines come from cheap DB counts over the same log.
+const WINDOW_WEEKS = 26;
 
 function pct(sorted: number[], p: number): number {
   if (sorted.length === 0) return 0;
@@ -50,24 +54,51 @@ function pct(sorted: number[], p: number): number {
 }
 
 export async function computeInsights(workspaceId: string): Promise<Insights> {
-  const evts = await db
-    .select({
-      entityId: events.entityId,
-      action: events.action,
-      actorType: events.actorType,
-      before: events.before,
-      after: events.after,
-      createdAt: events.createdAt,
-    })
-    .from(events)
-    .where(
-      and(
-        eq(events.workspaceId, workspaceId),
-        eq(events.entityType, "issue"),
-        inArray(events.action, ["created", "state_changed"]),
+  const windowStart = new Date(Date.now() - WINDOW_WEEKS * 7 * DAY);
+  const scope = [
+    eq(events.workspaceId, workspaceId),
+    eq(events.entityType, "issue"),
+  ];
+
+  const [[createdBefore], [doneBefore], evts] = await Promise.all([
+    db
+      .select({ n: count() })
+      .from(events)
+      .where(
+        and(...scope, eq(events.action, "created"), lt(events.createdAt, windowStart)),
       ),
-    )
-    .orderBy(asc(events.createdAt));
+    // `done` is terminal — each issue reaches it at most once, so row count
+    // is the distinct-issue count
+    db
+      .select({ n: count() })
+      .from(events)
+      .where(
+        and(
+          ...scope,
+          eq(events.action, "state_changed"),
+          lt(events.createdAt, windowStart),
+          sql`${events.after}->>'state' = 'done'`,
+        ),
+      ),
+    db
+      .select({
+        entityId: events.entityId,
+        action: events.action,
+        actorType: events.actorType,
+        before: events.before,
+        after: events.after,
+        createdAt: events.createdAt,
+      })
+      .from(events)
+      .where(
+        and(
+          ...scope,
+          inArray(events.action, ["created", "state_changed"]),
+          gte(events.createdAt, windowStart),
+        ),
+      )
+      .orderBy(asc(events.createdAt)),
+  ]);
 
   const weeks = new Set<string>();
   const byIssue = new Map<string, EventRow[]>();
@@ -127,8 +158,10 @@ export async function computeInsights(workspaceId: string): Promise<Insights> {
     }
   }
   const sortedWeeks = [...weeks].sort();
-  let runningTotal = 0;
-  let runningDone = 0;
+  // burnup starts from the pre-window baseline so the cumulative line stays
+  // all-time correct without scanning history
+  let runningTotal = createdBefore?.n ?? 0;
+  let runningDone = doneBefore?.n ?? 0;
   const burnup = sortedWeeks.map((w) => {
     runningTotal += createdPerWeek.get(w) ?? 0;
     runningDone += donePerWeek.get(w) ?? 0;

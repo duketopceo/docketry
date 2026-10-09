@@ -57,22 +57,29 @@ const ALL_TABLES = [
   teams,
 ] as const;
 
-async function req(
+interface InsightsBody {
+  cycleTime: { completed: number; avgDays: number; weekly: unknown[] };
+  burnup: { total: number; done: number }[];
+  velocity: { team: string; cycle: string }[];
+  throughput: { human: number; agent: number }[];
+}
+
+async function req<T = Record<string, unknown>>(
   path: string,
   init?: RequestInit,
   token?: string,
-): Promise<{ status: number; body: Record<string, never> | any }> {
+): Promise<{ status: number; body: T }> {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (token !== undefined) headers.authorization = `Bearer ${token}`;
   else headers.cookie = cookie;
   const res = await app.fetch(new Request(`http://t${path}`, { ...init, headers }));
   const sc = res.headers.get("set-cookie");
   if (sc?.startsWith("dok_session=")) cookie = sc.split(";")[0]!;
-  return { status: res.status, body: await res.json() };
+  return { status: res.status, body: (await res.json()) as T };
 }
 
 async function createIssue(title: string): Promise<string> {
-  const res = await req(`/v1/workspaces/${SLUG}/issues`, {
+  const res = await req<{ key: string }>(`/v1/workspaces/${SLUG}/issues`, {
     method: "POST",
     body: JSON.stringify({ title }),
   });
@@ -107,11 +114,11 @@ beforeAll(async () => {
       password: "pw-long-enough",
     }),
   });
-  const agent = await req(`/v1/workspaces/${SLUG}/agents`, {
+  const agent = await req<{ id: string }>(`/v1/workspaces/${SLUG}/agents`, {
     method: "POST",
     body: JSON.stringify({ name: "ins-agent", harness: "vitest" }),
   });
-  const key = await req(`/v1/workspaces/${SLUG}/agents/${agent.body.id}/keys`, {
+  const key = await req<{ key: string }>(`/v1/workspaces/${SLUG}/agents/${agent.body.id}/keys`, {
     method: "POST",
     body: JSON.stringify({ name: "k1", scopes: ["read", "write"] }),
   });
@@ -137,7 +144,7 @@ describe("GET /v1/:ws/insights", () => {
       body: JSON.stringify({ state: "backlog" }),
     });
 
-    const res = await req(`/v1/workspaces/${SLUG}/insights`);
+    const res = await req<InsightsBody>(`/v1/workspaces/${SLUG}/insights`);
     expect(res.status).toBe(200);
     const ins = res.body;
 
@@ -145,17 +152,17 @@ describe("GET /v1/:ws/insights", () => {
     expect(ins.cycleTime.avgDays).toBeGreaterThanOrEqual(0);
     expect(ins.cycleTime.weekly.length).toBeGreaterThan(0);
 
-    const lastBurn = ins.burnup.at(-1);
+    const lastBurn = ins.burnup.at(-1)!;
     expect(lastBurn.total).toBe(3);
     expect(lastBurn.done).toBe(2);
 
-    const tp = ins.throughput.at(-1);
+    const tp = ins.throughput.at(-1)!;
     expect(tp.human).toBe(1);
     expect(tp.agent).toBe(1);
   });
 
   it("includes velocity snapshots for completed cycles", async () => {
-    const cycle = await req(`/v1/workspaces/${SLUG}/cycles`, {
+    const cycle = await req<{ id: string }>(`/v1/workspaces/${SLUG}/cycles`, {
       method: "POST",
       body: JSON.stringify({
         teamKey: "IN",
@@ -171,11 +178,11 @@ describe("GET /v1/:ws/insights", () => {
     );
     expect(done.status).toBe(200);
 
-    const res = await req(`/v1/workspaces/${SLUG}/insights`);
+    const res = await req<InsightsBody>(`/v1/workspaces/${SLUG}/insights`);
     expect(res.status).toBe(200);
     expect(res.body.velocity.length).toBe(1);
-    expect(res.body.velocity[0].team).toBe("IN");
-    expect(res.body.velocity[0].cycle).toMatch(/^C1/);
+    expect(res.body.velocity[0]!.team).toBe("IN");
+    expect(res.body.velocity[0]!.cycle).toMatch(/^C1/);
   });
 
   it("rejects other workspaces' credentials", async () => {

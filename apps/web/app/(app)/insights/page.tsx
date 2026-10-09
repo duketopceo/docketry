@@ -7,13 +7,13 @@ interface Me {
 
 export default async function InsightsPage() {
   const me = await api<Me>("/v1/auth/me");
-  if (!me.data) {
+  if (!me.ok || !me.data) {
     return <main className="p-8 text-sm text-ink-subtle">Not signed in.</main>;
   }
   const res = await api<Insights>(
     `/v1/workspaces/${me.data.workspaceSlug}/insights`,
   );
-  const ins = res.data;
+  const ins = res.ok ? res.data : null;
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
@@ -21,7 +21,7 @@ export default async function InsightsPage() {
         <h1 className="text-sm font-semibold">Insights</h1>
         {ins && (
           <span className="ml-3 font-mono text-[11px] text-ink-tertiary">
-            from the event log — auditable, never reconstructed
+            events + cycle snapshots, rolling 26 weeks
           </span>
         )}
       </header>
