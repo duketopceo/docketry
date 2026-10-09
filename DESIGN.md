@@ -13,7 +13,7 @@ colors:
   ink: "#eef1f6"
   ink-muted: "#c3c9d4"
   ink-subtle: "#8b93a3"
-  ink-tertiary: "#5d6572"
+  ink-tertiary: "#7c8593"
   canvas: "#0a0c10"
   surface-1: "#10141b"
   surface-2: "#161b24"
@@ -357,7 +357,7 @@ The lining is a separate border system from generic dividers. Generic dividers u
 - **Ink** (`{colors.ink}` — `#eef1f6`): titles, emphasized body, selected states.
 - **Ink Muted** (`{colors.ink-muted}` — `#c3c9d4`): secondary text, palette row text.
 - **Ink Subtle** (`{colors.ink-subtle}` — `#8b93a3`): metadata, timestamps, placeholders, unselected nav. ~6:1 on canvas — minimum for body text.
-- **Ink Tertiary** (`{colors.ink-tertiary}` — `#5d6572`): disabled, footnotes, decorative-only text. ~3.7:1 — never the sole carrier of meaning.
+- **Ink Tertiary** (`{colors.ink-tertiary}` — `#7c8593`): disabled, footnotes, decorative-only text. ~5.3:1 (AA) — hint text that must stay legible.
 
 ### Status — the fixed 4-color system
 Pinned values; do not author alternates for the dark theme (all four pass ≥4.5:1 as text on canvas).

@@ -5,6 +5,7 @@ import {
   CommentComposer,
   StateActions,
 } from "@/components/issue-detail-client";
+import { Sparkle, StatePill } from "@/components/primitives";
 import { api } from "@/lib/api";
 
 interface Me {
@@ -52,17 +53,6 @@ interface IssueDetail {
   labels: Label[];
 }
 
-const STATE_PILL: Record<IssueState, string> = {
-  triage: "border-attention text-attention",
-  backlog: "border-lining text-ink-subtle",
-  todo: "border-lining text-ink-subtle",
-  in_progress: "border-attention text-attention",
-  in_review: "border-accent text-accent",
-  done: "border-healthy text-healthy",
-  canceled: "border-lining-faint text-ink-tertiary",
-  duplicate: "border-lining-faint text-ink-tertiary",
-};
-
 function ts(iso: string): string {
   return new Date(iso).toLocaleString("en-US", {
     month: "short",
@@ -103,16 +93,10 @@ export default async function IssuePage({
           ← issues
         </Link>
         <span className="font-mono text-xs text-ink-muted">{issue.key}</span>
-        <span
-          className={`rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase ${STATE_PILL[issue.state]}`}
-        >
-          {issue.state.replace("_", " ")}
-        </span>
+        <StatePill state={issue.state} />
         {issue.creatorType === "agent" && (
           <span className="flex items-center gap-1 font-mono text-[10px] text-accent">
-            <svg width="11" height="11" viewBox="0 0 24 24" className="fill-accent" aria-hidden>
-              <path d="M12 1l2.6 7.4L22 11l-7.4 2.6L12 21l-2.6-7.4L2 11l7.4-2.6Z" />
-            </svg>
+            <Sparkle size={12} label="agent created" />
             agent-created · via {issue.source}
           </span>
         )}
@@ -190,9 +174,7 @@ export default async function IssuePage({
                 <div className="flex items-center gap-2 font-mono text-[10px] text-ink-tertiary">
                   <span className="capitalize">{c.actorType}</span>
                   {c.actorType === "agent" && (
-                    <svg width="10" height="10" viewBox="0 0 24 24" className="fill-accent" aria-label="agent" role="img">
-                      <path d="M12 1l2.6 7.4L22 11l-7.4 2.6L12 21l-2.6-7.4L2 11l7.4-2.6Z" />
-                    </svg>
+                    <Sparkle size={12} label="agent" />
                   )}
                   <span>{ts(c.createdAt)}</span>
                 </div>
@@ -223,9 +205,7 @@ export default async function IssuePage({
                 </span>
                 <span>{e.action.replace(/_/g, " ")}</span>
                 {e.actorType === "agent" && (
-                  <svg width="9" height="9" viewBox="0 0 24 24" className="fill-accent" aria-hidden>
-                    <path d="M12 1l2.6 7.4L22 11l-7.4 2.6L12 21l-2.6-7.4L2 11l7.4-2.6Z" />
-                  </svg>
+                  <Sparkle size={12} label="" />
                 )}
               </li>
             ))}
