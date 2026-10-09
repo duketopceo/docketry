@@ -22,6 +22,13 @@ export const config_ = {
   apiBaseUrl: env("API_BASE_URL", "http://localhost:4000"),
   githubAppSlug: env("GITHUB_APP_SLUG", ""),
   githubWebhookSecret: env("GITHUB_WEBHOOK_SECRET", ""),
+  githubAppId: env("GITHUB_APP_ID", ""),
+  // PEM may arrive env-encoded with literal \n separators (common for
+  // GitHub App keys in .env files / secret stores)
+  githubAppPrivateKey: env("GITHUB_APP_PRIVATE_KEY", "").replace(
+    /\\n/g,
+    "\n",
+  ),
   // LLM assist — entirely opt-in; empty key means every llm surface is off
   llmApiKey: env("DOCKETRY_LLM_API_KEY", ""),
   llmBaseUrl: env("DOCKETRY_LLM_BASE_URL", "https://openrouter.ai/api/v1"),
