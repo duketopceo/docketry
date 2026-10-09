@@ -1,0 +1,13 @@
+{
+  "name": "@docketry/dispatch",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4"
+  }
+}
