@@ -37,6 +37,10 @@ import { createAssist } from "../services/assist.js";
 import { llmEnabled } from "../services/llm.js";
 import { decodeCursor, encodeCursor } from "../lib/pagination.js";
 import { createDispatch } from "../services/dispatch.js";
+import {
+  mirrorIssueComment,
+  mirrorIssueLabels,
+} from "../services/github-sync.js";
 import { createIssue, transitionIssue, type Actor } from "../services/issues.js";
 import { queueDeliveries } from "../services/outbound.js";
 import { requireWorkspace } from "./workspaces.js";
@@ -451,6 +455,13 @@ export const issueRoutes = new Hono()
         after: { commentId: comment!.id },
         issueKey: issue.key,
       });
+      // best-effort GitHub mirror — never blocks; via=github comments
+      // (inbound-synced) skip inside (#60)
+      void mirrorIssueComment({
+        issueId: issue.id,
+        body: comment!.body,
+        via: comment!.via,
+      });
 
       // @agent mentions → dispatch intents (one per agent per comment)
       const mentioned = new Set(
@@ -652,4 +663,6 @@ async function setIssueLabels(
   await db
     .insert(issueLabels)
     .values(valid.map((l) => ({ issueId, labelId: l.id })));
+  // best-effort GitHub mirror — no-ops for unlinked issues (#60)
+  if (valid.length > 0) void mirrorIssueLabels(issueId);
 }
