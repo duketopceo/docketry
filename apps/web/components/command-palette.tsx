@@ -4,9 +4,18 @@ import { Command } from "cmdk";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { ListIssue } from "@/components/issue-list-client";
+import { colonHint, runColonCommand } from "@/lib/colon-commands";
 
 interface CommandPaletteProps {
   workspace: string;
+}
+
+function isTypingTarget(t: EventTarget | null): boolean {
+  return (
+    t instanceof HTMLInputElement ||
+    t instanceof HTMLTextAreaElement ||
+    (t instanceof HTMLElement && t.isContentEditable)
+  );
 }
 
 export function CommandPalette({ workspace }: CommandPaletteProps) {
@@ -14,12 +23,23 @@ export function CommandPalette({ workspace }: CommandPaletteProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ListIssue[]>([]);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const colonMode = query.startsWith(":");
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setOpen((o) => !o);
+        return;
+      }
+      // `:` opens the palette straight into command mode
+      if (e.key === ":" && !isTypingTarget(e.target)) {
+        e.preventDefault();
+        setOpen(true);
+        setQuery(":");
+        setStatus(null);
       }
     }
     document.addEventListener("keydown", onKey);
@@ -67,11 +87,45 @@ export function CommandPalette({ workspace }: CommandPaletteProps) {
       >
         <Command.Input
           value={query}
-          onValueChange={setQuery}
+          onValueChange={(v) => {
+            setQuery(v);
+            setStatus(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && colonMode) {
+              e.preventDefault();
+              const line = query.slice(1);
+              if (!line.trim()) return;
+              void runColonCommand(line).then((r) => {
+                if (r.navigate) {
+                  setOpen(false);
+                  setQuery("");
+                  router.push(r.navigate);
+                } else if (r.ok) {
+                  setStatus(r.message);
+                  router.refresh();
+                } else {
+                  setStatus(r.message);
+                }
+              });
+            }
+          }}
           placeholder="Search issues, jump to a view, or run an action…"
           className="w-full border-b border-lining-faint bg-transparent px-4 py-3 text-sm text-ink placeholder:text-ink-tertiary focus:outline-none"
         />
         <Command.List className="max-h-80 overflow-y-auto p-1">
+          {colonMode ? (
+            <div className="px-3 py-4">
+              <p className="font-mono text-[12px] text-ink-muted">
+                {colonHint(query.slice(1))}
+              </p>
+              <p className="mt-1 font-mono text-[10px] text-ink-tertiary">
+                <kbd>enter</kbd> run · <kbd>esc</kbd> close
+                {status && <span className="ml-2 text-accent">{status}</span>}
+              </p>
+            </div>
+          ) : (
+            <>
           <Command.Empty className="px-3 py-6 text-center text-[13px] text-ink-subtle">
             No results — try a different query.
           </Command.Empty>
@@ -102,6 +156,7 @@ export function CommandPalette({ workspace }: CommandPaletteProps) {
             {[
               { label: "My Issues", path: "/my-issues", hint: "g i" },
               { label: "Triage", path: "/triage", hint: "g t" },
+              { label: "Review", path: "/review", hint: "g r" },
               { label: "Cycle", path: "/cycle", hint: "g c" },
               { label: "All Issues", path: "/issues", hint: "g a" },
               { label: "Activity", path: "/activity", hint: "g e" },
@@ -147,6 +202,8 @@ export function CommandPalette({ workspace }: CommandPaletteProps) {
               <kbd className="font-mono text-[10px] text-ink-tertiary">/</kbd>
             </Command.Item>
           </Command.Group>
+            </>
+          )}
         </Command.List>
         <div className="flex items-center justify-between border-t border-lining-faint px-3 py-1.5 font-mono text-[10px] text-ink-tertiary">
           <span>{workspace}</span>
