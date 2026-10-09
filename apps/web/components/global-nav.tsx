@@ -1,53 +1,73 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
-const SEQUENCES: Record<string, string> = {
+// g-sequences — `g i` my issues, `g t` triage, `g r` review, `g b` board,
+// `g c` cycle, `g a` all issues, `g e` activity. Mirrors the sidebar hints.
+const GOTO: Record<string, string> = {
   i: "/my-issues",
   t: "/triage",
   r: "/review",
+  b: "/board",
   c: "/cycle",
   a: "/issues",
   e: "/activity",
 };
-const SEQ_TIMEOUT_MS = 800;
 
-function isTypingTarget(t: EventTarget | null): boolean {
+const SEQUENCE_TIMEOUT_MS = 800;
+
+function isTypingTarget(el: EventTarget | null): boolean {
+  if (!(el instanceof HTMLElement)) return false;
   return (
-    t instanceof HTMLInputElement ||
-    t instanceof HTMLTextAreaElement ||
-    (t instanceof HTMLElement && t.isContentEditable)
+    el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)
   );
 }
 
-// g-sequences — `g i` my issues, `g t` triage, `g r` review, `g c` cycle,
-// `g a` all issues, `g e` activity. Mirrors the sidebar hints.
 export function GlobalNav() {
   const router = useRouter();
-  const pending = useRef<number | null>(null);
 
   useEffect(() => {
+    let armed = false;
+    let timer: ReturnType<typeof setTimeout>;
+
     function onKey(e: KeyboardEvent) {
-      if (isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (pending.current !== null) {
-        const target = SEQUENCES[e.key];
-        window.clearTimeout(pending.current);
-        pending.current = null;
-        if (target) {
-          e.preventDefault();
-          router.push(target);
-        }
+      if (
+        e.defaultPrevented ||
+        isTypingTarget(e.target) ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey
+      ) {
+        armed = false;
         return;
       }
+      if (armed) {
+        armed = false;
+        const path = GOTO[e.key];
+        if (path) {
+          // capture phase: consume before page-level handlers can act on the
+          // second key (e.g. `g a` on triage must not also accept the issue)
+          e.preventDefault();
+          e.stopPropagation();
+          router.push(path);
+          return;
+        }
+        // not a route key — disarm and let it through (e.g. `g` then `x` still
+        // selects on list pages)
+        if (e.key !== "g") return;
+      }
       if (e.key === "g") {
-        pending.current = window.setTimeout(() => {
-          pending.current = null;
-        }, SEQ_TIMEOUT_MS);
+        armed = true;
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          armed = false;
+        }, SEQUENCE_TIMEOUT_MS);
       }
     }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    // capture so the sequence resolves before per-page key handlers
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
   }, [router]);
 
   return null;

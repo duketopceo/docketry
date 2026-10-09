@@ -61,6 +61,7 @@ export function StateDot({ state }: { state: IssueState }) {
   return (
     <span
       className={`h-2 w-2 shrink-0 rounded-full ${STATE_DOT[state]}`}
+      role="img"
       aria-label={state.replace("_", " ")}
       title={state.replace("_", " ")}
     />

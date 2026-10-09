@@ -155,6 +155,7 @@ export function CommandPalette({ workspace }: CommandPaletteProps) {
           >
             {[
               { label: "My Issues", path: "/my-issues", hint: "g i" },
+              { label: "Board", path: "/board", hint: "g b" },
               { label: "Triage", path: "/triage", hint: "g t" },
               { label: "Review", path: "/review", hint: "g r" },
               { label: "Cycle", path: "/cycle", hint: "g c" },
