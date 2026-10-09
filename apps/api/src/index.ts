@@ -8,6 +8,7 @@ import { checkHealth } from "./health.js";
 import { apiError, HttpError } from "./lib/errors.js";
 import { createRateLimiter } from "./lib/rate-limit.js";
 import { openApiDoc } from "./openapi.js";
+import { sweepDeliveries } from "./services/outbound.js";
 import { agentRoutes } from "./routes/agents.js";
 import { authRoutes, requireSession } from "./routes/auth.js";
 import { eventRoutes } from "./routes/events.js";
@@ -15,6 +16,7 @@ import { githubRoutes } from "./routes/github.js";
 import { issueRoutes } from "./routes/issues.js";
 import { resourceRoutes } from "./routes/resources.js";
 import { tokenRoutes } from "./routes/tokens.js";
+import { webhookEndpointRoutes } from "./routes/webhook-endpoints.js";
 import { webhookRoutes } from "./routes/webhooks.js";
 import { whoamiRoutes } from "./routes/whoami.js";
 import { workspaceRoutes } from "./routes/workspaces.js";
@@ -40,6 +42,7 @@ export const app = new Hono()
   .route("/v1", resourceRoutes)
   .route("/v1", tokenRoutes)
   .route("/v1", githubRoutes)
+  .route("/v1", webhookEndpointRoutes)
   .onError((err, c) => {
     if (err instanceof HttpError) {
       return apiError(c, err.status, err.code, err.message);
@@ -59,6 +62,11 @@ export const app = new Hono()
 
 if (process.env.NODE_ENV !== "test") {
   await runMigrations();
+  setInterval(() => {
+    void sweepDeliveries().catch((err) =>
+      console.error("webhook sweep failed", err),
+    );
+  }, 30_000).unref();
   serve({ fetch: app.fetch, port: config_.port }, (info) => {
     console.log(`api listening on http://localhost:${info.port}`);
   });
