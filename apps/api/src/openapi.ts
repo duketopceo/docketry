@@ -274,6 +274,20 @@ export const openApiDoc = {
         responses: { "200": { description: "Status" } },
       },
     },
+    "/v1/workspaces/{ws}/issues/{key}/slack-link": {
+      get: {
+        summary:
+          "Slack mirror binding for this issue (channel + thread ts), or null",
+        parameters: [wsParam, keyParam],
+        responses: { "200": { description: "Link or null" } },
+      },
+      delete: {
+        summary:
+          "Unlink the Slack thread — mirroring both directions stops cleanly",
+        parameters: [wsParam, keyParam],
+        responses: { "200": { description: "Unlinked" } },
+      },
+    },
     "/v1/workspaces/{ws}/issues/{key}/events": {
       get: {
         summary: "Activity/audit feed for an issue (append-only)",

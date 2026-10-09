@@ -630,6 +630,32 @@ export const issueExternalRefs = pgTable(
   ],
 );
 
+// slack ↔ issue mirror bindings — one Slack thread per issue
+export const slackLinks = pgTable(
+  "slack_links",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    issueId: uuid("issue_id")
+      .notNull()
+      .unique()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    channel: text("channel").notNull(),
+    threadTs: text("thread_ts").notNull(),
+    reporterSlackId: text("reporter_slack_id"),
+    reporterName: text("reporter_name"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index().on(t.workspaceId),
+    index().on(t.channel, t.threadTs),
+  ],
+);
+
 export type IssueRow = typeof issues.$inferSelect;
 export type NewIssue = typeof issues.$inferInsert;
 export type EventRow = typeof events.$inferSelect;

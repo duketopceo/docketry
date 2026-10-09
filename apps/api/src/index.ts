@@ -19,6 +19,7 @@ import { githubRoutes } from "./routes/github.js";
 import { importRoutes } from "./routes/import.js";
 import { issueRoutes } from "./routes/issues.js";
 import { resourceRoutes } from "./routes/resources.js";
+import { slackRoutes } from "./routes/slack.js";
 import { tokenRoutes } from "./routes/tokens.js";
 import { webhookEndpointRoutes } from "./routes/webhook-endpoints.js";
 import { webhookRoutes } from "./routes/webhooks.js";
@@ -35,6 +36,7 @@ export const app = new Hono()
   })
   .get("/openapi.json", (c) => c.json(openApiDoc))
   .route("/webhooks", webhookRoutes)
+  .route("/webhooks", slackRoutes)
   .route("/v1/auth", authRoutes)
   .use("/v1/*", requireSession)
   .use("/v1/*", rateLimiter)

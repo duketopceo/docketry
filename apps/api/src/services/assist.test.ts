@@ -15,6 +15,7 @@ import {
   githubIssueLinks,
   githubRepos,
   githubWebhookEvents,
+  slackLinks,
   issues,
   labels,
   projects,
@@ -42,6 +43,7 @@ const ALL_TABLES = [
   webhookEndpoints,
   dispatchEvents,
   dispatches,
+  slackLinks,
   issues,
   labels,
   agentKeys,
@@ -74,9 +76,6 @@ async function req<T = Record<string, unknown>>(
 }
 
 let wsId = "";
-const enabledAssist = () =>
-  createAssist({ complete: async () => "stubbed" });
-
 beforeAll(async () => {
   await runMigrations();
   for (const t of ALL_TABLES) await db.delete(t);
