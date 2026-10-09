@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+:root {
+  --canvas: #0a0c10;
+  --surface-1: #10141b;
+  --lining: #39404c;
+  --lining-bright: #c9cdd4;
+  --ink: #eef1f6;
+  --ink-subtle: #8b93a3;
+  --accent: #3ea1f7;
+}
+
+body {
+  background: var(--canvas);
+  color: var(--ink);
+}
