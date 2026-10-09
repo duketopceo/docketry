@@ -201,6 +201,9 @@ declare module "hono" {
   interface ContextVariableMap {
     session: Session | null;
     agentAuth: AgentAuth | null;
+    // scopes carried by the presented credential (agent key, PAT, JWT);
+    // null for cookie sessions, which always act with full user rights
+    tokenScopes: string[] | null;
   }
 }
 
@@ -239,6 +242,7 @@ export async function requireSession(c: Context, next: Next) {
     if (session) {
       c.set("session", session);
       c.set("agentAuth", null);
+      c.set("tokenScopes", null);
       await next();
       return;
     }
@@ -252,6 +256,7 @@ export async function requireSession(c: Context, next: Next) {
       if (denied) return denied;
       c.set("session", null);
       c.set("agentAuth", agent);
+      c.set("tokenScopes", agent.scopes);
       await next();
       return;
     }
@@ -261,6 +266,7 @@ export async function requireSession(c: Context, next: Next) {
     if (pat) {
       const denied = scopeGuard(c, pat.scopes);
       if (denied) return denied;
+      c.set("tokenScopes", pat.scopes);
       c.set("session", {
         sessionId: `pat:${pat.keyId}`,
         userId: pat.userId,
@@ -278,6 +284,7 @@ export async function requireSession(c: Context, next: Next) {
     if (claims) {
       const denied = scopeGuard(c, claims.scopes);
       if (denied) return denied;
+      c.set("tokenScopes", claims.scopes);
       c.set("session", {
         sessionId: `jwt:${claims.sub}`,
         userId: claims.sub,

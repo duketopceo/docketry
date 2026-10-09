@@ -14,6 +14,7 @@ import { eventRoutes } from "./routes/events.js";
 import { issueRoutes } from "./routes/issues.js";
 import { resourceRoutes } from "./routes/resources.js";
 import { tokenRoutes } from "./routes/tokens.js";
+import { whoamiRoutes } from "./routes/whoami.js";
 import { workspaceRoutes } from "./routes/workspaces.js";
 import { NotFoundError } from "./services/issues.js";
 
@@ -29,6 +30,7 @@ export const app = new Hono()
   .use("/v1/*", requireSession)
   .use("/v1/*", rateLimiter)
   .route("/v1", workspaceRoutes)
+  .route("/v1", whoamiRoutes)
   .route("/v1", eventRoutes)
   .route("/v1", issueRoutes)
   .route("/v1", agentRoutes)
