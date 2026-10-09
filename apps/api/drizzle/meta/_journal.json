@@ -15,6 +15,13 @@
       "when": 1791514472222,
       "tag": "0001_closed_hercules",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791515138590,
+      "tag": "0002_true_champions",
+      "breakpoints": true
     }
   ]
 }

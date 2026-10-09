@@ -66,6 +66,7 @@ export const users = pgTable(
       .references(() => workspaces.id),
     email: text("email").notNull(),
     name: text("name").notNull(),
+    passwordHash: text("password_hash"),
     avatarUrl: text("avatar_url"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -209,6 +210,25 @@ export const issues = pgTable(
     index().on(t.workspaceId, t.cycleId),
     index().on(t.workspaceId, t.assigneeId),
   ],
+);
+
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.userId)],
 );
 
 export const issueLabels = pgTable(
