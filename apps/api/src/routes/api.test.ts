@@ -1,0 +1,211 @@
+import { eq } from "drizzle-orm";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { app } from "../index.js";
+import { closeDb, db } from "../db/client.js";
+import { runMigrations } from "../db/migrate.js";
+import {
+  comments,
+  events,
+  issues,
+  labels,
+  teams,
+  workspaces,
+} from "../db/schema.js";
+
+const SLUG = `api-test-${Date.now()}`;
+
+interface TestBody {
+  error?: { code: string; message: string };
+  issues?: { key: string; title: string; state: string; priority: string }[];
+  labels?: { id: string; name: string }[];
+  events?: { action: string; actorType: string }[];
+  comments?: { body: string }[];
+  nextCursor?: string | null;
+  key?: string;
+  state?: string;
+  title?: string;
+  priority?: string;
+  actorType?: string;
+  [key: string]: unknown;
+}
+
+async function req(
+  path: string,
+  init?: RequestInit,
+): Promise<{ status: number; body: TestBody }> {
+  const res = await app.fetch(
+    new Request(`http://api.test${path}`, {
+      headers: { "content-type": "application/json" },
+      ...init,
+    }),
+  );
+  return { status: res.status, body: (await res.json()) as TestBody };
+}
+
+beforeAll(async () => {
+  await runMigrations();
+});
+
+afterAll(async () => {
+  const [ws] = await db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.slug, SLUG));
+  if (ws) {
+    for (const t of [comments, events, issues, labels, teams] as const) {
+      await db.delete(t).where(eq(t.workspaceId, ws.id));
+    }
+    await db.delete(workspaces).where(eq(workspaces.id, ws.id));
+  }
+  await closeDb();
+});
+
+describe("api routes (real postgres)", () => {
+  it("bootstraps workspace + team", async () => {
+    const ws = await req("/v1/workspaces", {
+      method: "POST",
+      body: JSON.stringify({ slug: SLUG, name: "API Test" }),
+    });
+    expect(ws.status).toBe(201);
+
+    const dupe = await req("/v1/workspaces", {
+      method: "POST",
+      body: JSON.stringify({ slug: SLUG, name: "Dup" }),
+    });
+    expect(dupe.status).toBe(409);
+    expect(dupe.body.error!.code).toBe("CONFLICT");
+
+    const team = await req(`/v1/workspaces/${SLUG}/teams`, {
+      method: "POST",
+      body: JSON.stringify({ key: "ENG", name: "Engineering" }),
+    });
+    expect(team.status).toBe(201);
+  });
+
+  it("creates issues with minted keys and reads them back", async () => {
+    const created = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({
+        teamKey: "ENG",
+        title: "Wire the API",
+        priority: "high",
+      }),
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.key).toBe("ENG-1");
+    expect(created.body.state).toBe("backlog");
+
+    const got = await req(`/v1/workspaces/${SLUG}/issues/ENG-1`);
+    expect(got.status).toBe(200);
+    expect(got.body.title).toBe("Wire the API");
+  });
+
+  it("lists with filters and paginates", async () => {
+    for (const title of ["alpha", "beta", "gamma"]) {
+      await req(`/v1/workspaces/${SLUG}/issues`, {
+        method: "POST",
+        body: JSON.stringify({ teamKey: "ENG", title }),
+      });
+    }
+
+    const all = await req(
+      `/v1/workspaces/${SLUG}/issues?limit=2`,
+    );
+    expect(all.body.issues).toHaveLength(2);
+    expect(all.body.nextCursor).toBeTruthy();
+
+    const page2 = await req(
+      `/v1/workspaces/${SLUG}/issues?limit=2&cursor=${all.body.nextCursor}`,
+    );
+    expect(page2.body.issues!.length).toBeGreaterThan(0);
+    const keys = new Set(
+      [...all.body.issues!, ...page2.body.issues!].map(
+        (i: { key: string }) => i.key,
+      ),
+    );
+    expect(keys.size).toBe(all.body.issues!.length + page2.body.issues!.length);
+
+    const filtered = await req(
+      `/v1/workspaces/${SLUG}/issues?search=alpha`,
+    );
+    expect(filtered.body.issues!).toHaveLength(1);
+    expect(filtered.body.issues![0]!.title).toBe("alpha");
+  });
+
+  it("enforces the state machine over HTTP", async () => {
+    const bad = await req(`/v1/workspaces/${SLUG}/issues/ENG-1`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "done" }),
+    });
+    expect(bad.status).toBe(409);
+    expect(bad.body.error!.code).toBe("INVALID_TRANSITION");
+
+    const todo = await req(`/v1/workspaces/${SLUG}/issues/ENG-1`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "todo" }),
+    });
+    expect(todo.status).toBe(200);
+
+    const wip = await req(`/v1/workspaces/${SLUG}/issues/ENG-1`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "in_progress", priority: "urgent" }),
+    });
+    expect(wip.status).toBe(200);
+    expect(wip.body.state).toBe("in_progress");
+    expect(wip.body.priority).toBe("urgent");
+  });
+
+  it("comments and exposes the event feed", async () => {
+    const c1 = await req(
+      `/v1/workspaces/${SLUG}/issues/ENG-1/comments`,
+      {
+        method: "POST",
+        body: JSON.stringify({ body: "picked this up" }),
+        headers: {
+          "content-type": "application/json",
+          "x-actor-type": "agent",
+        },
+      },
+    );
+    expect(c1.status).toBe(201);
+    expect(c1.body.actorType).toBe("agent");
+
+    const feed = await req(
+      `/v1/workspaces/${SLUG}/issues/ENG-1/events`,
+    );
+    expect(feed.status).toBe(200);
+    const actions = feed.body.events!.map(
+      (e: { action: string }) => e.action,
+    );
+    expect(actions).toContain("created");
+    expect(actions).toContain("state_changed");
+    expect(actions).toContain("commented");
+  });
+
+  it("labels CRUD + 404 handling", async () => {
+    const label = await req(`/v1/workspaces/${SLUG}/labels`, {
+      method: "POST",
+      body: JSON.stringify({ name: "bug", color: "#ef4444" }),
+    });
+    expect(label.status).toBe(201);
+    expect(label.body.id).toBeTruthy();
+
+    const list = await req(`/v1/workspaces/${SLUG}/labels`);
+    expect(list.body.labels).toHaveLength(1);
+
+    const missing = await req(`/v1/workspaces/${SLUG}/issues/ENG-999`);
+    expect(missing.status).toBe(404);
+    expect(missing.body.error!.code).toBe("NOT_FOUND");
+
+    const badWs = await req(`/v1/workspaces/nonexistent/issues`);
+    expect(badWs.status).toBe(404);
+  });
+
+  it("rejects invalid payloads at the boundary", async () => {
+    const bad = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({ teamKey: "ENG", title: "" }),
+    });
+    expect(bad.status).toBe(400);
+  });
+});

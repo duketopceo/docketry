@@ -1,0 +1,1 @@
+ALTER TABLE "comments" ALTER COLUMN "actor_id" DROP NOT NULL;
