@@ -34,3 +34,19 @@ export const ACTOR_TYPES = ["human", "agent", "system"] as const;
 export type ActorType = (typeof ACTOR_TYPES)[number];
 
 export const ISSUE_KEY_PATTERN = /^([A-Z][A-Z0-9]*)-(\d+)$/;
+
+export const ISSUE_SOURCES = [
+  "web",
+  "github",
+  "slack",
+  "api",
+  "voice",
+] as const;
+
+export type IssueSource = (typeof ISSUE_SOURCES)[number];
+
+export {
+  canTransition,
+  legalTransitions,
+  InvalidTransitionError,
+} from "./state-machine.js";
