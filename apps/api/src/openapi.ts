@@ -437,6 +437,41 @@ export const openApiDoc = {
         responses: { "200": { description: "Deleted" } },
       },
     },
+    "/v1/workspaces/{ws}/events": {
+      get: {
+        summary:
+          "Workspace activity feed — newest-first, cursor-paginated; each event is joined to its issue key/title and actor name",
+        parameters: [
+          wsParam,
+          { name: "cursor", in: "query", schema: { type: "string" } },
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", default: 50, maximum: 200 },
+          },
+        ],
+        responses: {
+          "200": { description: "Page of feed events with nextCursor" },
+          "400": { description: "Bad cursor" },
+        },
+      },
+    },
+    "/v1/workspaces/{ws}/events/stream": {
+      get: {
+        summary:
+          "Live workspace event stream (SSE, text/event-stream) — emits committed events ~1s cadence with heartbeat comments; resume via Last-Event-ID header or ?after=<eventId>",
+        parameters: [
+          wsParam,
+          { name: "after", in: "query", schema: { type: "integer" } },
+          { name: "Last-Event-ID", in: "header", schema: { type: "string" } },
+        ],
+        responses: {
+          "200": { description: "text/event-stream" },
+          "400": { description: "Bad resume cursor" },
+          "401": { description: "Unauthenticated" },
+        },
+      },
+    },
     "/v1/workspaces/{ws}/labels": {
       get: {
         summary: "List labels",
