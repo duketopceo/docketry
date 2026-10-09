@@ -1,4 +1,7 @@
-import { IssueRow, type IssueRowData } from "@/components/issue-row";
+import {
+  IssueListClient,
+  type ListIssue,
+} from "@/components/issue-list-client";
 import { api } from "@/lib/api";
 
 interface Me {
@@ -6,7 +9,7 @@ interface Me {
 }
 
 interface IssueList {
-  issues?: IssueRowData[];
+  issues?: ListIssue[];
 }
 
 export default async function TriagePage() {
@@ -20,7 +23,7 @@ export default async function TriagePage() {
   const rows = res.data?.issues ?? [];
 
   return (
-    <main className="flex-1 overflow-y-auto">
+    <main className="flex min-h-0 flex-1 flex-col">
       <header className="flex h-12 items-center border-b border-lining-faint px-4">
         <h1 className="text-sm font-semibold">Triage</h1>
         <span className="ml-2 font-mono text-[11px] text-ink-tertiary">
@@ -41,11 +44,7 @@ export default async function TriagePage() {
           </p>
         </div>
       ) : (
-        <ul>
-          {rows.map((issue) => (
-            <IssueRow key={issue.key} issue={issue} />
-          ))}
-        </ul>
+        <IssueListClient issues={rows} triage />
       )}
     </main>
   );

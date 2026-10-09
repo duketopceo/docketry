@@ -1,4 +1,7 @@
-import { IssueRow, type IssueRowData } from "@/components/issue-row";
+import {
+  IssueListClient,
+  type ListIssue,
+} from "@/components/issue-list-client";
 import { api } from "@/lib/api";
 
 interface Me {
@@ -7,7 +10,7 @@ interface Me {
 }
 
 interface IssueList {
-  issues?: IssueRowData[];
+  issues?: ListIssue[];
 }
 
 const PRIORITY_RANK: Record<string, number> = {
@@ -31,7 +34,7 @@ export default async function MyIssuesPage() {
   );
 
   return (
-    <main className="flex-1 overflow-y-auto">
+    <main className="flex min-h-0 flex-1 flex-col">
       <header className="flex h-12 items-center border-b border-lining-faint px-4">
         <h1 className="text-sm font-semibold">My Issues</h1>
         <span className="ml-2 font-mono text-[11px] text-ink-tertiary">
@@ -55,11 +58,7 @@ export default async function MyIssuesPage() {
           </p>
         </div>
       ) : (
-        <ul>
-          {rows.map((issue) => (
-            <IssueRow key={issue.key} issue={issue} />
-          ))}
-        </ul>
+        <IssueListClient issues={rows} />
       )}
     </main>
   );
