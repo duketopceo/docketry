@@ -1,6 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { and, eq } from "drizzle-orm";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { db } from "../db/client.js";
 import { teams, workspaces } from "../db/schema.js";
@@ -87,10 +87,16 @@ export async function findWorkspace(slug: string) {
   return ws ?? null;
 }
 
-export async function requireWorkspace(c: {
-  req: { param: (k: string) => string };
-}) {
-  const ws = await findWorkspace(c.req.param("ws"));
+export async function requireWorkspace(c: Context) {
+  const ws = await findWorkspace(c.req.param("ws") ?? "");
   if (!ws) throw new HttpError(404, "NOT_FOUND", "workspace not found");
+  // Credentials are workspace-bound: a key/token/session minted in one
+  // workspace cannot act in another.
+  const session = c.get("session");
+  const agent = c.get("agentAuth");
+  const bound = session?.workspaceId ?? agent?.workspaceId ?? null;
+  if (bound && bound !== ws.id) {
+    throw new HttpError(403, "FORBIDDEN_WORKSPACE", "credential not scoped to this workspace");
+  }
   return ws;
 }

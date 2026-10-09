@@ -32,7 +32,7 @@ import {
 import { actorFromHeaders } from "../lib/actor.js";
 import { apiError, HttpError } from "../lib/errors.js";
 import { decodeCursor, encodeCursor } from "../lib/pagination.js";
-import { createIssue, transitionIssue } from "../services/issues.js";
+import { createIssue, transitionIssue, type Actor } from "../services/issues.js";
 import { requireWorkspace } from "./workspaces.js";
 
 const createSchema = z.object({
@@ -89,6 +89,22 @@ const commentSchema = z.object({
   body: z.string().min(1).max(50_000),
 });
 
+// An `x-actor-id` header claiming an agent actor must name a real agent in
+// this workspace — otherwise any session could forge agent provenance.
+async function validateAgentActor(
+  workspaceId: string,
+  actor: Actor,
+): Promise<void> {
+  if (actor.type !== "agent" || !actor.id) return;
+  const [a] = await db
+    .select({ id: agents.id })
+    .from(agents)
+    .where(and(eq(agents.id, actor.id), eq(agents.workspaceId, workspaceId)));
+  if (!a) {
+    throw new HttpError(422, "INVALID_ACTOR", "x-actor-id is not an agent in this workspace");
+  }
+}
+
 async function validateAssignee(
   workspaceId: string,
   type: "human" | "agent",
@@ -119,6 +135,7 @@ export const issueRoutes = new Hono()
       const ws = await requireWorkspace(c);
       const body = c.req.valid("json");
       const actor = actorFromHeaders(c);
+      await validateAgentActor(ws.id, actor);
 
       const [team] = body.teamKey
         ? await db
@@ -341,6 +358,7 @@ export const issueRoutes = new Hono()
       const ws = await requireWorkspace(c);
       const issue = await findIssue(ws.id, c.req.param("key"));
       const actor = actorFromHeaders(c);
+      await validateAgentActor(ws.id, actor);
       const body = c.req.valid("json");
 
       const [comment] = await db
