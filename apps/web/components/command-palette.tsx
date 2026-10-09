@@ -104,6 +104,7 @@ export function CommandPalette({ workspace }: CommandPaletteProps) {
               { label: "Triage", path: "/triage", hint: "g t" },
               { label: "Cycle", path: "/cycle", hint: "g c" },
               { label: "All Issues", path: "/issues", hint: "g a" },
+              { label: "Activity", path: "/activity", hint: "g e" },
             ].map((item) => (
               <Command.Item
                 key={item.path}

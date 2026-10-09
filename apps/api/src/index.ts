@@ -10,6 +10,7 @@ import { createRateLimiter } from "./lib/rate-limit.js";
 import { openApiDoc } from "./openapi.js";
 import { agentRoutes } from "./routes/agents.js";
 import { authRoutes, requireSession } from "./routes/auth.js";
+import { eventRoutes } from "./routes/events.js";
 import { issueRoutes } from "./routes/issues.js";
 import { resourceRoutes } from "./routes/resources.js";
 import { tokenRoutes } from "./routes/tokens.js";
@@ -28,6 +29,7 @@ export const app = new Hono()
   .use("/v1/*", requireSession)
   .use("/v1/*", rateLimiter)
   .route("/v1", workspaceRoutes)
+  .route("/v1", eventRoutes)
   .route("/v1", issueRoutes)
   .route("/v1", agentRoutes)
   .route("/v1", resourceRoutes)

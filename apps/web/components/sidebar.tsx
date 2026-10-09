@@ -5,6 +5,7 @@ const NAV = [
   { href: "/triage", label: "Triage", hint: "g t" },
   { href: "/cycle", label: "Cycle", hint: "g c" },
   { href: "/issues", label: "All Issues", hint: "g a" },
+  { href: "/activity", label: "Activity", hint: "g e" },
 ];
 
 export function Sidebar({ workspace }: { workspace: string }) {
