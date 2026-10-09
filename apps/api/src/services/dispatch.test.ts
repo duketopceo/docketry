@@ -23,6 +23,8 @@ import {
   users,
   userTokens,
   views,
+  webhookDeliveries,
+  webhookEndpoints,
   workspaces,
 } from "../db/schema.js";
 
@@ -59,6 +61,8 @@ beforeAll(async () => {
     comments,
     events,
     githubIssueLinks,
+    webhookDeliveries,
+    webhookEndpoints,
     dispatches,
     issues,
     labels,
@@ -118,6 +122,8 @@ afterAll(async () => {
     for (const t of [
       comments,
       events,
+      webhookDeliveries,
+      webhookEndpoints,
       dispatches,
       issues,
       agents,
@@ -252,5 +258,115 @@ describe("dispatch router (#23)", () => {
       .where(eq(dispatches.agentId, (bare.body as { id: string }).id));
     expect(rows.at(-1)!.status).toBe("dispatch_failed");
     expect(rows.at(-1)!.reason).toContain("endpointUrl");
+  });
+
+  it("dispatch deliveries are signed and verify against the agent secret", async () => {
+    const captured: { body: string; sig: string | null }[] = [];
+    const server: Server = createServer((rq, rs) => {
+      let data = "";
+      rq.on("data", (c) => (data += c));
+      rq.on("end", () => {
+        captured.push({
+          body: data,
+          sig: rq.headers["x-docketry-signature"] as string | null,
+        });
+        rs.writeHead(200).end();
+      });
+    });
+    await new Promise<void>((r) => server.listen(0, r));
+    const port = (server.address() as { port: number }).port;
+
+    const hook = await req(`/v1/workspaces/${SLUG}/agents`, {
+      method: "POST",
+      body: JSON.stringify({
+        name: "signed-bot",
+        harness: "webhook",
+        endpointUrl: `http://127.0.0.1:${port}/dispatch`,
+      }),
+    });
+    await req(`/v1/workspaces/${SLUG}/issues/DS-1`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        assigneeType: "agent",
+        assigneeId: (hook.body as { id: string }).id,
+      }),
+    });
+    server.close();
+
+    expect(captured).toHaveLength(1);
+    const [agentRow] = await db
+      .select()
+      .from(agents)
+      .where(eq(agents.id, (hook.body as { id: string }).id));
+    expect(agentRow!.endpointSecret).toMatch(/^whsec_/);
+    const { verifyDeliverySignature } = await import("./outbound.js");
+    expect(
+      verifyDeliverySignature(
+        captured[0]!.body,
+        captured[0]!.sig ?? undefined,
+        agentRow!.endpointSecret!,
+      ),
+    ).toBe(true);
+    expect(
+      verifyDeliverySignature(
+        captured[0]!.body + "tampered",
+        captured[0]!.sig ?? undefined,
+        agentRow!.endpointSecret!,
+      ),
+    ).toBe(false);
+  });
+
+  it("unreachable endpoint retries via sweep, exhausts to dispatch_failed", async () => {
+    // dead endpoint — nothing listens
+    const dead = await req(`/v1/workspaces/${SLUG}/agents`, {
+      method: "POST",
+      body: JSON.stringify({
+        name: "dead-bot",
+        harness: "webhook",
+        endpointUrl: "http://127.0.0.1:1/dispatch",
+      }),
+    });
+    await req(`/v1/workspaces/${SLUG}/issues/DS-1`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        assigneeType: "agent",
+        assigneeId: (dead.body as { id: string }).id,
+      }),
+    });
+
+    const [dispatch] = await db
+      .select()
+      .from(dispatches)
+      .where(eq(dispatches.agentId, (dead.body as { id: string }).id));
+    // first attempt failed → still queued, delivery pending for retry
+    expect(dispatch!.status).toBe("queued");
+    const [delivery] = await db
+      .select()
+      .from(webhookDeliveries)
+      .where(eq(webhookDeliveries.dispatchId, dispatch!.id));
+    expect(delivery!.status).toBe("pending");
+    expect(delivery!.attempts).toBe(1);
+
+    // force the clock: simulate prior retries, then one final sweep attempt
+    await db
+      .update(webhookDeliveries)
+      .set({ attempts: 4, nextAttemptAt: new Date(Date.now() - 1000) })
+      .where(eq(webhookDeliveries.id, delivery!.id));
+    const { sweepDeliveries } = await import("./outbound.js");
+    await sweepDeliveries();
+
+    const [afterDispatch] = await db
+      .select()
+      .from(dispatches)
+      .where(eq(dispatches.id, dispatch!.id));
+    expect(afterDispatch!.status).toBe("dispatch_failed");
+    const [afterDelivery] = await db
+      .select()
+      .from(webhookDeliveries)
+      .where(eq(webhookDeliveries.id, delivery!.id));
+    expect(afterDelivery!.status).toBe("failed");
+
+    const bodies = await thread();
+    expect(bodies.some((b) => b.includes("dispatch_failed"))).toBe(true);
   });
 });

@@ -87,6 +87,7 @@ export const agents = pgTable(
     name: text("name").notNull(),
     harness: text("harness").notNull(),
     endpointUrl: text("endpoint_url"),
+    endpointSecret: text("endpoint_secret"),
     capabilities: jsonb("capabilities").$type<string[]>().default([]).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -535,9 +536,14 @@ export const webhookDeliveries = pgTable(
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspaces.id),
-    endpointId: uuid("endpoint_id")
-      .notNull()
-      .references(() => webhookEndpoints.id, { onDelete: "cascade" }),
+    endpointId: uuid("endpoint_id").references(() => webhookEndpoints.id, {
+      onDelete: "cascade",
+    }),
+    // agent-dispatch deliveries have no endpoint row — the agent's
+    // endpointUrl/endpointSecret are resolved at each attempt
+    dispatchId: uuid("dispatch_id").references(() => dispatches.id, {
+      onDelete: "cascade",
+    }),
     action: text("action").notNull(),
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
     status: text("status").notNull().default("pending"),

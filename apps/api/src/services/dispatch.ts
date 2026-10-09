@@ -7,7 +7,11 @@ import {
   events,
   issues,
 } from "../db/schema.js";
-import { queueDeliveries } from "./outbound.js";
+import {
+  generateEndpointSecret,
+  queueDeliveries,
+  queueDispatchDelivery,
+} from "./outbound.js";
 
 // ── Adapter contract ─────────────────────────────────────────────
 // Third-party harnesses implement this shape and register by harness
@@ -24,6 +28,7 @@ export interface DispatchContext {
     name: string;
     harness: string;
     endpointUrl: string | null;
+    endpointSecret: string | null;
   };
   trigger: "assign" | "mention";
   commentBody?: string | undefined;
@@ -31,6 +36,9 @@ export interface DispatchContext {
 
 export interface DispatchResult {
   sessionId?: string | undefined;
+  // adapter handed the dispatch to an async delivery pipeline — processDispatch
+  // must not mark it claimed; the delivery writeback owns the transition
+  handoff?: boolean | undefined;
 }
 
 export interface DispatchAdapter {
@@ -52,22 +60,26 @@ const webhookAdapter: DispatchAdapter = {
     if (!ctx.agent.endpointUrl) {
       throw new Error(`agent '${ctx.agent.name}' has no endpointUrl configured`);
     }
-    const res = await fetch(ctx.agent.endpointUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
+    // durable signed delivery — first attempt now, retries via the sweeper,
+    // terminal states write back to the dispatch + issue thread
+    if (!ctx.agent.endpointSecret) {
+      await db
+        .update(agents)
+        .set({ endpointSecret: generateEndpointSecret() })
+        .where(eq(agents.id, ctx.agent.id));
+    }
+    await queueDispatchDelivery({
+      workspaceId: ctx.workspaceId,
+      dispatchId: ctx.dispatchId,
+      payload: {
         dispatchId: ctx.dispatchId,
         issue: ctx.issue,
         agent: { id: ctx.agent.id, name: ctx.agent.name },
         trigger: ctx.trigger,
         comment: ctx.commentBody,
-      }),
-      signal: AbortSignal.timeout(8000),
+      },
     });
-    if (!res.ok) {
-      throw new Error(`endpoint returned ${res.status}`);
-    }
-    return {};
+    return { handoff: true };
   },
 };
 
@@ -162,7 +174,7 @@ async function processDispatch(dispatchId: string): Promise<void> {
   }
 
   try {
-    await adapter.launch({
+    const result = await adapter.launch({
       dispatchId: dispatch.id,
       workspaceId: dispatch.workspaceId,
       issue: {
@@ -176,19 +188,26 @@ async function processDispatch(dispatchId: string): Promise<void> {
         name: agent.name,
         harness: agent.harness,
         endpointUrl: agent.endpointUrl,
+        endpointSecret: agent.endpointSecret,
       },
       trigger: dispatch.trigger,
       commentBody: dispatch.commentBody ?? undefined,
     });
     await db
       .update(dispatches)
-      .set({ status: "claimed", adapter: adapter.name, updatedAt: new Date() })
+      .set({ adapter: adapter.name, updatedAt: new Date() })
       .where(eq(dispatches.id, dispatch.id));
-    await systemComment(
-      dispatch.workspaceId,
-      dispatch.issueId,
-      `@${agent.name} picked up via ${adapter.name} adapter`,
-    );
+    if (!result?.handoff) {
+      await db
+        .update(dispatches)
+        .set({ status: "claimed", updatedAt: new Date() })
+        .where(eq(dispatches.id, dispatch.id));
+      await systemComment(
+        dispatch.workspaceId,
+        dispatch.issueId,
+        `@${agent.name} picked up via ${adapter.name} adapter`,
+      );
+    }
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     await db

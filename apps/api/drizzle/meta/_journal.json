@@ -78,6 +78,13 @@
       "when": 1791526587736,
       "tag": "0010_round_songbird",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791527000198,
+      "tag": "0011_early_krista_starr",
+      "breakpoints": true
     }
   ]
 }
