@@ -86,6 +86,7 @@ export const agents = pgTable(
       .references(() => workspaces.id),
     name: text("name").notNull(),
     harness: text("harness").notNull(),
+    endpointUrl: text("endpoint_url"),
     capabilities: jsonb("capabilities").$type<string[]>().default([]).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -432,6 +433,48 @@ export const githubIssueLinks = pgTable(
     index().on(t.workspaceId),
     index().on(t.issueId),
   ],
+);
+
+export const dispatchTriggerEnum = pgEnum("dispatch_trigger", [
+  "assign",
+  "mention",
+]);
+
+export const dispatchStatusEnum = pgEnum("dispatch_status", [
+  "queued",
+  "claimed",
+  "dispatch_failed",
+  "completed",
+  "canceled",
+]);
+
+// durable dispatch records — every intent lands here, never silent
+export const dispatches = pgTable(
+  "dispatches",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => issues.id, { onDelete: "cascade" }),
+    agentId: uuid("agent_id")
+      .notNull()
+      .references(() => agents.id, { onDelete: "cascade" }),
+    trigger: dispatchTriggerEnum("trigger").notNull(),
+    status: dispatchStatusEnum("status").notNull().default("queued"),
+    adapter: text("adapter"),
+    reason: text("reason"),
+    commentBody: text("comment_body"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.workspaceId, t.issueId)],
 );
 
 export type IssueRow = typeof issues.$inferSelect;

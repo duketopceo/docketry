@@ -18,6 +18,7 @@ const agentSchema = z.object({
     .max(80)
     .regex(/^[a-z0-9][a-z0-9-]*$/, "kebab-case identifier"),
   harness: z.string().min(1).max(80),
+  endpointUrl: z.url().optional(),
   capabilities: z.array(z.string().max(80)).max(20).default([]),
 });
 
@@ -53,6 +54,7 @@ export const agentRoutes = new Hono()
           workspaceId: ws.id,
           name: body.name,
           harness: body.harness,
+          endpointUrl: body.endpointUrl ?? null,
           capabilities: body.capabilities,
         })
         .returning();

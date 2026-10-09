@@ -50,6 +50,13 @@
       "when": 1791525520897,
       "tag": "0006_careful_midnight",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791525782238,
+      "tag": "0007_living_jane_foster",
+      "breakpoints": true
     }
   ]
 }
