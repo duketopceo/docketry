@@ -13,6 +13,7 @@ import {
 import { actorFromHeaders } from "../lib/actor.js";
 import { apiError, HttpError } from "../lib/errors.js";
 import { completeCycle } from "../services/cycles.js";
+import { computeInsights } from "../services/insights.js";
 import { requireWorkspace } from "./workspaces.js";
 
 const PROJECT_STATUSES = [
@@ -411,4 +412,10 @@ export const resourceRoutes = new Hono()
     }
     await db.delete(views).where(eq(views.id, view.id));
     return c.json({ ok: true });
+  })
+
+  // ── Insights ─────────────────────────────────────────────
+  .get("/workspaces/:ws/insights", async (c) => {
+    const ws = await requireWorkspace(c);
+    return c.json(await computeInsights(ws.id));
   });
