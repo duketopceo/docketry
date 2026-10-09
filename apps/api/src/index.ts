@@ -7,6 +7,7 @@ import { config_ } from "./env.js";
 import { checkHealth } from "./health.js";
 import { apiError, HttpError } from "./lib/errors.js";
 import { openApiDoc } from "./openapi.js";
+import { authRoutes, requireSession } from "./routes/auth.js";
 import { issueRoutes } from "./routes/issues.js";
 import { workspaceRoutes } from "./routes/workspaces.js";
 import { NotFoundError } from "./services/issues.js";
@@ -17,6 +18,8 @@ export const app = new Hono()
     return c.json(report, report.status === "ok" ? 200 : 503);
   })
   .get("/openapi.json", (c) => c.json(openApiDoc))
+  .route("/v1/auth", authRoutes)
+  .use("/v1/*", requireSession)
   .route("/v1", workspaceRoutes)
   .route("/v1", issueRoutes)
   .onError((err, c) => {

@@ -8,11 +8,14 @@ import {
   events,
   issues,
   labels,
+  sessions,
   teams,
+  users,
   workspaces,
 } from "../db/schema.js";
 
 const SLUG = `api-test-${Date.now()}`;
+const SLUGS = [SLUG, `${SLUG}-2`];
 
 interface TestBody {
   error?: { code: string; message: string };
@@ -29,16 +32,26 @@ interface TestBody {
   [key: string]: unknown;
 }
 
+let sessionCookie = "";
+
 async function req(
   path: string,
   init?: RequestInit,
 ): Promise<{ status: number; body: TestBody }> {
   const res = await app.fetch(
     new Request(`http://api.test${path}`, {
-      headers: { "content-type": "application/json" },
       ...init,
+      headers: {
+        "content-type": "application/json",
+        ...(sessionCookie ? { cookie: sessionCookie } : {}),
+        ...((init?.headers as Record<string, string>) ?? {}),
+      },
     }),
   );
+  const setCookie = res.headers.get("set-cookie");
+  if (setCookie?.startsWith("dok_session=")) {
+    sessionCookie = setCookie.split(";")[0]!;
+  }
   return { status: res.status, body: (await res.json()) as TestBody };
 }
 
@@ -47,37 +60,64 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  const [ws] = await db
-    .select()
-    .from(workspaces)
-    .where(eq(workspaces.slug, SLUG));
-  if (ws) {
-    for (const t of [comments, events, issues, labels, teams] as const) {
-      await db.delete(t).where(eq(t.workspaceId, ws.id));
+  for (const slug of SLUGS) {
+    const [ws] = await db
+      .select()
+      .from(workspaces)
+      .where(eq(workspaces.slug, slug));
+    if (ws) {
+      for (const t of [
+        comments,
+        events,
+        issues,
+        labels,
+        sessions,
+        users,
+        teams,
+      ] as const) {
+        await db.delete(t).where(eq(t.workspaceId, ws.id));
+      }
+      await db.delete(workspaces).where(eq(workspaces.id, ws.id));
     }
-    await db.delete(workspaces).where(eq(workspaces.id, ws.id));
   }
   await closeDb();
 });
 
 describe("api routes (real postgres)", () => {
-  it("bootstraps workspace + team", async () => {
-    const ws = await req("/v1/workspaces", {
-      method: "POST",
-      body: JSON.stringify({ slug: SLUG, name: "API Test" }),
-    });
-    expect(ws.status).toBe(201);
+  it("requires auth, bootstraps once, then rejects second bootstrap", async () => {
+    const unauth = await req(`/v1/workspaces/x/teams`);
+    expect(unauth.status).toBe(401);
 
-    const dupe = await req("/v1/workspaces", {
+    const boot = await req("/v1/auth/bootstrap", {
       method: "POST",
-      body: JSON.stringify({ slug: SLUG, name: "Dup" }),
+      body: JSON.stringify({
+        workspaceSlug: SLUG,
+        workspaceName: "API Test",
+        teamKey: "ENG",
+        email: "t@t.co",
+        name: "Test",
+        password: "test-password-123",
+      }),
     });
-    expect(dupe.status).toBe(409);
-    expect(dupe.body.error!.code).toBe("CONFLICT");
+    expect(boot.status).toBe(201);
+    expect(sessionCookie).toContain("dok_session=");
+
+    const bootAgain = await req("/v1/auth/bootstrap", {
+      method: "POST",
+      body: JSON.stringify({
+        workspaceSlug: SLUGS[1],
+        workspaceName: "Nope",
+        email: "x@x.co",
+        name: "X",
+        password: "test-password-123",
+      }),
+    });
+    expect(bootAgain.status).toBe(403);
+    expect(bootAgain.body.error!.code).toBe("BOOTSTRAP_CLOSED");
 
     const team = await req(`/v1/workspaces/${SLUG}/teams`, {
       method: "POST",
-      body: JSON.stringify({ key: "ENG", name: "Engineering" }),
+      body: JSON.stringify({ key: "ENG2", name: "Engineering 2" }),
     });
     expect(team.status).toBe(201);
   });
