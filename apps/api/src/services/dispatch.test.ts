@@ -226,7 +226,10 @@ describe("dispatch router (#23)", () => {
     expect(payload.issue.key).toBe("DS-1");
     expect(payload.trigger).toBe("assign");
 
-    const rows = await db.select().from(dispatches);
+    const rows = await db
+      .select()
+      .from(dispatches)
+      .where(eq(dispatches.agentId, (hook.body as { id: string }).id));
     expect(rows.at(-1)!.status).toBe("claimed");
     expect(rows.at(-1)!.adapter).toBe("webhook");
   });
@@ -243,7 +246,10 @@ describe("dispatch router (#23)", () => {
         assigneeId: (bare.body as { id: string }).id,
       }),
     });
-    const rows = await db.select().from(dispatches);
+    const rows = await db
+      .select()
+      .from(dispatches)
+      .where(eq(dispatches.agentId, (bare.body as { id: string }).id));
     expect(rows.at(-1)!.status).toBe("dispatch_failed");
     expect(rows.at(-1)!.reason).toContain("endpointUrl");
   });

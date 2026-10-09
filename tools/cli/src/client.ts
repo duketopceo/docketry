@@ -104,6 +104,24 @@ export interface Dispatch {
   updatedAt: string;
 }
 
+export interface SessionEvent {
+  id: number;
+  dispatchId: string;
+  kind: string;
+  message: string;
+  createdAt: string;
+}
+
+export interface Session {
+  id: string;
+  status: string;
+  trigger: string;
+  agentId: string;
+  agentName: string;
+  createdAt: string;
+  events: SessionEvent[];
+}
+
 export interface Workspace {
   id: string;
   slug: string;
@@ -309,6 +327,19 @@ export class ApiClient {
     return this.req("POST", `/dispatches/${encodeURIComponent(id)}/report`, {
       body,
     });
+  }
+
+  appendSessionEvents(
+    dispatchId: string,
+    events: { kind: string; message: string }[],
+  ): Promise<{ events: { id: number }[] }> {
+    return this.req("POST", `/dispatches/${encodeURIComponent(dispatchId)}/events`, {
+      body: { events },
+    });
+  }
+
+  listSessions(key: string): Promise<{ sessions: Session[] }> {
+    return this.req("GET", `/issues/${encodeURIComponent(key)}/sessions`);
   }
 
   getWorkspace(): Promise<Workspace> {

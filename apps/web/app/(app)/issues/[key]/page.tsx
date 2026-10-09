@@ -6,6 +6,7 @@ import {
   StateActions,
 } from "@/components/issue-detail-client";
 import { Sparkle, StatePill } from "@/components/primitives";
+import { SessionTimeline } from "@/components/session-timeline";
 import { api } from "@/lib/api";
 
 interface Me {
@@ -160,6 +161,8 @@ export default async function IssuePage({
             </ul>
           </section>
         )}
+
+        <SessionTimeline issueKey={issue.key} />
 
         <section className="mt-8">
           <h2 className="font-mono text-[11px] uppercase tracking-wider text-ink-tertiary">

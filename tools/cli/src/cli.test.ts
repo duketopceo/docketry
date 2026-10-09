@@ -11,6 +11,7 @@ import {
   agents,
   comments,
   cycles,
+  dispatchEvents,
   dispatches,
   events,
   issues,
@@ -135,6 +136,7 @@ const ALL_TABLES = [
   events,
   webhookDeliveries,
   webhookEndpoints,
+  dispatchEvents,
   dispatches,
   issues,
   labels,
@@ -473,6 +475,40 @@ describe("docketry cli (in-process api)", () => {
       detail.comments.some((c) => c.body.includes("session completed")),
     ).toBe(true);
     expect(existsSync(join(tmpCwd, ".docketry-context.md"))).toBe(true);
+  });
+
+  it("session posts a timeline event onto the dispatch", async () => {
+    const issue = await createIssue("session-timeline me");
+    await cli(["claim", issue.key]);
+    const list = await api(
+      `/v1/workspaces/${SLUG}/dispatches?status=claimed`,
+      { headers: { authorization: `Bearer ${agentToken}` } },
+    );
+    const d = (list.body.dispatches as { id: string; issueKey: string }[]).find(
+      (x) => x.issueKey === issue.key,
+    )!;
+    expect(d).toBeDefined();
+
+    const posted = await cli(
+      ["session", "implementing", "writing tests", "--dispatch", d.id],
+    );
+    expect(posted.code).toBe(0);
+    expect(posted.out[0]).toContain("implementing: writing tests");
+
+    const log = await api(
+      `/v1/workspaces/${SLUG}/dispatches/${d.id}/events`,
+      { headers: { authorization: `Bearer ${agentToken}` } },
+    );
+    const evs = log.body.events as { kind: string; message: string }[];
+    expect(evs[evs.length - 1]).toMatchObject({
+      kind: "implementing",
+      message: "writing tests",
+    });
+
+    const noDispatch = await cli(["session", "note", "hi"], {
+      env: { DOCKETRY_DISPATCH_ID: undefined },
+    });
+    expect(noDispatch.code).toBe(2);
   });
 
   it("work in a git repo isolates the session in a worktree + reports the branch", async () => {
