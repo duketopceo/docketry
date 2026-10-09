@@ -8,6 +8,7 @@ import {
 } from "@docketry/types";
 import { db } from "../db/client.js";
 import { events, issues, teams } from "../db/schema.js";
+import { queueDeliveries } from "./outbound.js";
 
 export interface Actor {
   type: ActorType;
@@ -33,7 +34,7 @@ export class NotFoundError extends Error {
 }
 
 export async function createIssue(input: CreateIssueInput) {
-  return db.transaction(async (tx) => {
+  const issue = await db.transaction(async (tx) => {
     const [team] = await tx
       .update(teams)
       .set({ nextIssueNumber: sql`${teams.nextIssueNumber} + 1` })
@@ -80,6 +81,17 @@ export async function createIssue(input: CreateIssueInput) {
 
     return issue!;
   });
+  await queueDeliveries({
+    workspaceId: input.workspaceId,
+    entityType: "issue",
+    entityId: issue.id,
+    action: "created",
+    actorType: input.creator.type,
+    actorId: input.creator.id,
+    after: { key: issue.key, title: issue.title, state: issue.state },
+    issueKey: issue.key,
+  });
+  return issue;
 }
 
 export async function transitionIssue(
@@ -89,13 +101,15 @@ export async function transitionIssue(
   actor: Actor,
   extra?: Record<string, unknown>,
 ) {
-  return db.transaction(async (tx) => {
+  let fromState!: IssueState;
+  const updated = await db.transaction(async (tx) => {
     const [issue] = await tx
       .select()
       .from(issues)
       .where(and(eq(issues.workspaceId, workspaceId), eq(issues.key, key)))
       .for("update");
     if (!issue) throw new NotFoundError(`issue ${key}`);
+    fromState = issue.state;
 
     if (!canTransition(issue.state, to)) {
       throw new InvalidTransitionError(issue.state, to);
@@ -120,4 +134,16 @@ export async function transitionIssue(
 
     return updated!;
   });
+  await queueDeliveries({
+    workspaceId,
+    entityType: "issue",
+    entityId: updated.id,
+    action: "state_changed",
+    actorType: actor.type,
+    actorId: actor.id,
+    before: { state: fromState },
+    after: { state: to, ...extra },
+    issueKey: key,
+  });
+  return updated;
 }

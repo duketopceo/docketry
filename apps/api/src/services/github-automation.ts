@@ -13,6 +13,7 @@ import {
   teams,
 } from "../db/schema.js";
 import { createIssue, transitionIssue, type Actor } from "./issues.js";
+import { queueDeliveries } from "./outbound.js";
 
 const SYSTEM: Actor = { type: "system", id: null };
 const KEY_PREFIX = /^([A-Z][A-Z0-9]*-\d+)/;
@@ -150,6 +151,21 @@ async function onPullRequestReview(
       pr: pr.number,
       url: review.html_url,
     },
+  });
+  await queueDeliveries({
+    workspaceId: repo.workspaceId,
+    entityType: "issue",
+    entityId: issue.id,
+    action: "github_review",
+    actorType: "system",
+    actorId: null,
+    after: {
+      verdict: review.state,
+      reviewer: review.user?.login ?? "unknown",
+      pr: pr.number,
+      url: review.html_url,
+    },
+    issueKey: issue.key,
   });
 }
 

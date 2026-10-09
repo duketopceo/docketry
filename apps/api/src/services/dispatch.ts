@@ -7,6 +7,7 @@ import {
   events,
   issues,
 } from "../db/schema.js";
+import { queueDeliveries } from "./outbound.js";
 
 // ── Adapter contract ─────────────────────────────────────────────
 // Third-party harnesses implement this shape and register by harness
@@ -103,6 +104,15 @@ async function fail(
     .set({ status: "dispatch_failed", reason, updatedAt: new Date() })
     .where(eq(dispatches.id, dispatch.id));
   await db.insert(events).values({
+    workspaceId: dispatch.workspaceId,
+    entityType: "issue",
+    entityId: dispatch.issueId,
+    action: "dispatch_failed",
+    actorType: "system",
+    actorId: null,
+    after: { dispatchId: dispatch.id, reason },
+  });
+  await queueDeliveries({
     workspaceId: dispatch.workspaceId,
     entityType: "issue",
     entityId: dispatch.issueId,
@@ -215,6 +225,19 @@ export async function createDispatch(input: {
     .returning();
 
   await db.insert(events).values({
+    workspaceId: input.workspaceId,
+    entityType: "issue",
+    entityId: input.issueId,
+    action: "dispatched",
+    actorType: "system",
+    actorId: null,
+    after: {
+      dispatchId: dispatch!.id,
+      agent: agent.name,
+      trigger: input.trigger,
+    },
+  });
+  await queueDeliveries({
     workspaceId: input.workspaceId,
     entityType: "issue",
     entityId: input.issueId,

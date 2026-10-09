@@ -34,6 +34,7 @@ import { apiError, HttpError } from "../lib/errors.js";
 import { decodeCursor, encodeCursor } from "../lib/pagination.js";
 import { createDispatch } from "../services/dispatch.js";
 import { createIssue, transitionIssue, type Actor } from "../services/issues.js";
+import { queueDeliveries } from "../services/outbound.js";
 import { requireWorkspace } from "./workspaces.js";
 
 const createSchema = z.object({
@@ -389,6 +390,16 @@ export const issueRoutes = new Hono()
         actorType: actor.type,
         actorId: actor.id,
         after: { commentId: comment!.id },
+      });
+      await queueDeliveries({
+        workspaceId: ws.id,
+        entityType: "issue",
+        entityId: issue.id,
+        action: "commented",
+        actorType: actor.type,
+        actorId: actor.id,
+        after: { commentId: comment!.id },
+        issueKey: issue.key,
       });
 
       // @agent mentions → dispatch intents (one per agent per comment)
