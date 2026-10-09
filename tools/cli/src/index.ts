@@ -1,18 +1,27 @@
 #!/usr/bin/env node
-import { program } from "commander";
+import { run } from "./cli.js";
 
-program
-  .name("dok")
-  .description("docketry CLI — work the board from a shell")
-  .version("0.0.0");
-
-program
-  .command("ready")
-  .description("list unblocked issues ordered by priority")
-  .option("--format <format>", "output format", "table")
-  .action(() => {
-    console.error("dok ready: API not yet available (see issue #4)");
-    process.exitCode = 1;
+// Piped stdin feeds `comment`/`create` bodies; a TTY returns empty so
+// commands fall back to argument/--body validation.
+function readStdin(): Promise<string> {
+  if (process.stdin.isTTY) return Promise.resolve("");
+  return new Promise((resolve, reject) => {
+    let data = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", (chunk: string) => {
+      data += chunk;
+    });
+    process.stdin.on("end", () => resolve(data));
+    process.stdin.on("error", reject);
   });
+}
 
-program.parse();
+const code = await run(process.argv.slice(2), {
+  out: (line) => process.stdout.write(`${line}\n`),
+  err: (line) => process.stderr.write(`${line}\n`),
+  env: process.env,
+  cwd: process.cwd(),
+  fetch: (request) => fetch(request),
+  stdin: readStdin,
+});
+process.exitCode = code;
