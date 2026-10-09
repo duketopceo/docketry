@@ -11,9 +11,11 @@ import { openApiDoc } from "./openapi.js";
 import { agentRoutes } from "./routes/agents.js";
 import { authRoutes, requireSession } from "./routes/auth.js";
 import { eventRoutes } from "./routes/events.js";
+import { githubRoutes } from "./routes/github.js";
 import { issueRoutes } from "./routes/issues.js";
 import { resourceRoutes } from "./routes/resources.js";
 import { tokenRoutes } from "./routes/tokens.js";
+import { webhookRoutes } from "./routes/webhooks.js";
 import { whoamiRoutes } from "./routes/whoami.js";
 import { workspaceRoutes } from "./routes/workspaces.js";
 import { NotFoundError } from "./services/issues.js";
@@ -26,6 +28,7 @@ export const app = new Hono()
     return c.json(report, report.status === "ok" ? 200 : 503);
   })
   .get("/openapi.json", (c) => c.json(openApiDoc))
+  .route("/webhooks", webhookRoutes)
   .route("/v1/auth", authRoutes)
   .use("/v1/*", requireSession)
   .use("/v1/*", rateLimiter)
@@ -36,6 +39,7 @@ export const app = new Hono()
   .route("/v1", agentRoutes)
   .route("/v1", resourceRoutes)
   .route("/v1", tokenRoutes)
+  .route("/v1", githubRoutes)
   .onError((err, c) => {
     if (err instanceof HttpError) {
       return apiError(c, err.status, err.code, err.message);
