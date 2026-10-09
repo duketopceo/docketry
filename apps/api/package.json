@@ -19,10 +19,12 @@
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",
     "ioredis": "^6.0.0",
+    "papaparse": "^5.7.0",
     "pg": "^8.23.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/papaparse": "^5.5.2",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",
     "tsx": "^4.23.15"
