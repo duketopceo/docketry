@@ -120,6 +120,43 @@ export const authRoutes = new Hono()
     return c.json({ ok: true });
   })
   .get("/me", async (c) => {
+    // Bearer credentials resolve their own identity — CLI/MCP clients need
+    // this to learn which agent/user a token belongs to.
+    const bearer = c.req.header("authorization");
+    const bearerToken = bearer?.startsWith("Bearer ") ? bearer.slice(7) : null;
+    if (bearerToken?.startsWith("dok_agt_")) {
+      const agent = await agentFromKey(bearerToken);
+      if (!agent) return apiError(c, 401, "UNAUTHENTICATED", "bad key");
+      return c.json({
+        type: "agent",
+        agentId: agent.agentId,
+        name: agent.agentName,
+        workspaceId: agent.workspaceId,
+        scopes: agent.scopes,
+      });
+    }
+    if (bearerToken?.startsWith("dok_pat_")) {
+      const pat = await userFromToken(bearerToken);
+      if (!pat) return apiError(c, 401, "UNAUTHENTICATED", "bad token");
+      return c.json({
+        type: "user",
+        userId: pat.userId,
+        name: pat.userName,
+        workspaceId: pat.workspaceId,
+        workspaceSlug: pat.workspaceSlug,
+        scopes: pat.scopes,
+      });
+    }
+    if (bearerToken && !bearerToken.startsWith("dok_")) {
+      const claims = await verifyAccessToken(bearerToken);
+      if (!claims) return apiError(c, 401, "UNAUTHENTICATED", "bad jwt");
+      return c.json({
+        type: "user",
+        userId: claims.sub,
+        workspaceId: claims.ws,
+        scopes: claims.scopes,
+      });
+    }
     const token = getCookie(c, SESSION_COOKIE);
     if (!token) return apiError(c, 401, "UNAUTHENTICATED", "no session");
     const session = await sessionFromToken(token);
