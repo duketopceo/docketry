@@ -3,7 +3,7 @@
 import type { IssueState } from "@docketry/types";
 import { legalTransitions } from "@docketry/types";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 
 const NEXT_LABEL: Partial<Record<IssueState, string>> = {
   backlog: "→ backlog",
@@ -72,6 +72,63 @@ export function StateActions({
         <span className="text-[11px] text-urgent" role="alert">
           {error}
         </span>
+      )}
+    </div>
+  );
+}
+
+// LLM assist — renders nothing when the workspace has no DOCKETRY_LLM_*
+// configured; the status probe keeps the UI honest instead of showing a
+// button that always 503s.
+export function SummarizeButton({ issueKey }: { issueKey: string }) {
+  const [enabled, setEnabled] = useState(false);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/llm-status")
+      .then((r) => r.json())
+      .then((d: { enabled?: boolean }) => setEnabled(!!d.enabled))
+      .catch(() => {});
+  }, []);
+
+  if (!enabled) return null;
+
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setError(null);
+          const res = await fetch(`/api/issues/${issueKey}/summarize`, {
+            method: "POST",
+          });
+          const body = (await res.json().catch(() => null)) as {
+            summary?: string;
+          } | null;
+          setBusy(false);
+          if (!res.ok || !body?.summary) {
+            setError("summary unavailable — LLM assist may be misconfigured");
+            return;
+          }
+          setSummary(body.summary);
+        }}
+        className="h-6 rounded-sm border border-lining px-2 font-mono text-[10px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
+      >
+        {busy ? "summarizing…" : "✦ summarize"}
+      </button>
+      {error && (
+        <span className="ml-2 text-[11px] text-urgent" role="alert">
+          {error}
+        </span>
+      )}
+      {summary && (
+        <p className="mt-2 max-w-prose border-l-2 border-accent/40 pl-3 text-[13px] leading-relaxed text-ink-muted">
+          {summary}
+        </p>
       )}
     </div>
   );
