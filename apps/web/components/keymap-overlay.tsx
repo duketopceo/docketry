@@ -28,6 +28,7 @@ const GROUPS: { name: string; bindings: Binding[] }[] = [
       { keys: "g b", action: "board" },
       { keys: "g c", action: "cycle" },
       { keys: "g a", action: "all issues" },
+      { keys: "g s", action: "insights" },
       { keys: "g e", action: "activity" },
     ],
   },

@@ -488,6 +488,14 @@ export const openApiDoc = {
         responses: { "200": { description: "Deleted" } },
       },
     },
+    "/v1/workspaces/{ws}/insights": {
+      get: {
+        summary:
+          "Workspace metrics computed from the event log — cycle time (avg/p50/p90 + weekly), burnup, per-cycle velocity, throughput split by actor (human/agent/system)",
+        parameters: [wsParam],
+        responses: { "200": { description: "Insights payload" } },
+      },
+    },
     "/v1/workspaces/{ws}/events": {
       get: {
         summary:

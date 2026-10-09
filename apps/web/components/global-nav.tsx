@@ -12,6 +12,7 @@ const GOTO: Record<string, string> = {
   b: "/board",
   c: "/cycle",
   a: "/issues",
+  s: "/insights",
   e: "/activity",
 };
 
