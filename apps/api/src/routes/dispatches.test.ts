@@ -294,4 +294,97 @@ describe("dispatch routes", () => {
     );
     expect(blocked.status).toBe(403);
   });
+
+  async function issueInReview(title: string): Promise<string> {
+    const key = await assignIssue(title, agentId);
+    for (const state of ["todo", "in_progress", "in_review"]) {
+      const r = await req(`/v1/workspaces/${SLUG}/issues/${key}`, {
+        method: "PATCH",
+        body: JSON.stringify({ state }),
+      });
+      expect(r.status).toBe(200);
+    }
+    return key;
+  }
+
+  it("review queue lists agent-produced in_review work; approve lands done", async () => {
+    const key = await issueInReview("review me");
+    // a human in_review issue with no dispatch stays out of the queue
+    const manual = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({ title: "human review" }),
+    });
+    for (const state of ["todo", "in_progress", "in_review"]) {
+      await req(`/v1/workspaces/${SLUG}/issues/${manual.body.key}`, {
+        method: "PATCH",
+        body: JSON.stringify({ state }),
+      });
+    }
+
+    const queue = await req(
+      `/v1/workspaces/${SLUG}/review-queue`,
+      undefined,
+      patToken,
+    );
+    expect(queue.status).toBe(200);
+    const rows = queue.body.queue as { key: string; agentName: string }[];
+    const row = rows.find((r) => r.key === key)!;
+    expect(row).toBeDefined();
+    expect(row.agentName).toBe("worker-1");
+    expect(rows.some((r) => r.key === manual.body.key)).toBe(false);
+
+    const approved = await req(
+      `/v1/workspaces/${SLUG}/issues/${key}/review`,
+      { method: "POST", body: JSON.stringify({ action: "approve" }) },
+      patToken,
+    );
+    expect(approved.status).toBe(200);
+    expect(approved.body.state).toBe("done");
+  });
+
+  it("send_back requires feedback and re-dispatches to the session agent", async () => {
+    const key = await issueInReview("send me back");
+
+    const noFb = await req(
+      `/v1/workspaces/${SLUG}/issues/${key}/review`,
+      { method: "POST", body: JSON.stringify({ action: "send_back" }) },
+      patToken,
+    );
+    expect(noFb.status).toBe(422);
+
+    const back = await req(
+      `/v1/workspaces/${SLUG}/issues/${key}/review`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          action: "send_back",
+          feedback: "missing error handling on the webhook path",
+        }),
+      },
+      patToken,
+    );
+    expect(back.status).toBe(200);
+    expect(back.body.state).toBe("in_progress");
+
+    // feedback comment + re-dispatch to the same agent
+    const commentsRes = await req(
+      `/v1/workspaces/${SLUG}/issues/${key}/comments`,
+      undefined,
+      patToken,
+    );
+    const bodies = (commentsRes.body.comments as { body: string }[]).map(
+      (x) => x.body,
+    );
+    expect(bodies.some((b) => b.includes("missing error handling"))).toBe(true);
+
+    const disps = await req(
+      `/v1/workspaces/${SLUG}/dispatches`,
+      undefined,
+      agentToken,
+    );
+    const mine = (disps.body.dispatches as { issueKey: string; trigger: string }[]).filter(
+      (x) => x.issueKey === key,
+    );
+    expect(mine.some((x) => x.trigger === "mention")).toBe(true);
+  });
 });

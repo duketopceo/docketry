@@ -92,6 +92,34 @@ export const dispatchRoutes = new Hono()
       .limit(100);
     return c.json({ dispatches: rows });
   })
+  // review queue — in_review issues that have at least one dispatch,
+  // with the agent + status of the most recent session
+  .get("/workspaces/:ws/review-queue", async (c) => {
+    const ws = await requireWorkspace(c);
+    const rows = await db
+      .select({
+        id: issues.id,
+        key: issues.key,
+        title: issues.title,
+        priority: issues.priority,
+        updatedAt: issues.updatedAt,
+        dispatchId: dispatches.id,
+        dispatchStatus: dispatches.status,
+        agentName: agents.name,
+        sessionAt: dispatches.createdAt,
+      })
+      .from(issues)
+      .innerJoin(dispatches, eq(dispatches.issueId, issues.id))
+      .innerJoin(agents, eq(dispatches.agentId, agents.id))
+      .where(and(eq(issues.workspaceId, ws.id), eq(issues.state, "in_review")))
+      .orderBy(desc(dispatches.createdAt));
+    // one row per issue — its most recent dispatch
+    const byIssue = new Map<string, (typeof rows)[number]>();
+    for (const r of rows) {
+      if (!byIssue.has(r.id)) byIssue.set(r.id, r);
+    }
+    return c.json({ queue: [...byIssue.values()] });
+  })
   // session lifecycle report — agent keys report only their own dispatches
   .post(
     "/workspaces/:ws/dispatches/:id/report",

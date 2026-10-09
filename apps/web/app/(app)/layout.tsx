@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { CommandPalette } from "@/components/command-palette";
+import { GlobalNav } from "@/components/global-nav";
 import { QuickCreate } from "@/components/quick-create";
 import { Sidebar } from "@/components/sidebar";
 import { api } from "@/lib/api";
@@ -23,6 +24,7 @@ export default async function AppLayout({
       <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       <QuickCreate />
       <CommandPalette workspace={me.data.workspaceSlug} />
+      <GlobalNav />
     </div>
   );
 }

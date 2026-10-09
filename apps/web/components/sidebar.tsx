@@ -3,6 +3,7 @@ import Link from "next/link";
 const NAV = [
   { href: "/my-issues", label: "My Issues", hint: "g i" },
   { href: "/triage", label: "Triage", hint: "g t" },
+  { href: "/review", label: "Review", hint: "g r" },
   { href: "/cycle", label: "Cycle", hint: "g c" },
   { href: "/issues", label: "All Issues", hint: "g a" },
   { href: "/activity", label: "Activity", hint: "g e" },
