@@ -35,5 +35,8 @@ Contributions welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, th
 ## Docs
 
 - [AGENTS.md](./AGENTS.md) — agent entry point and repo conventions
-- [DESIGN.md](./DESIGN.md) — design contract (planned)
+- [DESIGN.md](./DESIGN.md) — design contract
+- [docs/agents.md](./docs/agents.md) — onboard an AI agent (keys, MCP, CLI)
+- [docs/mcp.md](./docs/mcp.md) — MCP server reference
+- [SKILL.md](./SKILL.md) — board rules for agents working the tracker
 - [plans/](./plans/) — implementation plans
