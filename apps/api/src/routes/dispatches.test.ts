@@ -7,6 +7,7 @@ import {
   agents,
   comments,
   cycles,
+  dispatchEvents,
   dispatches,
   events,
   issues,
@@ -55,6 +56,7 @@ const ALL_TABLES = [
   events,
   webhookDeliveries,
   webhookEndpoints,
+  dispatchEvents,
   dispatches,
   issues,
   labels,
@@ -216,5 +218,80 @@ describe("dispatch routes", () => {
       agentToken,
     );
     expect(missing.status).toBe(404);
+  });
+
+  it("session events append, persist, and surface on the issue timeline", async () => {
+    const key = await assignIssue("session me", agentId);
+    const mine = await req(
+      `/v1/workspaces/${SLUG}/dispatches?status=claimed`,
+      undefined,
+      agentToken,
+    );
+    const d = (mine.body.dispatches as { id: string; issueKey: string }[]).find(
+      (x) => x.issueKey === key,
+    )!;
+
+    const appended = await req(
+      `/v1/workspaces/${SLUG}/dispatches/${d.id}/events`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          events: [
+            { kind: "reading", message: "scanning schema.ts" },
+            { kind: "implementing", message: "writing migration" },
+          ],
+        }),
+      },
+      agentToken,
+    );
+    expect(appended.status).toBe(201);
+    expect((appended.body.events as unknown[]).length).toBe(2);
+
+    // durable + ordered
+    const log = await req(
+      `/v1/workspaces/${SLUG}/dispatches/${d.id}/events`,
+      undefined,
+      agentToken,
+    );
+    const rows = log.body.events as { kind: string; message: string }[];
+    expect(rows.map((r) => r.kind)).toEqual(["reading", "implementing"]);
+
+    // issue-level timeline groups them under the dispatch
+    const sessions = await req(
+      `/v1/workspaces/${SLUG}/issues/${key}/sessions`,
+      undefined,
+      patToken,
+    );
+    expect(sessions.status).toBe(200);
+    const s = (sessions.body.sessions as { id: string; events: unknown[] }[]).find(
+      (x) => x.id === d.id,
+    )!;
+    expect(s.events).toHaveLength(2);
+
+    // roll-up feed event for SSE consumers
+    const feed = await req(`/v1/workspaces/${SLUG}/events?limit=5`, undefined, patToken);
+    const actions = (feed.body.events as { action: string }[]).map((e) => e.action);
+    expect(actions).toContain("session_update");
+  });
+
+  it("an agent cannot append to another agent's session", async () => {
+    const key = await assignIssue("private session", otherAgentId);
+    const theirs = await req(
+      `/v1/workspaces/${SLUG}/dispatches?status=claimed`,
+      undefined,
+      otherToken,
+    );
+    const d = (theirs.body.dispatches as { id: string; issueKey: string }[]).find(
+      (x) => x.issueKey === key,
+    )!;
+    const blocked = await req(
+      `/v1/workspaces/${SLUG}/dispatches/${d.id}/events`,
+      {
+        method: "POST",
+        body: JSON.stringify({ events: [{ kind: "note", message: "hi" }] }),
+      },
+      agentToken,
+    );
+    expect(blocked.status).toBe(403);
   });
 });

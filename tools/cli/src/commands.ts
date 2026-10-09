@@ -837,6 +837,11 @@ const workCmd: Command = {
             const child = spawn(bin!, [ctxFile], {
               cwd: workDir,
               stdio: "inherit",
+              env: {
+                ...process.env,
+                DOCKETRY_DISPATCH_ID: d.id,
+                DOCKETRY_ISSUE_KEY: issue.key,
+              },
             });
             child.on("close", (code) =>
               code === 0 ? resolve() : reject(new Error(`${bin} exited ${code}`)),
@@ -859,6 +864,52 @@ const workCmd: Command = {
       if (!follow) break;
       await new Promise((r) => setTimeout(r, interval * 1000));
     }
+  },
+};
+
+const SESSION_KINDS = [
+  "reading",
+  "planning",
+  "implementing",
+  "testing",
+  "reviewing",
+  "pr",
+  "note",
+  "error",
+] as const;
+
+const sessionCmd: Command = {
+  usage:
+    "docketry session <kind> <message…> — kinds: " +
+    SESSION_KINDS.join("|") +
+    "  (dispatch from DOCKETRY_DISPATCH_ID or --dispatch)",
+  summary: "post a progress event to your dispatched session timeline",
+  options: {
+    dispatch: { type: "string" },
+  },
+  needsApi: true,
+  async run(ctx) {
+    const kind = ctx.args[0];
+    if (
+      kind === undefined ||
+      !(SESSION_KINDS as readonly string[]).includes(kind)
+    ) {
+      throw usage(`kind must be one of: ${SESSION_KINDS.join(", ")}`);
+    }
+    const message = ctx.args.slice(1).join(" ").trim();
+    if (!message) throw usage("session requires a message");
+    if (message.length > 500) throw usage("message too long (max 500)");
+    const dispatchId =
+      strFlag(ctx.flags, "dispatch") ?? ctx.io.env.DOCKETRY_DISPATCH_ID;
+    if (!dispatchId || !isUuid(dispatchId)) {
+      throw usage(
+        "no dispatch — run inside `docketry work`, set " +
+          "DOCKETRY_DISPATCH_ID, or pass --dispatch <uuid>",
+      );
+    }
+    await ctx.client.appendSessionEvents(dispatchId, [{ kind, message }]);
+    if (ctx.json) emit(ctx, { kind, message });
+    else ctx.io.out(`${kind}: ${message}`);
   },
 };
 
@@ -953,6 +1004,7 @@ export const commands: Record<string, Command> = {
   show: showCmd,
   triage: triageCmd,
   events: eventsCmd,
+  session: sessionCmd,
   work: workCmd,
   init: initCmd,
 };

@@ -43,7 +43,11 @@ export function buildWorkPrompt(input: {
     "- Work in this worktree on branch `" +
       branchName(issue.key, issue.title) +
       "` — commit as `feat(scope): msg (#<n>)` or `fix: …`",
-    "- Post progress as comments via `docketry comment " + issue.key + ' "…"`',
+    "- Post progress to your session timeline: `docketry session " +
+      "implementing what you're doing` (kinds: reading|planning|" +
+      "implementing|testing|reviewing|pr|note|error; " +
+      "DOCKETRY_DISPATCH_ID is set for you)",
+    "- Post milestone notes as comments via `docketry comment " + issue.key + ' "…"`',
     "- When done: `docketry done " + issue.key + "`; mark done ONLY when the change is pushed/PR'd",
     "",
     "## Issue",

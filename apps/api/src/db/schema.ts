@@ -477,6 +477,38 @@ export const dispatches = pgTable(
   (t) => [index().on(t.workspaceId, t.issueId)],
 );
 
+// append-only session log — an agent's structured progress events inside
+// one dispatch (reading → implementing → testing → pr); replayable forever
+export const dispatchEventKinds = [
+  "reading",
+  "planning",
+  "implementing",
+  "testing",
+  "reviewing",
+  "pr",
+  "note",
+  "error",
+] as const;
+
+export const dispatchEvents = pgTable(
+  "dispatch_events",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    dispatchId: uuid("dispatch_id")
+      .notNull()
+      .references(() => dispatches.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    kind: text("kind", { enum: dispatchEventKinds }).notNull(),
+    message: text("message").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.dispatchId), index().on(t.workspaceId)],
+);
+
 // outbound webhook endpoints — consumers subscribe to issue.*/dispatch.* actions
 export const webhookEndpoints = pgTable(
   "webhook_endpoints",
