@@ -32,6 +32,7 @@ import {
 import { actorFromHeaders } from "../lib/actor.js";
 import { apiError, HttpError } from "../lib/errors.js";
 import { decodeCursor, encodeCursor } from "../lib/pagination.js";
+import { createDispatch } from "../services/dispatch.js";
 import { createIssue, transitionIssue, type Actor } from "../services/issues.js";
 import { requireWorkspace } from "./workspaces.js";
 
@@ -348,6 +349,14 @@ export const issueRoutes = new Hono()
       } else {
         issue = await findIssue(ws.id, key);
       }
+      if (body.assigneeType === "agent" && body.assigneeId && issue) {
+        await createDispatch({
+          workspaceId: ws.id,
+          issueId: issue.id,
+          agentId: body.assigneeId,
+          trigger: "assign",
+        });
+      }
       return c.json(issue);
     },
   )
@@ -381,6 +390,29 @@ export const issueRoutes = new Hono()
         actorId: actor.id,
         after: { commentId: comment!.id },
       });
+
+      // @agent mentions → dispatch intents (one per agent per comment)
+      const mentioned = new Set(
+        [...body.body.matchAll(/@([a-z0-9][a-z0-9_-]*)/gi)].map((m) =>
+          m[1]!.toLowerCase(),
+        ),
+      );
+      if (mentioned.size > 0) {
+        const wsAgents = await db
+          .select()
+          .from(agents)
+          .where(eq(agents.workspaceId, ws.id));
+        for (const agent of wsAgents) {
+          if (!mentioned.has(agent.name.toLowerCase())) continue;
+          await createDispatch({
+            workspaceId: ws.id,
+            issueId: issue.id,
+            agentId: agent.id,
+            trigger: "mention",
+            commentBody: body.body,
+          });
+        }
+      }
 
       return c.json(comment, 201);
     },
