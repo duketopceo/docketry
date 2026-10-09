@@ -7,6 +7,7 @@ import { config_ } from "./env.js";
 import { checkHealth } from "./health.js";
 import { apiError, HttpError } from "./lib/errors.js";
 import { openApiDoc } from "./openapi.js";
+import { agentRoutes } from "./routes/agents.js";
 import { authRoutes, requireSession } from "./routes/auth.js";
 import { issueRoutes } from "./routes/issues.js";
 import { workspaceRoutes } from "./routes/workspaces.js";
@@ -22,6 +23,7 @@ export const app = new Hono()
   .use("/v1/*", requireSession)
   .route("/v1", workspaceRoutes)
   .route("/v1", issueRoutes)
+  .route("/v1", agentRoutes)
   .onError((err, c) => {
     if (err instanceof HttpError) {
       return apiError(c, err.status, err.code, err.message);

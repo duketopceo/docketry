@@ -4,6 +4,8 @@ import { app } from "../index.js";
 import { closeDb, db } from "../db/client.js";
 import { runMigrations } from "../db/migrate.js";
 import {
+  agentKeys,
+  agents,
   comments,
   events,
   issues,
@@ -21,7 +23,7 @@ interface TestBody {
   error?: { code: string; message: string };
   issues?: { key: string; title: string; state: string; priority: string }[];
   labels?: { id: string; name: string }[];
-  events?: { action: string; actorType: string }[];
+  events?: { action: string; actorType: string; actorId?: string | null }[];
   comments?: { body: string }[];
   nextCursor?: string | null;
   key?: string;
@@ -38,13 +40,17 @@ async function req(
   path: string,
   init?: RequestInit,
 ): Promise<{ status: number; body: TestBody }> {
+  const extraHeaders = (init?.headers as Record<string, string>) ?? {};
   const res = await app.fetch(
     new Request(`http://api.test${path}`, {
       ...init,
       headers: {
         "content-type": "application/json",
-        ...(sessionCookie ? { cookie: sessionCookie } : {}),
-        ...((init?.headers as Record<string, string>) ?? {}),
+        // bearer-key requests intentionally bypass the cookie session
+        ...(sessionCookie && !extraHeaders.authorization
+          ? { cookie: sessionCookie }
+          : {}),
+        ...extraHeaders,
       },
     }),
   );
@@ -64,6 +70,8 @@ beforeAll(async () => {
     events,
     issues,
     labels,
+    agentKeys,
+    agents,
     sessions,
     users,
     teams,
@@ -85,6 +93,8 @@ afterAll(async () => {
         events,
         issues,
         labels,
+        agentKeys,
+        agents,
         sessions,
         users,
         teams,
@@ -261,5 +271,112 @@ describe("api routes (real postgres)", () => {
       body: JSON.stringify({ teamKey: "ENG", title: "" }),
     });
     expect(bad.status).toBe(400);
+  });
+
+  it("agent keys: registry, scoped auth, assignment, agent attribution", async () => {
+    // human session registers an agent
+    const agent = await req(`/v1/workspaces/${SLUG}/agents`, {
+      method: "POST",
+      body: JSON.stringify({
+        name: "claude-e2e",
+        harness: "claude-code",
+        capabilities: ["code", "review"],
+      }),
+    });
+    expect(agent.status).toBe(201);
+    const agentId = agent.body.id as string;
+
+    // mint a read-scoped key
+    const readKey = await req(
+      `/v1/workspaces/${SLUG}/agents/${agentId}/keys`,
+      {
+        method: "POST",
+        body: JSON.stringify({ name: "ro", scopes: ["read"] }),
+      },
+    );
+    expect(readKey.status).toBe(201);
+    const roToken = readKey.body.key as string;
+    expect(roToken).toMatch(/^dok_agt_/);
+
+    // read scope passes GET, fails mutations
+    const listOk = await req(`/v1/workspaces/${SLUG}/issues`, {
+      headers: { authorization: `Bearer ${roToken}` },
+    });
+    expect(listOk.status).toBe(200);
+    const denied = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${roToken}` },
+      body: JSON.stringify({ title: "agent write attempt" }),
+    });
+    expect(denied.status).toBe(403);
+    expect(denied.body.error!.code).toBe("FORBIDDEN_SCOPE");
+
+    // write key creates an issue attributed to the agent identity
+    const writeKey = await req(
+      `/v1/workspaces/${SLUG}/agents/${agentId}/keys`,
+      {
+        method: "POST",
+        body: JSON.stringify({ name: "rw", scopes: ["read", "write"] }),
+      },
+    );
+    const rwToken = writeKey.body.key as string;
+    const created = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${rwToken}` },
+      body: JSON.stringify({ title: "agent-authored issue" }),
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.creatorType).toBe("agent");
+
+    // assign the issue to the agent identity
+    const assigned = await req(
+      `/v1/workspaces/${SLUG}/issues/${created.body.key}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          assigneeType: "agent",
+          assigneeId: agentId,
+        }),
+      },
+    );
+    expect(assigned.status).toBe(200);
+    expect(assigned.body.assigneeType).toBe("agent");
+    expect(assigned.body.assigneeId).toBe(agentId);
+
+    // bad assignee → 422
+    const badAssignee = await req(
+      `/v1/workspaces/${SLUG}/issues/${created.body.key}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          assigneeType: "agent",
+          assigneeId: "00000000-0000-0000-0000-000000000000",
+        }),
+      },
+    );
+    expect(badAssignee.status).toBe(422);
+
+    // event feed attributes the write to the agent
+    const feed = await req(
+      `/v1/workspaces/${SLUG}/issues/${created.body.key}/events`,
+    );
+    const agentEvents = feed.body.events!.filter(
+      (e) => e.actorType === "agent" && e.actorId === agentId,
+    );
+    expect(agentEvents.length).toBeGreaterThan(0);
+
+    // bogus key → 401
+    const badKey = await req(`/v1/workspaces/${SLUG}/issues`, {
+      headers: { authorization: "Bearer dok_agt_bogus" },
+    });
+    expect(badKey.status).toBe(401);
+
+    // agents cannot mint agents
+    const agentMint = await req(`/v1/workspaces/${SLUG}/agents`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${rwToken}` },
+      body: JSON.stringify({ name: "nested", harness: "x" }),
+    });
+    expect(agentMint.status).toBe(403);
   });
 });

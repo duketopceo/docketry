@@ -15,6 +15,7 @@ import {
   verifyPassword,
 } from "../services/auth.js";
 import { actorFromHeaders } from "../lib/actor.js";
+import { agentFromKey, type AgentAuth } from "../services/agents.js";
 import type { Actor } from "../services/issues.js";
 
 const bootstrapSchema = z.object({
@@ -141,8 +142,11 @@ export interface Session {
 declare module "hono" {
   interface ContextVariableMap {
     session: Session | null;
+    agentAuth: AgentAuth | null;
   }
 }
+
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 export async function requireSession(c: Context, next: Next) {
   if (c.req.path.startsWith("/v1/auth/")) return next();
@@ -151,6 +155,26 @@ export async function requireSession(c: Context, next: Next) {
     const session = await sessionFromToken(token);
     if (session) {
       c.set("session", session);
+      c.set("agentAuth", null);
+      await next();
+      return;
+    }
+  }
+  const bearer = c.req.header("authorization");
+  if (bearer?.startsWith("Bearer dok_agt_")) {
+    const agent = await agentFromKey(bearer.slice(7));
+    if (agent) {
+      const needed = SAFE_METHODS.has(c.req.method) ? "read" : "write";
+      if (!agent.scopes.includes(needed)) {
+        return apiError(
+          c,
+          403,
+          "FORBIDDEN_SCOPE",
+          `key lacks '${needed}' scope`,
+        );
+      }
+      c.set("session", null);
+      c.set("agentAuth", agent);
       await next();
       return;
     }
@@ -158,6 +182,7 @@ export async function requireSession(c: Context, next: Next) {
   const actor = actorFromHeaders(c) as Actor;
   if (actor.type === "agent" && actor.id) {
     c.set("session", null);
+    c.set("agentAuth", null);
     await next();
     return;
   }

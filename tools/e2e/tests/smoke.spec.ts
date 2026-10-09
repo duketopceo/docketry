@@ -8,14 +8,9 @@ test("create issue via quick-create → appears in list → opens detail", async
   await page.goto("/issues");
   await expect(page.getByRole("heading", { name: "All Issues" })).toBeVisible();
 
-  // wait for client hydration before pressing keys (listener attaches in useEffect)
-  await page.waitForLoadState("networkidle");
-  const dialogCheck = page.getByRole("dialog", { name: "Quick create issue" });
-  for (let i = 0; i < 10; i++) {
-    await page.keyboard.press("c");
-    if (await dialogCheck.isVisible().catch(() => false)) break;
-    await page.waitForTimeout(300);
-  }
+  // wait for the quick-create listener to mount before pressing keys
+  await page.waitForSelector("[data-qc-ready]", { timeout: 15_000 });
+  await page.keyboard.press("c");
   const dialog = page.getByRole("dialog", { name: "Quick create issue" });
   await expect(dialog).toBeVisible();
   await dialog.getByPlaceholder("Issue title").fill(TITLE);

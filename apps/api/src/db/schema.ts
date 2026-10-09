@@ -231,6 +231,28 @@ export const sessions = pgTable(
   (t) => [index().on(t.userId)],
 );
 
+export const agentKeys = pgTable(
+  "agent_keys",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    agentId: uuid("agent_id")
+      .notNull()
+      .references(() => agents.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    scopes: jsonb("scopes").$type<string[]>().notNull().default(["read"]),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.agentId), index().on(t.workspaceId)],
+);
+
 export const issueLabels = pgTable(
   "issue_labels",
   {

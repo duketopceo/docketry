@@ -48,6 +48,13 @@ export function QuickCreate() {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
   useEffect(() => {
+    document.documentElement.dataset.qcReady = "1";
+    return () => {
+      delete document.documentElement.dataset.qcReady;
+    };
+  }, []);
+
+  useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "c" && !open && !isTypingTarget(e.target)) {
         e.preventDefault();
