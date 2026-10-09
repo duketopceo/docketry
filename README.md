@@ -28,6 +28,10 @@ pnpm dev
 
 Docker Compose self-host — see docs/deploy.md (planned).
 
+## Contributing
+
+Contributions welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, the local `pnpm check` gate, and conventions. Security reports: [SECURITY.md](./SECURITY.md). Licensed under [MIT](./LICENSE-MIT).
+
 ## Docs
 
 - [AGENTS.md](./AGENTS.md) — agent entry point and repo conventions
