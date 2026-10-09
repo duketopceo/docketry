@@ -1,12 +1,10 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, asc, desc, eq, gt, inArray, ne, notInArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, ne, or } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import { TERMINAL_STATES } from "@docketry/types";
 import { db } from "../db/client.js";
 import {
   cycles,
-  events,
   issues,
   projects,
   teams,
@@ -14,6 +12,7 @@ import {
 } from "../db/schema.js";
 import { actorFromHeaders } from "../lib/actor.js";
 import { apiError, HttpError } from "../lib/errors.js";
+import { completeCycle } from "../services/cycles.js";
 import { requireWorkspace } from "./workspaces.js";
 
 const PROJECT_STATUSES = [
@@ -322,109 +321,7 @@ export const resourceRoutes = new Hono()
   .post("/workspaces/:ws/cycles/:id/complete", async (c) => {
     const ws = await requireWorkspace(c);
     const actor = actorFromHeaders(c);
-    const cycle = await findCycle(ws.id, c.req.param("id"));
-    const [team] = await db
-      .select()
-      .from(teams)
-      .where(and(eq(teams.id, cycle.teamId), eq(teams.workspaceId, ws.id)));
-    if (!team) throw new HttpError(404, "NOT_FOUND", "team not found");
-    // idempotent: a completed cycle already has its feed event — retries
-    // (double-click, client retry) must not append duplicates
-    const [done] = await db
-      .select({ id: events.id })
-      .from(events)
-      .where(
-        and(
-          eq(events.entityType, "cycle"),
-          eq(events.entityId, cycle.id),
-          eq(events.action, "completed"),
-        ),
-      )
-      .limit(1);
-    if (done) {
-      throw new HttpError(409, "ALREADY_COMPLETED", "cycle already completed");
-    }
-
-    const result = await db.transaction(async (tx) => {
-      const [updated] = await tx
-        .update(cycles)
-        .set({ isActive: false })
-        .where(eq(cycles.id, cycle.id))
-        .returning();
-
-      const open = await tx
-        .select({ id: issues.id })
-        .from(issues)
-        .where(
-          and(
-            eq(issues.workspaceId, ws.id),
-            eq(issues.cycleId, cycle.id),
-            notInArray(issues.state, [...TERMINAL_STATES]),
-          ),
-        );
-
-      // "next cycle" is strictly the team's next cycle by start time —
-      // completing early still lands issues in the following window.
-      const [next] = await tx
-        .select({ id: cycles.id })
-        .from(cycles)
-        .where(
-          and(
-            eq(cycles.workspaceId, ws.id),
-            eq(cycles.teamId, team.id),
-            gt(cycles.startsAt, cycle.startsAt),
-            ne(cycles.id, cycle.id),
-          ),
-        )
-        .orderBy(asc(cycles.startsAt))
-        .limit(1);
-
-      const destination =
-        team.rolloverBehavior === "next_cycle"
-          ? next
-            ? "next_cycle"
-            : "unscheduled"
-          : "backlog";
-
-      if (open.length > 0) {
-        const ids = open.map((i) => i.id);
-        if (destination === "next_cycle") {
-          await tx
-            .update(issues)
-            .set({ cycleId: next!.id, updatedAt: new Date() })
-            .where(inArray(issues.id, ids));
-        } else {
-          await tx
-            .update(issues)
-            .set({
-              cycleId: null,
-              updatedAt: new Date(),
-              // "backlog" rollover literally returns work to the backlog;
-              // "unscheduled" just drops the cycle pointer
-              ...(destination === "backlog"
-                ? { state: "backlog" as const }
-                : {}),
-            })
-            .where(inArray(issues.id, ids));
-        }
-      }
-
-      await tx.insert(events).values({
-        workspaceId: ws.id,
-        entityType: "cycle",
-        entityId: cycle.id,
-        action: "completed",
-        actorType: actor.type,
-        actorId: actor.id,
-        after: {
-          number: cycle.number,
-          movedIssues: open.length,
-          destination,
-        },
-      });
-
-      return { cycle: updated!, movedIssues: open.length, destination };
-    });
+    const result = await completeCycle(ws.id, c.req.param("id"), actor);
     return c.json(result);
   })
   .delete("/workspaces/:ws/cycles/:id", async (c) => {

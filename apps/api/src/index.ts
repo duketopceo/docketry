@@ -8,6 +8,7 @@ import { checkHealth } from "./health.js";
 import { apiError, HttpError } from "./lib/errors.js";
 import { createRateLimiter } from "./lib/rate-limit.js";
 import { openApiDoc } from "./openapi.js";
+import { sweepExpiredCycles } from "./services/cycles.js";
 import { sweepDeliveries } from "./services/outbound.js";
 import { agentRoutes } from "./routes/agents.js";
 import { authRoutes, requireSession } from "./routes/auth.js";
@@ -71,6 +72,15 @@ if (process.env.NODE_ENV !== "test") {
       console.error("webhook sweep failed", err),
     );
   }, 30_000).unref();
+  // cycle boundary sweep: complete expired active cycles unattended
+  setInterval(() => {
+    void sweepExpiredCycles().catch((err) =>
+      console.error("cycle sweep failed", err),
+    );
+  }, 60_000).unref();
+  void sweepExpiredCycles().catch((err) =>
+    console.error("cycle sweep failed", err),
+  );
   serve({ fetch: app.fetch, port: config_.port }, (info) => {
     console.log(`api listening on http://localhost:${info.port}`);
   });
