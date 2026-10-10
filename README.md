@@ -24,9 +24,22 @@ docker compose up -d
 pnpm dev
 ```
 
-## Deploy
+## Self-host
 
-Docker Compose self-host — see docs/deploy.md (planned).
+From clone to a working board in <10 minutes:
+
+```bash
+git clone https://github.com/duketopceo/docketry && cd docketry
+cat > .env <<EOF
+POSTGRES_PASSWORD=$(openssl rand -hex 16)
+JWT_SECRET=$(openssl rand -hex 32)
+EOF
+docker compose -f docker-compose.selfhost.yml up -d
+# → http://localhost:3100 → /bootstrap → board
+```
+
+Full guide — env reference, Cloudflare Tunnel, Railway, upgrades, backups:
+[docs/deploy.md](./docs/deploy.md).
 
 ## Contributing
 
@@ -38,5 +51,6 @@ Contributions welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, th
 - [DESIGN.md](./DESIGN.md) — design contract
 - [docs/agents.md](./docs/agents.md) — onboard an AI agent (keys, MCP, CLI)
 - [docs/mcp.md](./docs/mcp.md) — MCP server reference
+- [docs/deploy.md](./docs/deploy.md) — self-host guide
 - [SKILL.md](./SKILL.md) — board rules for agents working the tracker
 - [plans/](./plans/) — implementation plans
