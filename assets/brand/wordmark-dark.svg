@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 116 27" fill="none" role="img" aria-label="docketry">
+  <title>docketry</title>
+  <g stroke="#eef1f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <circle cx="5" cy="11" r="5" transform="translate(0 0)"/><path d="M10 0v16"/>
+    <circle cx="21" cy="11" r="5"/>
+    <path d="M41.2 8A5 5 0 1 0 41.2 14"/>
+    <path d="M47 0v16M56 6l-9 5.5M49.2 9.6L55.5 16"/>
+    <path d="M62 11h10A5 5 0 1 0 70.6 14.5"/>
+    <path d="M81 2v11q0 3 3.5 3M78 6h7"/>
+    <path d="M91 6v10M91 11q0-5 5.5-5"/>
+    <path d="M101 6l5.3 10M111 6l-7 15"/>
+  </g>
+</svg>

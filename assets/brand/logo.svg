@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" role="img" aria-label="docketry mark (proposal)">
+  <title>docketry</title>
+  <rect x="3" y="9" width="24" height="19" rx="4" fill="#151923" stroke="#151923" stroke-width="2"/>
+  <path d="M8 9h12" stroke="#c9cdd4" stroke-width="2.4" stroke-linecap="round"/>
+  <rect x="8" y="14.5" width="12" height="3" rx="1.5" fill="#8b93a3"/>
+  <rect x="8" y="20.5" width="7.5" height="3" rx="1.5" fill="#6b7383"/>
+  <path d="M25 0l1.9 5.1L32 7l-5.1 1.9L25 14l-1.9-5.1L18 7l5.1-1.9z" fill="#0b66cc"/>
+</svg>
