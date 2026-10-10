@@ -12,6 +12,7 @@ import {
   workspaces,
 } from "../db/schema.js";
 import { apiError } from "../lib/errors.js";
+import { config_ } from "../env.js";
 import {
   createSession,
   destroySession,
@@ -62,6 +63,16 @@ export const authRoutes = new Hono()
     "/bootstrap",
     zValidator("json", bootstrapSchema),
     async (c) => {
+      if (config_.authDisablePassword) {
+        // first-run under password-disabled goes through OAuth's
+        // pending-bootstrap exchange path (R11), not this endpoint
+        return apiError(
+          c,
+          403,
+          "BOOTSTRAP_CLOSED",
+          "password auth is disabled — bootstrap via your first SSO login",
+        );
+      }
       const existing = await db.select({ id: workspaces.id }).from(workspaces);
       if (existing.length > 0) {
         return apiError(
@@ -73,30 +84,50 @@ export const authRoutes = new Hono()
       }
       const body = c.req.valid("json");
 
-      const [ws] = await db
-        .insert(workspaces)
-        .values({ slug: body.workspaceSlug, name: body.workspaceName })
-        .returning();
-      await db.insert(teams).values({
-        workspaceId: ws!.id,
-        key: body.teamKey,
-        name: "Docketry",
+      // serialized with the OAuth pending-bootstrap path: the xact-level
+      // advisory lock makes the zero-workspace check + create atomic, so a
+      // second concurrent bootstrap sees the row instead of racing past it
+      const boot = await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtext('docketry-bootstrap')::bigint)`,
+        );
+        const again = await tx.select({ id: workspaces.id }).from(workspaces);
+        if (again.length > 0) return null;
+        const [ws] = await tx
+          .insert(workspaces)
+          .values({ slug: body.workspaceSlug, name: body.workspaceName })
+          .returning();
+        await tx.insert(teams).values({
+          workspaceId: ws!.id,
+          key: body.teamKey,
+          name: "Docketry",
+        });
+        const [user] = await tx
+          .insert(users)
+          .values({
+            email: body.email.trim().toLowerCase(),
+            name: body.name,
+            passwordHash: hashPassword(body.password),
+          })
+          .returning();
+        await tx.insert(workspaceMembers).values({
+          workspaceId: ws!.id,
+          userId: user!.id,
+          role: "owner",
+        });
+        return { ws: ws!, user: user! };
       });
-      const [user] = await db
-        .insert(users)
-        .values({
-          email: body.email.trim().toLowerCase(),
-          name: body.name,
-          passwordHash: hashPassword(body.password),
-        })
-        .returning();
-      await db.insert(workspaceMembers).values({
-        workspaceId: ws!.id,
-        userId: user!.id,
-        role: "owner",
-      });
+      if (!boot) {
+        return apiError(
+          c,
+          403,
+          "BOOTSTRAP_CLOSED",
+          "workspace already exists — use login or an invite",
+        );
+      }
+      const { ws, user } = boot;
 
-      const token = await createSession(user!.id, ws!.id);
+      const token = await createSession(user.id, ws.id);
       setSessionCookie(c, token);
       return c.json(
         {
@@ -108,6 +139,14 @@ export const authRoutes = new Hono()
     },
   )
   .post("/login", zValidator("json", loginSchema), async (c) => {
+    if (config_.authDisablePassword) {
+      return apiError(
+        c,
+        403,
+        "PASSWORD_DISABLED",
+        "password auth is disabled on this instance",
+      );
+    }
     const body = c.req.valid("json");
     const [user] = await db
       .select()

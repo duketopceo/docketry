@@ -38,6 +38,42 @@ export const config_ = {
   slackWorkspaceSlug: env("SLACK_WORKSPACE_SLUG", ""),
   slackIntakeEmoji: env("SLACK_INTAKE_EMOJI", "ticket"),
 
+  // oauth / web origins
+  webUrl: env("WEB_URL", "http://localhost:3100").replace(/\/$/, ""),
+  // honors x-forwarded-for in rate limiting + logs — only set behind a
+  // real reverse proxy (spoofable otherwise)
+  trustedProxy: ["1", "true", "yes"].includes(
+    env("TRUSTED_PROXY", "").toLowerCase(),
+  ),
+
+  // auth feature flags
+  authSecretKey: env("AUTH_SECRET_KEY", ""),
+  authDisablePassword: ["1", "true", "yes"].includes(
+    env("AUTH_DISABLE_PASSWORD", "").toLowerCase(),
+  ),
+  authAccountLinking: env("AUTH_ACCOUNT_LINKING", "auto") as
+    | "auto"
+    | "login"
+    | "disabled",
+  authAllowedEmailDomains: env("AUTH_ALLOWED_EMAIL_DOMAINS", "")
+    .split(",")
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean),
+  authAutoJoinSingleWorkspace: !["0", "false", "no"].includes(
+    env("AUTH_AUTO_JOIN_SINGLE_WORKSPACE", "").toLowerCase(),
+  ),
+
+  // oauth providers — empty client id = provider absent
+  githubClientId: env("GITHUB_CLIENT_ID", ""),
+  githubClientSecret: env("GITHUB_CLIENT_SECRET", ""),
+  googleClientId: env("GOOGLE_CLIENT_ID", ""),
+  googleClientSecret: env("GOOGLE_CLIENT_SECRET", ""),
+  oidcIssuer: env("OIDC_ISSUER", ""),
+  oidcClientId: env("OIDC_CLIENT_ID", ""),
+  oidcClientSecret: env("OIDC_CLIENT_SECRET", ""),
+  oidcDisplayName: env("OIDC_DISPLAY_NAME", ""),
+  oidcScopes: env("OIDC_SCOPES", "email profile"),
+
   // auth — instance admins get provider settings + always-admin rights;
   // when unset, the bootstrap owner is the fallback admin (KTD10)
   authAdminEmails: env("AUTH_ADMIN_EMAILS", "")

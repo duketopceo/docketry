@@ -1,4 +1,5 @@
 import type { Context, Next } from "hono";
+import { config_ } from "../env.js";
 import { apiError } from "./errors.js";
 
 interface Bucket {
@@ -19,7 +20,11 @@ function identityKey(c: Context): string {
   if (agent) return `agent:${agent.keyId}`;
   const session = c.get("session");
   if (session) return `user:${session.userId}:${session.sessionId.slice(0, 12)}`;
-  const fwd = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+  // x-forwarded-for is caller-controlled — only honor it when the deploy
+  // declares a trusted proxy, otherwise every request can mint a new bucket
+  const fwd = config_.trustedProxy
+    ? c.req.header("x-forwarded-for")?.split(",")[0]?.trim()
+    : undefined;
   return `ip:${fwd ?? "local"}`;
 }
 
