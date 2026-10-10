@@ -3,7 +3,7 @@
 # use (Klavis Strata, gateways). Runs `--http`; credentials arrive per
 # request via headers in passthrough mode.
 
-FROM node:22-alpine AS build
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS build
 RUN corepack enable
 WORKDIR /repo
 
@@ -19,10 +19,11 @@ COPY apps/mcp-server apps/mcp-server
 RUN pnpm --filter @docketry/types build && pnpm --filter @docketry/mcp-server build
 RUN pnpm deploy --legacy --filter @docketry/mcp-server --prod /out
 
-FROM node:22-alpine AS run
+FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS run
 ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=build /out ./
+COPY --from=build --chown=node:node /out ./
+USER node
 EXPOSE 3101
 # passthrough mode (no DOCKETRY_TOKEN/WORKSPACE) = per-request header creds;
 # set the env pair for a single-tenant self-host endpoint instead

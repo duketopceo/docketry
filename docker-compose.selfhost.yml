@@ -87,8 +87,11 @@ services:
       dockerfile: apps/mcp-server/Dockerfile
     environment:
       NODE_ENV: production
-      DOCKETRY_API_URL: http://api:4000
-      # DOCKETRY_ALLOW_API_URL_OVERRIDE: "1"   # enable x-docketry-api-url (SSRF surface — off by default)
+      DOCKETRY_API_URL: ${DOCKETRY_MCP_API_URL:-http://api:4000}
+      # set both for single-tenant mode; leave unset for header passthrough
+      DOCKETRY_TOKEN: ${DOCKETRY_TOKEN:-}
+      DOCKETRY_WORKSPACE: ${DOCKETRY_WORKSPACE:-}
+      DOCKETRY_ALLOW_API_URL_OVERRIDE: ${DOCKETRY_ALLOW_API_URL_OVERRIDE:-}
     ports:
       - "${MCP_PUBLISH_PORT:-3101}:3101"
     depends_on:

@@ -106,8 +106,19 @@ export function configFromHeaders(
         "x-docketry-api-url not accepted by this endpoint",
       );
     }
-    if (!/^https?:\/\//i.test(override)) {
+    let parsed: URL;
+    try {
+      parsed = new URL(override);
+    } catch {
       throw new PassthroughAuthError("x-docketry-api-url must be http(s)");
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new PassthroughAuthError("x-docketry-api-url must be http(s)");
+    }
+    if (isBlockedOverrideHost(parsed.hostname)) {
+      throw new PassthroughAuthError(
+        "x-docketry-api-url host is not permitted",
+      );
     }
     apiUrl = stripSlash(override);
   }
@@ -116,4 +127,28 @@ export function configFromHeaders(
 
 function first(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
+}
+
+/**
+ * Literal-address hosts a forwarded override must never reach — loopback,
+ * link-local, and cloud-metadata targets. RFC1918 stays allowed: pointing
+ * an endpoint at a LAN self-host API is a legitimate use of the opt-in.
+ * This blocks literals only; DNS names resolving to these ranges are a
+ * residual risk — public deployments should also constrain egress.
+ */
+function isBlockedOverrideHost(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (h === "localhost" || h.endsWith(".localhost") || h === "0.0.0.0") {
+    return true;
+  }
+  if (h === "::1" || h.startsWith("fe80:") || h === "fd00:ec2::254") {
+    return true;
+  }
+  const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    if (a === 0 || a === 127) return true; // this-net + loopback
+    if (a === 169 && b === 254) return true; // link-local + cloud metadata
+  }
+  return false;
 }

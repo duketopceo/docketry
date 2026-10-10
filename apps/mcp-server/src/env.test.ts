@@ -145,4 +145,28 @@ describe("configFromHeaders", () => {
       ),
     ).toThrowError(PassthroughAuthError);
   });
+
+  it("blocks loopback/link-local/metadata literal hosts, allows LAN", () => {
+    const optIn = { apiUrl: "http://api:4000", allowApiUrlOverride: true };
+    const headers = (url: string) => ({
+      authorization: "Bearer dok_agt_abc",
+      "x-docketry-workspace": "acme",
+      "x-docketry-api-url": url,
+    });
+    for (const bad of [
+      "http://127.0.0.1:4000",
+      "http://localhost:4000",
+      "http://x.localhost:4000",
+      "http://169.254.169.254/latest/meta-data",
+      "http://[::1]:4000",
+      "http://0.0.0.0:4000",
+    ]) {
+      expect(() => configFromHeaders(headers(bad), optIn)).toThrowError(
+        PassthroughAuthError,
+      );
+    }
+    // RFC1918 self-host deployments remain a legitimate override target
+    const cfg = configFromHeaders(headers("http://192.168.1.50:4000"), optIn);
+    expect(cfg.apiUrl).toBe("http://192.168.1.50:4000");
+  });
 });

@@ -20,7 +20,11 @@ Passthrough request headers:
 - `x-docketry-workspace: <slug>` — their workspace
 - `x-docketry-api-url: <url>` — only honored when the endpoint sets
   `DOCKETRY_ALLOW_API_URL_OVERRIDE=1`. Off by default: forwarding
-  caller-chosen URLs server-side is an SSRF surface.
+  caller-chosen URLs server-side is an SSRF surface. When enabled,
+  literal loopback/link-local/cloud-metadata hosts are refused (RFC1918
+  stays allowed — pointing at a LAN self-host API is the legitimate use);
+  DNS names resolving there are residual risk — constrain egress on
+  public deployments.
 
 Each request builds a fresh client + MCP server (no session state), so any
 number of workspaces/tenants share one process and any replica serves any
@@ -31,10 +35,11 @@ request.
 ```bash
 # docker — part of the self-host stack, behind the `mcp` profile:
 docker compose -f docker-compose.selfhost.yml --profile mcp up -d
-# → POST http://localhost:3101/mcp  (DOCKETRY_API_URL=http://api:4000 inside)
+# → POST http://localhost:3101/mcp  (proxies to api:4000 inside the stack)
 
-# or bare:
-DOCKETRY_API_URL=https://api.example.com node dist/index.js --http=3101
+# or bare (from the repo root, after pnpm --filter @docketry/mcp-server build):
+DOCKETRY_API_URL=https://api.example.com \
+  node apps/mcp-server/dist/index.js --http=3101
 ```
 
 Verified end-to-end in the self-host stack: `whoami` returns the caller's

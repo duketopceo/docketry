@@ -10,12 +10,15 @@ stay the single source of truth.
 
 | Var | Required | Notes |
 | --- | --- | --- |
-| `DOCKETRY_TOKEN` | yes | `dok_agt_*` agent key (preferred — actions are attributed to the agent) or `dok_pat_*` personal token. Mutating tools require the `write` scope. |
-| `DOCKETRY_WORKSPACE` | yes | Workspace slug, e.g. `acme`. |
+| `DOCKETRY_TOKEN` | stdio / env-http | `dok_agt_*` agent key (preferred — actions are attributed to the agent) or `dok_pat_*` personal token. Mutating tools require the `write` scope. |
+| `DOCKETRY_WORKSPACE` | stdio / env-http | Workspace slug, e.g. `acme`. |
 | `DOCKETRY_API_URL` | no | API base URL. Default `http://localhost:4000`. |
+| `DOCKETRY_ALLOW_API_URL_OVERRIDE` | no | HTTP passthrough only — `1` honors per-request `x-docketry-api-url`. Off by default. |
 
-Missing required vars fail fast: the server writes the missing names to
-stderr and exits 1 instead of serving tools that can only 401.
+stdio always needs `DOCKETRY_TOKEN` + `DOCKETRY_WORKSPACE` — missing vars
+fail fast: the server writes the missing names to stderr and exits 1.
+`--http` needs them only for single-tenant mode; with neither set it runs
+per-request header passthrough instead (see below).
 
 ## Transports
 

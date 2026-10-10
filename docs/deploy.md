@@ -57,7 +57,7 @@ Set these in `.env` next to the compose file (it reads `.env` automatically):
 | Var | Required | Default | Purpose |
 |---|---|---|---|
 | `MCP_PUBLISH_PORT` | no | `3101` | Host port for the hosted-MCP endpoint |
-| `DOCKETRY_API_URL` | no | `http://api:4000` (in compose) | API the MCP server proxies to |
+| `DOCKETRY_MCP_API_URL` | no | `http://api:4000` | API the MCP server proxies to (service-internal; named distinctly so a caller-facing `DOCKETRY_API_URL` can't misroute it) |
 | `DOCKETRY_TOKEN` / `DOCKETRY_WORKSPACE` | no | — | Set both → single-tenant mode; neither → per-request header passthrough (see [klavis.md](./klavis.md)) |
 | `DOCKETRY_ALLOW_API_URL_OVERRIDE` | no | off | `1` honors `x-docketry-api-url` per request — needed for a multi-deployment hosted endpoint; SSRF surface, enable deliberately |
 
