@@ -62,8 +62,12 @@ app, MCP server, CLI, and all webhook/integration surfaces.
 
 **Finding fixed in this PR:** Slack `reaction_added` was not idempotent —
 a retried event (or a second user reacting to the same message) created a
-duplicate issue. `handleReactionAdded` now skips threads that already have
-a `slack_links` row; regression test added.
+duplicate issue. `handleReactionAdded` skips threads that already have a
+`slack_links` row, and the claim is atomic: `slack_links` carries a
+`UNIQUE(channel, thread_ts)` constraint (migration `0017`), so a
+concurrent delivery that races past the existence check loses the insert,
+its duplicate issue is deleted, and no confirmation is posted. Covered by
+sequential-retry and concurrent-delivery regression tests.
 
 ## Data protection / logging — PASS
 

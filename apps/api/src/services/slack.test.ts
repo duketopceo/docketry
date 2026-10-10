@@ -239,6 +239,38 @@ describe("slack receiver", () => {
     expect(after.length).toBe(before.length);
   });
 
+  it("emoji intake is atomic — concurrent deliveries on one thread create one issue", async () => {
+    const s = createSlack(fakeSlack);
+    const before = await db
+      .select()
+      .from(issues)
+      .where(eq(issues.source, "slack"));
+    // two deliveries racing past the existence check — the unique
+    // (channel, thread_ts) claim decides the winner
+    await Promise.all([
+      s.handleReactionAdded({
+        reaction: "ticket",
+        item: { type: "message", channel: "C777", ts: "1700.9" },
+        item_user: "U1",
+      }),
+      s.handleReactionAdded({
+        reaction: "ticket",
+        item: { type: "message", channel: "C777", ts: "1700.9" },
+        item_user: "U2",
+      }),
+    ]);
+    const after = await db
+      .select()
+      .from(issues)
+      .where(eq(issues.source, "slack"));
+    expect(after.length).toBe(before.length + 1);
+    const links = await db
+      .select()
+      .from(slackLinks)
+      .where(eq(slackLinks.channel, "C777"));
+    expect(links.length).toBe(1);
+  });
+
   it("mirrors thread replies into comments — and ignores bot posts", async () => {
     const s = createSlack(fakeSlack);
     calls.length = 0;

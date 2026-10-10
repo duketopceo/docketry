@@ -680,7 +680,9 @@ export const slackLinks = pgTable(
   },
   (t) => [
     index().on(t.workspaceId),
-    index().on(t.channel, t.threadTs),
+    // one link per Slack thread — the claim that makes reaction intake
+    // idempotent under concurrent/retried event delivery
+    unique().on(t.channel, t.threadTs),
   ],
 );
 

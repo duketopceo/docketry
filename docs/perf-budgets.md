@@ -24,33 +24,42 @@ node tools/e2e/scripts/bundle-budget.mjs   # after pnpm --filter web build
 
 | Route | p50 | p95 | Budget | Result |
 |---|---|---|---|---|
-| list issues | 6.7ms | 11.9ms | 150ms | PASS |
-| list issues (state filter) | 3.3ms | 9.8ms | 150ms | PASS |
-| search issues | 6.5ms | 13.1ms | 250ms | PASS |
-| issue detail + thread | 6.1ms | 11.6ms | 150ms | PASS |
-| insights (26w event scan) | 72.2ms | 100.9ms | 800ms | PASS |
-| activity feed | 2.0ms | 5.4ms | 200ms | PASS |
-| create issue | 5.7ms | 10.1ms | 150ms | PASS |
-| transition issue | 5.5ms | 12.9ms | 150ms | PASS |
+| list issues | 3.6ms | 5.9ms | 150ms | PASS |
+| list issues (state filter) | 3.9ms | 5.9ms | 150ms | PASS |
+| search issues | 7.0ms | 12.3ms | 250ms | PASS |
+| issue detail + thread | 8.5ms | 12.2ms | 150ms | PASS |
+| insights (26w event scan) | 69.0ms | 108.2ms | 800ms | PASS |
+| activity feed | 2.0ms | 3.7ms | 200ms | PASS |
+| create issue | 2.7ms | 3.8ms | 150ms | PASS |
+| transition issue | 6.9ms | 10.5ms | 150ms | PASS |
+
+Harness integrity: the bench refuses to run unless the workspace holds
+≥10,000 issues, the detail route measures an issue that actually carries a
+comment thread, every sample must return 2xx (a fast error is a failure,
+not a fast route), and issues/events created during the run are deleted
+afterwards so the fixture survives repeated runs.
 
 ## Web vitals (R10: LCP < 1.5s, INP < 200ms, CLS < 0.05)
 
-| Page | domComplete (LCP bound) | FCP | INP | CLS |
+| Page | settled (LCP bound) | FCP | INP | CLS |
 |---|---|---|---|---|
-| /issues | 90ms | 68ms | 24ms | 0.000 |
-| /board | 132ms | 136ms | 0ms | 0.000 |
-| /insights | 226ms | 244ms | 16ms | 0.000 |
-| /roadmap | 89ms | 100ms | 40ms | 0.000 |
+| /issues | 691ms | 88ms | 24ms | 0.000 |
+| /board | 627ms | 52ms | 16ms | 0.000 |
+| /insights | 751ms | 136ms | 16ms | 0.000 |
+| /roadmap | 638ms | 52ms | 16ms | 0.000 |
 
 Headless Chromium on this platform does not emit `largest-contentful-paint`
-entries, so the gate asserts on `navigation.domComplete` — a strict upper
-bound for LCP (all resources loaded). Passing domComplete < 1.5s implies
-LCP < 1.5s. INP is measured via `event` timing entries on j/k keypresses.
+entries, so the gate asserts on `settled`: the timestamp of the first
+painted frame after `[data-qc-ready]` hydration AND `networkidle`. The
+largest element can only paint once its data has arrived, so settled ≥ LCP
+— passing settled < 1.5s implies LCP < 1.5s, and it honestly includes the
+deferred `ssr:false` mounts that a `domComplete` bound would miss. If a
+platform does emit LCP entries, the spec asserts the real value too.
 
-Note: insights/board/roadmap mount their heavy client code after initial
-load (dynamic `ssr:false`), so their deferred render is not in domComplete —
-FCP lands on the header/skeleton, full mount within hydration. INP measured
-post-mount confirms interactivity is fast.
+INP is measured via `event`-timing + `first-input` entries on j/k
+keypresses and a real click, after waiting for hydration. The spec requires
+at least one timing sample per page — an unmeasured INP is a failure, not
+a pass.
 
 ## Bundle (R10: initial JS < 200kb gzipped)
 

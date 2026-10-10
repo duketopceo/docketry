@@ -11,6 +11,12 @@ import pg from "pg";
 //
 // The spec mints its own session into the `seed` workspace (same direct-pg
 // pattern as global-setup) so it doesn't disturb the suite's e2e user.
+//
+// Headless Chromium on this platform emits no `largest-contentful-paint`
+// entries, so the LCP budget is asserted on `settled`: the timestamp of the
+// first painted frame after the app has hydrated AND finished its network
+// work. LCP is the paint time of the largest element; an element can only be
+// painted once data has arrived, so settled >= LCP — passing it passes LCP.
 
 const DB =
   process.env.DATABASE_URL ??
@@ -20,13 +26,12 @@ const BUDGETS = { lcp: 1500, inp: 200, cls: 0.05 };
 const PAGES = ["/issues", "/board", "/insights", "/roadmap"] as const;
 
 interface Vitals {
-  // headless Chromium on this platform doesn't emit LCP entries — we
-  // assert on domComplete (a strict upper bound for LCP) and report FCP
-  lcp: number;
+  lcp: number; // real LCP if the platform emits it, else 0
   fcp: number;
-  domComplete: number;
+  settled: number; // first painted frame after hydration + network idle
   cls: number;
   inp: number;
+  inpSamples: number; // event-timing + first-input entries observed
 }
 
 async function sessionCookie(): Promise<{
@@ -66,9 +71,10 @@ async function measure(
     (window as unknown as { __vitals: Vitals }).__vitals = {
       lcp: 0,
       fcp: 0,
-      domComplete: 0,
+      settled: 0,
       cls: 0,
       inp: 0,
+      inpSamples: 0,
     };
     const track = () => {
       const w = (window as unknown as { __vitals: Vitals }).__vitals;
@@ -79,10 +85,6 @@ async function measure(
       const paint = performance.getEntriesByType("paint");
       const fcp = paint.find((e) => e.name === "first-contentful-paint");
       if (fcp) w.fcp = fcp.startTime;
-      const nav = performance.getEntriesByType(
-        "navigation",
-      )[0] as PerformanceNavigationTiming | undefined;
-      if (nav) w.domComplete = nav.domComplete;
       requestAnimationFrame(track);
     };
     requestAnimationFrame(track);
@@ -94,27 +96,58 @@ async function measure(
         }
       }
     }).observe({ type: "layout-shift", buffered: true });
+    // `event` needs >=16ms durations; `first-input` fires on any duration —
+    // together they guarantee a sample from even a fast interaction
     new PerformanceObserver((list) => {
+      const w = (window as unknown as { __vitals: Vitals }).__vitals;
       for (const e of list.getEntries()) {
-        (window as unknown as { __vitals: Vitals }).__vitals.inp = Math.max(
-          (window as unknown as { __vitals: Vitals }).__vitals.inp,
+        w.inp = Math.max(
+          w.inp,
           (e as PerformanceEntry & { duration: number }).duration,
         );
+        w.inpSamples++;
       }
     }).observe({
       type: "event",
       buffered: true,
       durationThreshold: 16,
     } as PerformanceObserverInit);
+    new PerformanceObserver((list) => {
+      const w = (window as unknown as { __vitals: Vitals }).__vitals;
+      for (const e of list.getEntries()) {
+        w.inp = Math.max(
+          w.inp,
+          (e as PerformanceEntry & { duration: number }).duration,
+        );
+        w.inpSamples++;
+      }
+    }).observe({ type: "first-input", buffered: true });
   });
   await page.goto(path);
-  // j/k is the primary interaction — measures event-processing latency
+  // hydration marker used by every other spec in the suite
+  await page.waitForSelector("[data-qc-ready]", { timeout: 15_000 });
+  // settle: data fetches resolved, then one painted frame — this is the
+  // honest LCP bound (largest element can only paint after data lands)
+  await page.waitForLoadState("networkidle");
+  const settled = await page.evaluate(
+    () =>
+      new Promise<number>((r) =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => r(performance.now())),
+        ),
+      ),
+  );
+  // j/k is the primary interaction; a click on main guarantees an
+  // event-timing/first-input sample on pages with no row focus
   await page.keyboard.press("j");
   await page.keyboard.press("k");
-  await page.waitForTimeout(800);
-  return page.evaluate(
+  await page.locator("main").click({ position: { x: 8, y: 8 } });
+  await page.waitForTimeout(300);
+  const v = await page.evaluate(
     () => (window as unknown as { __vitals: Vitals }).__vitals,
   );
+  v.settled = settled;
+  return v;
 }
 
 test.describe("R10 web vitals on 10k-issue workspace", () => {
@@ -135,11 +168,18 @@ test.describe("R10 web vitals on 10k-issue workspace", () => {
     await ctx.close();
 
     for (const [path, v] of rows) {
+      const reported = v.lcp > 0 ? `lcp ${v.lcp.toFixed(0)}ms` : `settled ${v.settled.toFixed(0)}ms (LCP bound)`;
       console.log(
-        `${path.padEnd(10)} domComplete ${v.domComplete.toFixed(0)}ms (LCP bound) · fcp ${v.fcp.toFixed(0)}ms · inp ${v.inp.toFixed(0)}ms · cls ${v.cls.toFixed(3)}`,
+        `${path.padEnd(10)} ${reported} · fcp ${v.fcp.toFixed(0)}ms · inp ${v.inp.toFixed(0)}ms (${v.inpSamples} samples) · cls ${v.cls.toFixed(3)}`,
       );
-      // domComplete >= LCP always — passing it means LCP passes too
-      expect(v.domComplete, `${path} load`).toBeLessThan(BUDGETS.lcp);
+      // settled >= LCP: it waits for hydration + data + a painted frame
+      expect(v.settled, `${path} load`).toBeLessThan(BUDGETS.lcp);
+      if (v.lcp > 0) {
+        expect(v.lcp, `${path} LCP`).toBeLessThan(BUDGETS.lcp);
+      }
+      // an unmeasured INP is a failure, not a pass — the interaction ran,
+      // so the platform must have produced at least one timing entry
+      expect(v.inpSamples, `${path} INP samples`).toBeGreaterThan(0);
       expect(v.inp, `${path} INP`).toBeLessThan(BUDGETS.inp);
       expect(v.cls, `${path} CLS`).toBeLessThan(BUDGETS.cls);
     }

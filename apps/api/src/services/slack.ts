@@ -58,7 +58,9 @@ export function createSlack(fetchImpl?: FetchLike) {
       creator: SYSTEM,
       state: "triage",
     });
-    await db
+    // the (channel, thread_ts) unique claim is what makes intake atomic:
+    // a losing concurrent/retried delivery gets no row back
+    const [link] = await db
       .insert(slackLinks)
       .values({
         workspaceId: ws.id,
@@ -68,7 +70,16 @@ export function createSlack(fetchImpl?: FetchLike) {
         reporterSlackId: input.reporterSlackId ?? null,
         reporterName: input.reporterName ?? null,
       })
-      .onConflictDoNothing();
+      .onConflictDoNothing()
+      .returning({ id: slackLinks.id });
+    if (!link) {
+      // another delivery claimed this thread first — drop our duplicate
+      await db
+        .delete(events)
+        .where(and(eq(events.entityType, "issue"), eq(events.entityId, issue.id)));
+      await db.delete(issues).where(eq(issues.id, issue.id));
+      return null;
+    }
     return issue;
   }
 
@@ -141,6 +152,12 @@ export function createSlack(fetchImpl?: FetchLike) {
       reporterSlackId: p.user_id,
       reporterName: p.user_name,
     });
+    if (!issue) {
+      return {
+        response_type: "ephemeral",
+        text: "That thread is already linked to a docketry issue.",
+      };
+    }
     return {
       response_type: "ephemeral",
       text: `Created *${issue.key}* — ${issue.title}\n${issueUrl(issue.key)}`,
@@ -184,6 +201,10 @@ export function createSlack(fetchImpl?: FetchLike) {
       reporterSlackId: p.user?.id,
       reporterName: p.user?.username ?? p.user?.name,
     });
+    if (!issue) {
+      // duplicate submission on an already-linked thread — nothing to post
+      return { response_action: "clear" };
+    }
     if (channel) {
       try {
         const posted = await api("chat.postMessage", {
@@ -252,6 +273,8 @@ export function createSlack(fetchImpl?: FetchLike) {
       threadTs: parentTs,
       reporterSlackId: ev.item_user,
     });
+    // null = a concurrent delivery claimed the thread first — its reply covers us
+    if (!issue) return;
     try {
       await api("chat.postMessage", {
         channel,

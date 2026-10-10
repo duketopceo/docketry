@@ -69,6 +69,21 @@ async function main() {
   }
   const wsId = ws!.id;
 
+  // a `seed` slug match doesn't prove fixture ownership — refuse to wipe a
+  // workspace that holds anything besides the SEED team
+  const foreignTeams = await db
+    .select({ key: teams.key })
+    .from(teams)
+    .where(sql`${teams.workspaceId} = ${wsId} AND ${teams.key} <> 'SEED'`);
+  if (foreignTeams.length > 0) {
+    console.error(
+      `workspace '${WS_SLUG}' contains non-fixture teams (${foreignTeams
+        .map((t) => t.key)
+        .join(", ")}) — refusing to wipe; use a dedicated database`,
+    );
+    process.exit(1);
+  }
+
   let [team] = await db
     .select()
     .from(teams)
@@ -82,17 +97,20 @@ async function main() {
   }
   const teamId = team!.id;
 
-  // wipe prior fixture so reruns measure a clean 10k
+  // wipe prior fixture so reruns measure a clean 10k — scoped to the SEED
+  // team's own issues, never the workspace at large
   await db.delete(comments).where(
-    sql`${comments.issueId} IN (SELECT id FROM issues WHERE workspace_id = ${wsId})`,
+    sql`${comments.issueId} IN (SELECT id FROM issues WHERE team_id = ${teamId})`,
   );
   await db.delete(events).where(sql`${events.workspaceId} = ${wsId}`);
-  await db.delete(issues).where(sql`${issues.workspaceId} = ${wsId}`);
+  await db.delete(issues).where(sql`${issues.teamId} = ${teamId}`);
 
   let [user] = await db
     .select()
     .from(users)
-    .where(sql`${users.email} = 'seed@example.com'`)
+    .where(
+      sql`${users.workspaceId} = ${wsId} AND ${users.email} = 'seed@example.com'`,
+    )
     .limit(1);
   if (!user) {
     [user] = await db
