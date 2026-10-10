@@ -23,5 +23,22 @@ export async function api<T>(
     cache: "no-store",
   });
   const data = (await res.json().catch(() => null)) as T | null;
-  return { ok: res.ok, status: res.status, data };
+  // error envelopes ({error:{…}}) must never reach callers as truthy data —
+  // a truthy-but-error payload renders a broken shell (zero-membership
+  // bounce depends on this)
+  return { ok: res.ok, status: res.status, data: res.ok ? data : null };
+}
+
+// browser-reachable API origin — NEXT_PUBLIC_API_URL, never the docker
+// hostname API_INTERNAL_URL resolves to on compose
+export const PUBLIC_API_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+
+export interface Me {
+  workspaceSlug: string;
+  name: string;
+  email: string;
+  memberships: { workspaceId: string; workspaceSlug: string; role: string }[];
+  activeWorkspaceSlug: string;
+  isInstanceAdmin: boolean;
 }

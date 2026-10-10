@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import { API_URL } from "@/lib/api";
-import { forwardSessionCookies } from "@/lib/session";
+import { forwardSessionCookies, safeReturnTo } from "@/lib/session";
 
 export async function POST(req: Request) {
-  const body = await req.text();
+  const body = (await req.json().catch(() => null)) as {
+    email?: string;
+    password?: string;
+    return_to?: string;
+  } | null;
   const upstream = await fetch(`${API_URL}/v1/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body,
+    body: JSON.stringify({ email: body?.email, password: body?.password }),
   });
   const data = (await upstream.json().catch(() => null)) as unknown;
 
@@ -16,5 +20,8 @@ export async function POST(req: Request) {
   }
 
   await forwardSessionCookies(upstream);
-  return NextResponse.json({ ok: true });
+  // the join flow round-trips its invite through return_to — only same-
+  // origin-relative paths survive
+  const destination = safeReturnTo(body?.return_to);
+  return NextResponse.json({ ok: true, returnTo: destination });
 }

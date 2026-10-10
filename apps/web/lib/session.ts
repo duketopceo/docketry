@@ -16,6 +16,7 @@ export async function forwardSessionCookies(
     jar.set(SESSION_COOKIE, match[1]!, {
       httpOnly: true,
       sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
       path: "/",
       maxAge: COOKIE_MAX_AGE,
     });
@@ -33,8 +34,25 @@ export async function forwardSessionCookies(
     jar.set(WORKSPACE_COOKIE, slug, {
       httpOnly: true,
       sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
       path: "/",
       maxAge: COOKIE_MAX_AGE,
     });
   }
+}
+
+export async function setWorkspaceCookie(slug: string): Promise<void> {
+  const jar = await cookies();
+  jar.set(WORKSPACE_COOKIE, slug, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: COOKIE_MAX_AGE,
+  });
+}
+
+// only `/`-relative paths survive — open-redirect guard for return_to
+export function safeReturnTo(v: string | null | undefined): string {
+  return v && v.startsWith("/") && !v.startsWith("//") ? v : "/my-issues";
 }
