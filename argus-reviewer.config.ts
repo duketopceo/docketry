@@ -4,9 +4,11 @@ export default defineConfig({
   // The app under test. command boots it (omit if it is already running);
   // argus-reviewer polls url until it responds before running tests.
   target: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    readyTimeoutMs: 30_000,
+    // pnpm monorepo: `pnpm dev` boots api (:4000) + web (:3100) via turbo
+    // and needs `docker compose up -d` (postgres+redis) running first.
+    command: 'pnpm dev',
+    url: 'http://localhost:3100',
+    readyTimeoutMs: 60_000,
   },
   // Hard per-run cap on vision-model spend (USD). Steps replayed from the
   // fingerprint cache cost $0 regardless of this cap.
