@@ -632,3 +632,119 @@ The seven load-bearing components — the minimum vocabulary an agent needs to s
 | **Sparkle glint** (`sparkle-glint`) | 4-point concave star, straight segments · 12/16/20px · `glint` azure (or `glint-silver` inside lit surfaces) · static, `aria-hidden` · means exactly "an agent touched this" · sparse by rule. |
 | **Empty state** (`empty-state`) | Linework docket card (`lining` stroke, one `lining-bright` edge, silver glint) · `headline` what's here · `body` `ink-subtle` why empty · `button-secondary` or keycap action. Centered, 48px vertical padding. |
 | **Error state** (`error-panel`) | `card-panel` chrome + `lining-bright` border · urgent dot + `body-strong` what broke · `body` `ink-muted` why · `button-secondary` recommended action right-aligned · `role="alert"` · persists until dismissed or resolved — never auto-dismisses. |
+
+---
+
+## Direction Record (program pass, 2026-10-10)
+
+This section records the direction, the reference lock, the decision ledger and a measured
+contrast audit. It adds to the tokens above and changes none of them.
+
+**Direction name: Silver Lining Console.** A dense, dark, keyboard-first operator console. Flat
+near-black surfaces, one metallic hairline on every container that brightens only where the system
+needs attention, one azure accent, and one four-point star that means "an agent touched this".
+
+**Research method note.** The Refero MCP was not available in this session, so there were no live
+style or screen pulls. The references below are products documented in
+`docs/research/2026-10-10-landscape.md` and the product's own screenshots (`docs/assets/`), checked
+against the bundled craft guidance. Treat the ledger as evidence-light on visual taste and re-run it
+with Refero styles before any marketing site work.
+
+### Reference lock
+
+```text
+Primary direction: this file's existing system (Silver Lining Console), unchanged.
+Preserve: near-black canvas #0a0c10; 1px lining on every container; azure only on actions,
+  links, focus and the glint; 4-color status with shape + label; 13px body at 36px rows.
+Borrow only: (1) Linear's use of an inbox with explicit accept/decline verbs for triage copy
+  (behaviour, not visuals); (2) Epiq's terminal-first, event-log-as-truth feel for the CLI/TUI
+  output style (monospace IDs, no colour decoration).
+Role rules: azure = action/focus/provenance only, never status. Status colours never decorate.
+  Glint never animates and never appears for human-authored work. Silver lining brightens only
+  with a recommended action beside it.
+Media strategy: the product is the imagery. Real screenshots of the running app in a card-panel
+  frame; linework docket card for empty states; no photography, no illustration, no mesh gradients.
+Reject: Linear's tokens and trade dress (plan R25), indigo/violet accents, glassmorphism and
+  shadows for depth, gradient hero art, emoji status, rounded-everything.
+Token commitments: see Colors and Typography above. Radius 8px cards, 14px overlays, pill status.
+```
+
+### Decision ledger
+
+| Decision | Source | Role preserved | Why |
+|---|---|---|---|
+| Dark-first, light secondary | Existing DESIGN.md; plan R12 | Theme order | Operators live in the tool; the light theme is for docs and email |
+| Hairline instead of shadow for depth | Existing DESIGN.md | `lining` family | Density: shadows cost pixels and read as SaaS chrome |
+| One azure accent, never status | Existing DESIGN.md | CTA/focus/glint only | Keeps attention scarce; status stays red/amber/green/neutral |
+| Glint = agent provenance, static | Existing DESIGN.md; code: `assigneeType` and event `actorType` | Provenance only | The product's differentiator (agents as actors) is visible from across the room |
+| Status shapes (diamond, triangle, circle, hollow circle) | WCAG 1.4.1; `assets/brand/status-glyphs.svg` | Status only | Colour is never the only carrier; matters on the dense list where dots are 8px |
+| Keycap hints in the footer bar and `g`+letter on nav rows | Product screenshots; `plans/...` R7 | Hint text only | Teaches the keyboard model where the pointer already is |
+| Mono for IDs, 13px Inter for titles | Existing DESIGN.md | Type roles | IDs are copied into commits and branches |
+| Input and control borders use `lining-strong` (dark) and `light-lining-bright` (light) | Contrast audit below | UI-component 3:1 | The default `lining` is 1.87:1 and fails for control boundaries |
+| Hide empty board columns by default | Screenshot review; roadmap U10 | Layout | Six columns overflow at 1760 px; empty ones carry no information |
+| No `prefers-color-scheme` dependence in docs assets | Logo construction | Brand | Separate light and dark files avoid wrong-theme renders on GitHub |
+
+### Contrast audit (WCAG 2.x, computed 2026-10-10 from the hex values above)
+
+Thresholds: 4.5:1 text, 3:1 large text and UI components.
+
+| Pair | Ratio | Verdict |
+|---|---|---|
+| `ink` on `canvas` | 17.29 | pass |
+| `ink-muted` on `canvas` | 11.77 | pass |
+| `ink-subtle` on `canvas` / on `surface-2` | 6.34 / 5.59 | pass |
+| `ink-tertiary` on `canvas` | 5.25 | pass |
+| `accent` on `canvas` / on `surface-2` | 7.13 / 6.29 | pass |
+| `on-accent` on `accent` | 7.30 | pass |
+| `status-urgent` on `canvas` / on `surface-1` | 5.20 / 4.90 | pass |
+| `status-attention` on `canvas` | 9.11 | pass |
+| `status-healthy` on `canvas` | 7.72 | pass |
+| `status-neutral` on `canvas` | 7.71 | pass |
+| `lining-bright` on `canvas` | 12.27 | pass |
+| `lining-strong` on `canvas` | 3.18 | pass as control boundary |
+| `lining` on `canvas` | 1.87 | decorative only; fails as a control boundary |
+| light `ink` / `ink-muted` / `ink-subtle` on `light-canvas` | 16.12 / 8.57 / 4.59 | pass |
+| light `accent` on white | 5.55 | pass |
+| light status inks (urgent, attention, healthy, neutral) on `light-canvas` | 5.93 / 4.61 / 5.03 / 6.93 | pass |
+| light `lining` / `lining-strong` on `light-canvas` | 1.46 / 2.14 | fail as control boundary |
+| light `lining-bright` on `light-canvas` | 5.15 | pass |
+
+Findings to apply in code (not changed in this pass): control and input borders must use
+`lining-strong` in dark and `light-lining-bright` in light; `lining` and `lining-faint` stay
+decorative separators, which is allowed because the row text carries the structure.
+
+### Icon and glyph style
+
+- **Geometry:** straight segments and circles on a 16px grid, 1.5px strokes for outline glyphs,
+  filled shapes for status and provenance. No curves except true circles and 4px corner radii.
+- **Set (proposed):** glint (`assets/brand/glint.svg`), status glyphs (diamond urgent, triangle
+  attention, circle healthy, hollow circle neutral; `assets/brand/status-glyphs.svg`), and a
+  keycap for shortcuts. Navigation uses text labels with shortcut hints, not icons.
+- **No** stock icon packs in chrome. Third-party logos (GitHub, Slack) appear only in integration
+  settings, in monochrome.
+
+### Motion rules (summary)
+
+Specified in full under Motion: 90 ms hover, 140 ms selection, 200 ms overlays only, color/opacity
+properties only, glint never animated, `prefers-reduced-motion` zeroes everything. For the CLI and
+TUI: no spinners that rewrite lines in non-TTY output, `--json` output has no ANSI.
+
+### Surfaces
+
+| Surface | Treatment |
+|---|---|
+| Web UI (`apps/web`) | The full system. Lists first, board second, palette everywhere |
+| CLI (`tools/cli`) | Plain text; mono IDs, state words (not colours) first; colour only on TTY; exit codes 0-5 |
+| MCP tool output | Compact JSON, no presentation; a name and key per entity, no row dumps |
+| README and docs | Real screenshots in `card-panel` framing; lockup top; no hero art |
+| Social card, favicon | `assets/brand/social-card.svg`, `logo.svg` (proposal, pending owner sign-off) |
+| Emails and notifications | Light token set, status inks, glint as a 12px mark before agent names |
+| Bar widget, plugin panel, TUI | None today. If added, reuse the status glyphs and mono IDs |
+
+### What the screenshots show (honest gaps)
+
+From `docs/assets/screenshot-issues.png` and `screenshot-palette.png`: rows hit the intended density
+and the glint reads at 16px; priority text is coloured but unlabelled by shape; the palette is
+uppercase mono for every entry, which hurts scanning against the sentence-case rule under Voice; the
+"group by cycle" control at the top right is plain text with no affordance. These are inputs to
+roadmap unit U10.
