@@ -330,6 +330,8 @@ declare module "hono" {
     // scopes carried by the presented credential (agent key, PAT, JWT);
     // null for cookie sessions, which always act with full user rights
     tokenScopes: string[] | null;
+    // set by provider-admin middleware after the instance-admin check
+    instanceAdminUserId: string;
   }
 }
 

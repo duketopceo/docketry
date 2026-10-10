@@ -17,8 +17,11 @@ import { dispatchRoutes } from "./routes/dispatches.js";
 import { eventRoutes } from "./routes/events.js";
 import { githubRoutes } from "./routes/github.js";
 import { importRoutes } from "./routes/import.js";
+import { inviteAcceptRoutes, inviteRoutes } from "./routes/invites.js";
 import { issueRoutes } from "./routes/issues.js";
+import { memberRoutes } from "./routes/members.js";
 import { oauthRoutes } from "./routes/oauth.js";
+import { providerRoutes } from "./routes/providers.js";
 import { resourceRoutes } from "./routes/resources.js";
 import { slackRoutes } from "./routes/slack.js";
 import { tokenRoutes } from "./routes/tokens.js";
@@ -40,6 +43,8 @@ export const app = new Hono()
   .route("/webhooks", slackRoutes)
   .route("/v1/auth", authRoutes)
   .route("/v1/auth", oauthRoutes)
+  .route("/v1/auth", inviteAcceptRoutes)
+  .route("/v1/auth", providerRoutes)
   .use("/v1/*", requireSession)
   .use("/v1/*", rateLimiter)
   .route("/v1", workspaceRoutes)
@@ -49,6 +54,8 @@ export const app = new Hono()
   .route("/v1", agentRoutes)
   .route("/v1", resourceRoutes)
   .route("/v1", tokenRoutes)
+  .route("/v1", memberRoutes)
+  .route("/v1", inviteRoutes)
   .route("/v1", githubRoutes)
   .route("/v1", importRoutes)
   .route("/v1", webhookEndpointRoutes)

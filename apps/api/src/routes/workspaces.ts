@@ -5,7 +5,7 @@ import { z } from "zod";
 import { db } from "../db/client.js";
 import { teams, workspaceMembers, workspaces } from "../db/schema.js";
 import { apiError, HttpError } from "../lib/errors.js";
-import { memberOf } from "../services/members.js";
+import { memberOf, requireRole } from "../services/members.js";
 import { isCookieSession } from "./auth.js";
 
 const createWorkspaceSchema = z.object({
@@ -67,6 +67,34 @@ export const workspaceRoutes = new Hono()
     const ws = await requireWorkspace(c);
     return c.json(ws);
   })
+  // declared email domains for the SSO domain-match rung (R17) — the only
+  // write path for workspaces.allowed_domains
+  .patch(
+    "/workspaces/:ws",
+    zValidator(
+      "json",
+      z.object({
+        name: z.string().min(1).max(120).optional(),
+        allowedDomains: z.array(z.string().min(1).max(253)).optional(),
+      }),
+    ),
+    async (c) => {
+      const ws = await requireWorkspace(c);
+      requireRole(c, "admin");
+      const body = c.req.valid("json");
+      const [updated] = await db
+        .update(workspaces)
+        .set({
+          ...(body.name !== undefined ? { name: body.name } : {}),
+          ...(body.allowedDomains !== undefined
+            ? { allowedDomains: body.allowedDomains.map((d) => d.trim().toLowerCase()) }
+            : {}),
+        })
+        .where(eq(workspaces.id, ws.id))
+        .returning();
+      return c.json(updated);
+    },
+  )
   .post(
     "/workspaces/:ws/teams",
     zValidator("json", createTeamSchema),
