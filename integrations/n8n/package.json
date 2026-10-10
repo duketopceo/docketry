@@ -1,0 +1,49 @@
+{
+  "name": "n8n-nodes-docketry",
+  "version": "0.1.0",
+  "description": "n8n community nodes for docketry — issue ops plus a signed outbound-webhook trigger",
+  "license": "MIT",
+  "homepage": "https://github.com/duketopceo/docketry",
+  "author": "duketopceo",
+  "keywords": [
+    "n8n-community-node-package",
+    "n8n",
+    "docketry",
+    "issue-tracker"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/duketopceo/docketry.git",
+    "directory": "integrations/n8n"
+  },
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-assets.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "strict": true,
+    "credentials": [
+      "dist/credentials/DocketryApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Docketry/Docketry.node.js",
+      "dist/nodes/DocketryTrigger/DocketryTrigger.node.js"
+    ]
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "n8n-workflow": "^2.16.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3"
+  }
+}
