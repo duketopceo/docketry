@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { app } from "../index.js";
 import { closeDb, db } from "../db/client.js";
@@ -7,24 +7,31 @@ import { runMigrations } from "../db/migrate.js";
 import {
   agentKeys,
   agents,
+  authIdentities,
+  authProviders,
   comments,
-  cycleVelocity,
   cycles,
+  cycleVelocity,
   events,
-  githubIssueLinks,
   githubInstallations,
+  githubIssueLinks,
   githubRepos,
   githubWebhookEvents,
-  slackLinks,
+  invites,
   issues,
   labels,
+  oauthCodes,
   projectMilestones,
   projects,
   sessions,
+  slackLinks,
+  teamMembers,
   teams,
+  userIdMap,
   users,
   userTokens,
   views,
+  workspaceMembers,
   workspaces,
 } from "../db/schema.js";
 
@@ -94,6 +101,13 @@ beforeAll(async () => {
     cycles,
     projectMilestones,
     projects,
+    authIdentities,
+    authProviders,
+    invites,
+    oauthCodes,
+    teamMembers,
+    userIdMap,
+    workspaceMembers,
     sessions,
     githubWebhookEvents,
     githubRepos,
@@ -129,6 +143,12 @@ afterAll(async () => {
     .from(workspaces)
     .where(eq(workspaces.slug, SLUG));
   if (ws) {
+    await db.delete(invites).where(eq(invites.workspaceId, ws.id));
+    await db
+      .delete(users)
+      .where(
+        sql`${users.id} in (select ${workspaceMembers.userId} from ${workspaceMembers} where ${workspaceMembers.workspaceId} = ${ws.id})`,
+      );
     for (const t of [
       githubIssueLinks,
       events,
@@ -136,8 +156,10 @@ afterAll(async () => {
       slackLinks,
       githubRepos,
       githubInstallations,
+      invites,
+      oauthCodes,
+      workspaceMembers,
       sessions,
-      users,
       teams,
     ] as const) {
       await db.delete(t).where(eq(t.workspaceId, ws.id));

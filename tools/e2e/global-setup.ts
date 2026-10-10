@@ -47,11 +47,24 @@ export default async function globalSetup() {
       const ws = rows[0];
       if (!ws) throw new Error("no workspace found to seed e2e user");
       await client.query(
-        `INSERT INTO users (workspace_id, email, name, password_hash)
-         VALUES ($1, $2, 'E2E Runner', $3)
-         ON CONFLICT (workspace_id, email)
-         DO UPDATE SET password_hash = EXCLUDED.password_hash`,
-        [ws.id, EMAIL, hashPassword(PASSWORD)],
+        `INSERT INTO users (email, name, password_hash)
+         SELECT $1, 'E2E Runner', $2
+         WHERE NOT EXISTS (
+           SELECT 1 FROM users WHERE lower(btrim(email)) = lower(btrim($1))
+         )`,
+        [EMAIL, hashPassword(PASSWORD)],
+      );
+      await client.query(
+        `UPDATE users SET password_hash = $2
+         WHERE lower(btrim(email)) = lower(btrim($1))`,
+        [EMAIL, hashPassword(PASSWORD)],
+      );
+      await client.query(
+        `INSERT INTO workspace_members (workspace_id, user_id, role)
+         SELECT $1, id, 'member' FROM users
+         WHERE lower(btrim(email)) = lower(btrim($2))
+         ON CONFLICT (workspace_id, user_id) DO NOTHING`,
+        [ws.id, EMAIL],
       );
     } finally {
       await client.end();

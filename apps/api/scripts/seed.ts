@@ -15,6 +15,7 @@ import {
   issues,
   teams,
   users,
+  workspaceMembers,
   workspaces,
 } from "../src/db/schema.js";
 import { runMigrations } from "../src/db/migrate.js";
@@ -108,20 +109,22 @@ async function main() {
   let [user] = await db
     .select()
     .from(users)
-    .where(
-      sql`${users.workspaceId} = ${wsId} AND ${users.email} = 'seed@example.com'`,
-    )
+    .where(sql`lower(btrim(${users.email})) = 'seed@example.com'`)
     .limit(1);
   if (!user) {
     [user] = await db
       .insert(users)
       .values({
-        workspaceId: wsId,
         email: "seed@example.com",
         name: "Seed Human",
       })
       .returning();
   }
+  // fixture user gains a member row in the SEED workspace (idempotent)
+  await db
+    .insert(workspaceMembers)
+    .values({ workspaceId: wsId, userId: user.id, role: "owner" })
+    .onConflictDoNothing();
 
   console.log(`seeding ${COUNT} issues into ${WS_SLUG}/SEED...`);
   const t0 = Date.now();

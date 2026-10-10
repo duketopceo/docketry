@@ -8,10 +8,10 @@ import {
   agentKeys,
   agents,
   comments,
-  cycleVelocity,
   cycles,
-  dispatchEvents,
+  cycleVelocity,
   dispatches,
+  dispatchEvents,
   events,
   githubInstallations,
   githubIssueLinks,
@@ -204,18 +204,16 @@ describe("slack receiver", () => {
       item: { type: "message", channel: "C555", ts: "1700.5" },
       item_user: "U1",
     });
-    const rows = await db
-      .select()
-      .from(issues)
-      .where(eq(issues.source, "slack"));
-    const newest = rows.at(-1)!;
-    expect(newest.title).toContain("export CSV crashes");
-    expect(newest.description).toContain("repro: export");
     const [link] = await db
       .select()
       .from(slackLinks)
-      .where(eq(slackLinks.issueId, newest.id));
-    expect(link!.threadTs).toBe("1700.5");
+      .where(eq(slackLinks.threadTs, "1700.5"));
+    const [newest] = await db
+      .select()
+      .from(issues)
+      .where(eq(issues.id, link!.issueId));
+    expect(newest!.title).toContain("export CSV crashes");
+    expect(newest!.description).toContain("repro: export");
     expect(calls.some((c) => c.method === "conversations.replies")).toBe(true);
     expect(calls.some((c) => c.method === "chat.postMessage")).toBe(true);
   });

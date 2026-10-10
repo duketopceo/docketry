@@ -1,10 +1,15 @@
 import { getCookie, setCookie } from "hono/cookie";
 import { zValidator } from "@hono/zod-validator";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Hono, type Context, type Next } from "hono";
 import { z } from "zod";
 import { db } from "../db/client.js";
-import { teams, users, workspaces } from "../db/schema.js";
+import {
+  teams,
+  users,
+  workspaceMembers,
+  workspaces,
+} from "../db/schema.js";
 import { apiError } from "../lib/errors.js";
 import {
   createSession,
@@ -73,12 +78,16 @@ export const authRoutes = new Hono()
       const [user] = await db
         .insert(users)
         .values({
-          workspaceId: ws!.id,
-          email: body.email,
+          email: body.email.trim().toLowerCase(),
           name: body.name,
           passwordHash: hashPassword(body.password),
         })
         .returning();
+      await db.insert(workspaceMembers).values({
+        workspaceId: ws!.id,
+        userId: user!.id,
+        role: "owner",
+      });
 
       const token = await createSession(user!.id, ws!.id);
       setSessionCookie(c, token);
@@ -96,7 +105,7 @@ export const authRoutes = new Hono()
     const [user] = await db
       .select()
       .from(users)
-      .where(eq(users.email, body.email));
+      .where(sql`lower(btrim(${users.email})) = lower(btrim(${body.email}))`);
     if (
       !user ||
       !user.passwordHash ||
@@ -104,11 +113,27 @@ export const authRoutes = new Hono()
     ) {
       return apiError(c, 401, "BAD_CREDENTIALS", "invalid email or password");
     }
-    const token = await createSession(user.id, user.workspaceId);
+    // session binds to the user's earliest membership; zero-membership
+    // users have nowhere to land (U2 refines resolution)
+    const [member] = await db
+      .select({ workspaceId: workspaceMembers.workspaceId })
+      .from(workspaceMembers)
+      .where(eq(workspaceMembers.userId, user.id))
+      .orderBy(workspaceMembers.createdAt)
+      .limit(1);
+    if (!member) {
+      return apiError(
+        c,
+        403,
+        "NO_WORKSPACE",
+        "account has no workspace membership",
+      );
+    }
+    const token = await createSession(user.id, member.workspaceId);
     setSessionCookie(c, token);
     return c.json({
       user: { id: user.id, email: user.email, name: user.name },
-      workspaceId: user.workspaceId,
+      workspaceId: member.workspaceId,
     });
   })
   .post("/logout", async (c) => {

@@ -6,7 +6,7 @@ import * as schema from "./schema.js";
 const pool = new pg.Pool({ connectionString: config_.databaseUrl });
 
 export const db = drizzle(pool, { schema });
-export { schema };
+export { schema, pool };
 
 export async function closeDb(): Promise<void> {
   await pool.end();

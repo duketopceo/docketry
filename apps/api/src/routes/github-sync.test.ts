@@ -1,5 +1,5 @@
 import { createHmac, generateKeyPairSync } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
   afterAll,
   beforeAll,
@@ -13,21 +13,28 @@ import { app } from "../index.js";
 import { closeDb, db } from "../db/client.js";
 import { runMigrations } from "../db/migrate.js";
 import {
+  authIdentities,
+  authProviders,
   comments,
-  cycleVelocity,
   cycles,
+  cycleVelocity,
   events,
-  githubIssueLinks,
   githubInstallations,
+  githubIssueLinks,
   githubRepos,
   githubWebhookEvents,
+  invites,
   issueLabels,
   issues,
   labels,
+  oauthCodes,
   projects,
   sessions,
+  teamMembers,
   teams,
+  userIdMap,
   users,
+  workspaceMembers,
   workspaces,
 } from "../db/schema.js";
 import {
@@ -188,6 +195,13 @@ beforeAll(async () => {
     cycleVelocity,
     cycles,
     projects,
+    authIdentities,
+    authProviders,
+    invites,
+    oauthCodes,
+    teamMembers,
+    userIdMap,
+    workspaceMembers,
     sessions,
     githubWebhookEvents,
     githubRepos,
@@ -254,16 +268,24 @@ afterAll(async () => {
   resetGithubSync();
   // issue_labels cascades via issues; github_webhook_events has no
   // workspace scoping — wiped globally below
+  await db.delete(invites).where(eq(invites.workspaceId, workspaceId));
+  await db
+    .delete(users)
+    .where(
+      sql`${users.id} in (select ${workspaceMembers.userId} from ${workspaceMembers} where ${workspaceMembers.workspaceId} = ${workspaceId})`,
+    );
   for (const t of [
     comments,
     events,
     githubIssueLinks,
     issues,
     labels,
+    invites,
+    oauthCodes,
+    workspaceMembers,
     sessions,
     githubRepos,
     githubInstallations,
-    users,
     teams,
   ] as const) {
     await db.delete(t).where(eq(t.workspaceId, workspaceId));

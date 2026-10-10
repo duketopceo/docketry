@@ -56,6 +56,8 @@ export const workspaces = pgTable("workspaces", {
   id: uuid("id").defaultRandom().primaryKey(),
   slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
+  // declared email domains for SSO JIT workspace matching (R17)
+  allowedDomains: text("allowed_domains").array(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -65,9 +67,6 @@ export const users = pgTable(
   "users",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    workspaceId: uuid("workspace_id")
-      .notNull()
-      .references(() => workspaces.id),
     email: text("email").notNull(),
     name: text("name").notNull(),
     passwordHash: text("password_hash"),
@@ -76,7 +75,12 @@ export const users = pgTable(
       .defaultNow()
       .notNull(),
   },
-  (t) => [unique().on(t.workspaceId, t.email), index().on(t.workspaceId)],
+  // global identity: index predicate must match the R15a lookup predicate
+  // exactly — lower() alone does not trim, so whitespace variants would
+  // evade the constraint
+  (t) => [
+    uniqueIndex("users_email_unique").on(sql`lower(btrim(${t.email}))`),
+  ],
 );
 
 export const agents = pgTable(
@@ -685,6 +689,152 @@ export const slackLinks = pgTable(
     unique().on(t.channel, t.threadTs),
   ],
 );
+
+// ── identity & membership ────────────────────────────────────────────────────
+
+export const memberRoleEnum = pgEnum("member_role", [
+  "owner",
+  "admin",
+  "member",
+]);
+
+export const inviteRoleEnum = pgEnum("invite_role", ["member", "admin"]);
+
+export const providerTypeEnum = pgEnum("provider_type", [
+  "github",
+  "google",
+  "oidc",
+]);
+
+export const oauthPurposeEnum = pgEnum("oauth_purpose", [
+  "login",
+  "pending-bootstrap",
+  "pending-link",
+]);
+
+// humans in a workspace — agents are never members (KTD6/R24)
+export const workspaceMembers = pgTable(
+  "workspace_members",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: memberRoleEnum("role").notNull().default("member"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [unique().on(t.workspaceId, t.userId), index().on(t.userId)],
+);
+
+export const teamMembers = pgTable(
+  "team_members",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    teamId: uuid("team_id")
+      .notNull()
+      .references(() => teams.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [unique().on(t.teamId, t.userId)],
+);
+
+// pluggable auth providers — workspace_id NULL = instance-scoped (v1);
+// column kept nullable for future per-workspace providers, no FK cascade
+export const authProviders = pgTable("auth_providers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: uuid("workspace_id"),
+  key: text("key").notNull().unique(),
+  type: providerTypeEnum("type").notNull(),
+  label: text("label").notNull(),
+  clientId: text("client_id").notNull(),
+  clientSecretEnc: text("client_secret_enc"),
+  issuer: text("issuer"),
+  scopes: jsonb("scopes").$type<string[]>().notNull().default([]),
+  claimMap: jsonb("claim_map").$type<Record<string, string>>(),
+  endpoints: jsonb("endpoints").$type<Record<string, string>>(),
+  enabled: boolean("enabled").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export const authIdentities = pgTable(
+  "auth_identities",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    providerKey: text("provider_key").notNull(),
+    providerSubject: text("provider_subject").notNull(),
+    email: text("email"),
+    emailVerified: boolean("email_verified").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    unique().on(t.providerKey, t.providerSubject),
+    index().on(t.userId),
+  ],
+);
+
+// link-based invites (no mailer) — token_hash at rest, email NULL = open link
+export const invites = pgTable("invites", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  email: text("email"),
+  tokenHash: text("token_hash").notNull().unique(),
+  role: inviteRoleEnum("role").notNull().default("member"),
+  teamId: uuid("team_id").references(() => teams.id),
+  createdBy: uuid("created_by").references(() => users.id),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  acceptedBy: uuid("accepted_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// api→web one-time handoff codes (KTD5) — pending states may precede the
+// user row, so subject/email ride in context instead
+export const oauthCodes = pgTable("oauth_codes", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  codeHash: text("code_hash").notNull().unique(),
+  purpose: oauthPurposeEnum("purpose").notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+  workspaceId: uuid("workspace_id"),
+  context: jsonb("context").$type<Record<string, unknown>>(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// audit trail for the 0019 duplicate-email merge — snapshot keeps the full
+// deleted row so a bad canonical pick is forensically reconstructible
+export const userIdMap = pgTable("user_id_map", {
+  oldUserId: uuid("old_user_id").primaryKey(),
+  mergedIntoUserId: uuid("merged_into_user_id").notNull(),
+  reason: text("reason").notNull(),
+  snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
 
 export type IssueRow = typeof issues.$inferSelect;
 export type NewIssue = typeof issues.$inferInsert;

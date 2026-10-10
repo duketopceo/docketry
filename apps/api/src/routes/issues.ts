@@ -31,7 +31,7 @@ import {
   projects,
   slackLinks,
   teams,
-  users,
+  workspaceMembers,
 } from "../db/schema.js";
 import { actorFromHeaders } from "../lib/actor.js";
 import { apiError, HttpError } from "../lib/errors.js";
@@ -135,11 +135,16 @@ async function validateAssignee(
     if (!a)
       throw new HttpError(422, "INVALID_ASSIGNEE", "agent not in workspace");
   } else {
-    const [u] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(and(eq(users.id, id), eq(users.workspaceId, workspaceId)));
-    if (!u)
+    const [m] = await db
+      .select({ id: workspaceMembers.id })
+      .from(workspaceMembers)
+      .where(
+        and(
+          eq(workspaceMembers.userId, id),
+          eq(workspaceMembers.workspaceId, workspaceId),
+        ),
+      );
+    if (!m)
       throw new HttpError(422, "INVALID_ASSIGNEE", "user not in workspace");
   }
 }
