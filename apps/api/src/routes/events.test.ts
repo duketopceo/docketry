@@ -248,13 +248,10 @@ describe("workspace events feed + SSE stream", () => {
   });
 
   it("scopes the feed to the workspace", async () => {
-    const other = await req(`/v1/workspaces`, {
-      method: "POST",
-      body: JSON.stringify({ slug: SLUG2, name: "Other WS" }),
-    });
-    expect(other.status).toBe(201);
-    // credentials are workspace-bound — this session belongs to SLUG and
-    // cannot read another workspace's feed even though it exists
+    // created directly (not via POST /workspaces, which would make the
+    // caller an owner-member) — a non-member workspace must 403 even
+    // though roaming cookie sessions exist (U2)
+    await db.insert(workspaces).values({ slug: SLUG2, name: "Other WS" });
     const res = await req(`/v1/workspaces/${SLUG2}/events`);
     expect(res.status).toBe(403);
     expect(res.body.error!.code).toBe("FORBIDDEN_WORKSPACE");

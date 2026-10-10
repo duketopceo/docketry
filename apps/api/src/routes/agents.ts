@@ -6,6 +6,7 @@ import { db } from "../db/client.js";
 import { agentKeys, agents } from "../db/schema.js";
 import { apiError, HttpError } from "../lib/errors.js";
 import { createAgentKey } from "../services/agents.js";
+import { requireRole } from "../services/members.js";
 import { isCookieSession } from "./auth.js";
 import { requireWorkspace } from "./workspaces.js";
 
@@ -38,6 +39,7 @@ export const agentRoutes = new Hono()
         return apiError(c, 403, "FORBIDDEN", "agent registry requires a human session");
       }
       const ws = await requireWorkspace(c);
+      requireRole(c, "admin");
       const body = c.req.valid("json");
       const dup = await db
         .select({ id: agents.id })
@@ -78,6 +80,7 @@ export const agentRoutes = new Hono()
         return apiError(c, 403, "FORBIDDEN", "key minting requires a human session");
       }
       const ws = await requireWorkspace(c);
+      requireRole(c, "admin");
       const [agent] = await db
         .select()
         .from(agents)

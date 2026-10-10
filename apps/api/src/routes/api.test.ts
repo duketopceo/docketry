@@ -265,13 +265,39 @@ describe("api routes (real postgres)", () => {
   });
 
   it("comments and exposes the event feed", async () => {
+    // agent-typed comments require an agent key — a cookie session
+    // asserting x-actor-type: agent is provenance forgery (U2)
+    const agent = await req(`/v1/workspaces/${SLUG}/agents`, {
+      method: "POST",
+      body: JSON.stringify({ name: "commenter", harness: "test" }),
+    });
+    expect(agent.status).toBe(201);
+    const minted = await req(
+      `/v1/workspaces/${SLUG}/agents/${agent.body.id}/keys`,
+      {
+        method: "POST",
+        body: JSON.stringify({ scopes: ["write"] }),
+      },
+    );
+    expect(minted.status).toBe(201);
+
+    const forged = await req(
+      `/v1/workspaces/${SLUG}/issues/ENG-1/comments`,
+      {
+        method: "POST",
+        body: JSON.stringify({ body: "should not land" }),
+        headers: { "x-actor-type": "agent" },
+      },
+    );
+    expect(forged.status).toBe(403);
+
     const c1 = await req(
       `/v1/workspaces/${SLUG}/issues/ENG-1/comments`,
       {
         method: "POST",
         body: JSON.stringify({ body: "picked this up" }),
         headers: {
-          "content-type": "application/json",
+          authorization: `Bearer ${minted.body.key}`,
           "x-actor-type": "agent",
         },
       },

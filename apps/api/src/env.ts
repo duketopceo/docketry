@@ -38,6 +38,13 @@ export const config_ = {
   slackWorkspaceSlug: env("SLACK_WORKSPACE_SLUG", ""),
   slackIntakeEmoji: env("SLACK_INTAKE_EMOJI", "ticket"),
 
+  // auth — instance admins get provider settings + always-admin rights;
+  // when unset, the bootstrap owner is the fallback admin (KTD10)
+  authAdminEmails: env("AUTH_ADMIN_EMAILS", "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+
   // LLM assist — entirely opt-in; empty key means every llm surface is off
   llmApiKey: env("DOCKETRY_LLM_API_KEY", ""),
   llmBaseUrl: env("DOCKETRY_LLM_BASE_URL", "https://openrouter.ai/api/v1"),

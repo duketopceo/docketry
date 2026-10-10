@@ -5,6 +5,7 @@ import { Hono, type Context, type Next } from "hono";
 import { z } from "zod";
 import { db } from "../db/client.js";
 import {
+  sessions,
   teams,
   users,
   workspaceMembers,
@@ -19,6 +20,12 @@ import {
   sessionFromToken,
   verifyPassword,
 } from "../services/auth.js";
+import {
+  isInstanceAdmin,
+  membershipsFor,
+  memberOf,
+  type MemberRole,
+} from "../services/members.js";
 import { agentFromKey, type AgentAuth } from "../services/agents.js";
 import {
   ACCESS_TOKEN_TTL_S,
@@ -173,10 +180,15 @@ export const authRoutes = new Hono()
     if (bearerToken && !bearerToken.startsWith("dok_")) {
       const claims = await verifyAccessToken(bearerToken);
       if (!claims) return apiError(c, 401, "UNAUTHENTICATED", "bad jwt");
+      const [ws] = await db
+        .select({ slug: workspaces.slug })
+        .from(workspaces)
+        .where(eq(workspaces.id, claims.ws));
       return c.json({
         type: "user",
         userId: claims.sub,
         workspaceId: claims.ws,
+        workspaceSlug: ws?.slug ?? null,
         scopes: claims.scopes,
       });
     }
@@ -184,8 +196,55 @@ export const authRoutes = new Hono()
     if (!token) return apiError(c, 401, "UNAUTHENTICATED", "no session");
     const session = await sessionFromToken(token);
     if (!session) return apiError(c, 401, "UNAUTHENTICATED", "session expired");
-    return c.json(session);
+    const memberships = await membershipsFor(session.userId);
+    return c.json({
+      type: "user",
+      userId: session.userId,
+      name: session.name,
+      email: session.email,
+      workspaceSlug: session.workspaceSlug,
+      memberships,
+      activeWorkspaceSlug: session.workspaceSlug,
+      isInstanceAdmin: await isInstanceAdmin({
+        id: session.userId,
+        email: session.email,
+      }),
+    });
   })
+  // Re-bind a roaming cookie session's active workspace — the switch the
+  // workspace picker calls. Cookie sessions only: PATs/JWTs and agent keys
+  // are minted bound and cannot re-bind.
+  .post(
+    "/session",
+    zValidator("json", z.object({ workspaceSlug: z.string().min(1) })),
+    async (c) => {
+      const token = getCookie(c, SESSION_COOKIE);
+      if (!token) return apiError(c, 401, "UNAUTHENTICATED", "no session");
+      const session = await sessionFromToken(token);
+      if (!session) return apiError(c, 401, "UNAUTHENTICATED", "session expired");
+      const slug = c.req.valid("json").workspaceSlug;
+      const [ws] = await db
+        .select()
+        .from(workspaces)
+        .where(eq(workspaces.slug, slug));
+      if (!ws) return apiError(c, 404, "NOT_FOUND", "workspace not found");
+      const member = await memberOf(session.userId, ws.id);
+      if (!member) {
+        return apiError(
+          c,
+          403,
+          "FORBIDDEN_WORKSPACE",
+          "not a member of this workspace",
+        );
+      }
+      await db
+        .update(sessions)
+        .set({ workspaceId: ws.id })
+        .where(eq(sessions.id, session.sessionId));
+      const memberships = await membershipsFor(session.userId);
+      return c.json({ workspaceSlug: ws.slug, memberships });
+    },
+  )
   // Exchange a session cookie for a short-lived access JWT — the
   // programmatic-auth path for human users (agents mint dok_agt_ keys instead).
   .post("/token", async (c) => {
@@ -226,6 +285,9 @@ declare module "hono" {
   interface ContextVariableMap {
     session: Session | null;
     agentAuth: AgentAuth | null;
+    // role in the URL-resolved workspace, injected by requireWorkspace;
+    // null for agent credentials and unbound routes
+    memberRole: MemberRole | null;
     // scopes carried by the presented credential (agent key, PAT, JWT);
     // null for cookie sessions, which always act with full user rights
     tokenScopes: string[] | null;

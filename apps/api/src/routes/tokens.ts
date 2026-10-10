@@ -6,6 +6,7 @@ import { db } from "../db/client.js";
 import { userTokens } from "../db/schema.js";
 import { apiError } from "../lib/errors.js";
 import { isCookieSession } from "./auth.js";
+import { requireRole } from "../services/members.js";
 import { createUserToken, revokeUserToken } from "../services/tokens.js";
 import { requireWorkspace } from "./workspaces.js";
 
@@ -33,6 +34,7 @@ export const tokenRoutes = new Hono()
         );
       }
       const ws = await requireWorkspace(c);
+      requireRole(c, "admin");
       const body = c.req.valid("json");
       if (body.name.toLowerCase().includes("dok_")) {
         return apiError(c, 422, "BAD_NAME", "name may not contain 'dok_'");
