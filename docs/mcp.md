@@ -24,7 +24,14 @@ stderr and exits 1 instead of serving tools that can only 401.
   apps/mcp-server/dist/index.js` after `pnpm --filter @docketry/mcp-server
   build`.
 - **Streamable HTTP** — `--http[=PORT]` (or `MCP_HTTP_PORT`, default `3101`)
-  serves a stateless `POST /mcp` endpoint plus `GET /health`.
+  serves a stateless `POST /mcp` endpoint plus `GET /health`. Credentials
+  resolve per deployment: with `DOCKETRY_TOKEN`+`DOCKETRY_WORKSPACE` set,
+  every request shares them (single-tenant). With neither set the endpoint
+  runs **passthrough** — each request supplies `Authorization: Bearer
+  <key>` + `x-docketry-workspace: <slug>` headers, which is what hosted
+  multi-tenant front-ends (Klavis Strata `externalServers`, gateways) send.
+  `x-docketry-api-url` is honored only when the deployment sets
+  `DOCKETRY_ALLOW_API_URL_OVERRIDE=1`. See [klavis.md](./klavis.md).
 
 ## Client config
 

@@ -3,7 +3,13 @@ import { createServer } from "node:http";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { DocketryClient } from "./client.js";
-import { loadConfig, MissingEnvError } from "./env.js";
+import {
+  MissingEnvError,
+  PassthroughAuthError,
+  configFromHeaders,
+  httpAuthMode,
+  loadConfig,
+} from "./env.js";
 import { createMcpServer } from "./server.js";
 import { toolDefs } from "./tools.js";
 
@@ -19,26 +25,39 @@ function httpPort(argv: string[]): number | null {
   return null;
 }
 
-let config: ReturnType<typeof loadConfig>;
-try {
-  config = loadConfig();
-} catch (err) {
-  if (err instanceof MissingEnvError) {
-    process.stderr.write(`docketry-mcp: ${err.message}\n`);
-    process.exit(1);
-  }
-  throw err;
-}
-const client = new DocketryClient(config);
 const port = httpPort(process.argv.slice(2));
 
 if (port === null) {
+  let config: ReturnType<typeof loadConfig>;
+  try {
+    config = loadConfig();
+  } catch (err) {
+    if (err instanceof MissingEnvError) {
+      process.stderr.write(`docketry-mcp: ${err.message}\n`);
+      process.exit(1);
+    }
+    throw err;
+  }
+  const client = new DocketryClient(config);
   const server = createMcpServer(client);
   await server.connect(new StdioServerTransport());
   process.stderr.write(
     `docketry-mcp: ${toolDefs.length} tools on stdio — ${config.apiUrl} ws=${config.workspace}\n`,
   );
 } else {
+  let auth: ReturnType<typeof httpAuthMode>;
+  try {
+    auth = httpAuthMode(process.env);
+  } catch (err) {
+    if (err instanceof MissingEnvError) {
+      process.stderr.write(`docketry-mcp: ${err.message}\n`);
+      process.exit(1);
+    }
+    throw err;
+  }
+  const envClient =
+    auth.mode === "env" ? new DocketryClient(auth.config) : null;
+
   const http = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (req.method === "GET" && url.pathname === "/health") {
@@ -47,6 +66,24 @@ if (port === null) {
       return;
     }
     if (req.method === "POST" && url.pathname === "/mcp") {
+      let client = envClient;
+      if (!client) {
+        if (auth.mode !== "passthrough") {
+          res.writeHead(500, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: "no credential mode configured" }));
+          return;
+        }
+        try {
+          client = new DocketryClient(configFromHeaders(req.headers, auth));
+        } catch (err) {
+          if (err instanceof PassthroughAuthError) {
+            res.writeHead(401, { "content-type": "application/json" });
+            res.end(JSON.stringify({ error: err.message }));
+            return;
+          }
+          throw err;
+        }
+      }
       // Stateless: no sessionIdGenerator = no session tracking — each
       // request gets a fresh server+transport and any replica can serve it.
       const transport = new StreamableHTTPServerTransport({});
@@ -65,8 +102,14 @@ if (port === null) {
     res.end(JSON.stringify({ error: "POST /mcp or GET /health" }));
   });
   http.listen(port, () => {
+    const mode =
+      auth.mode === "env"
+        ? `env — ${auth.config.apiUrl} ws=${auth.config.workspace}`
+        : `passthrough — api=${auth.apiUrl}${
+            auth.allowApiUrlOverride ? " (api-url override on)" : ""
+          }`;
     process.stderr.write(
-      `docketry-mcp: ${toolDefs.length} tools on http://localhost:${port}/mcp — ${config.apiUrl} ws=${config.workspace}\n`,
+      `docketry-mcp: ${toolDefs.length} tools on http://localhost:${port}/mcp — ${mode}\n`,
     );
   });
 }

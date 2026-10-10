@@ -78,6 +78,23 @@ services:
       - api
     restart: unless-stopped
 
+  # optional hosted-MCP endpoint — `docker compose ... --profile mcp up -d`
+  # passthrough mode: each request carries Authorization + x-docketry-workspace
+  mcp-server:
+    profiles: ["mcp"]
+    build:
+      context: .
+      dockerfile: apps/mcp-server/Dockerfile
+    environment:
+      NODE_ENV: production
+      DOCKETRY_API_URL: http://api:4000
+      # DOCKETRY_ALLOW_API_URL_OVERRIDE: "1"   # enable x-docketry-api-url (SSRF surface — off by default)
+    ports:
+      - "${MCP_PUBLISH_PORT:-3101}:3101"
+    depends_on:
+      - api
+    restart: unless-stopped
+
 volumes:
   docketry-postgres:
   docketry-redis:
