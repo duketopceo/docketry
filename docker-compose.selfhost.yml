@@ -1,0 +1,83 @@
+# docketry self-host stack — `docker compose -f docker-compose.selfhost.yml up -d`
+# builds the app from source and gives you a working board at :3100.
+# postgres + redis stay on the internal network; only web (and optionally
+# api) are published.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:-docketry}
+    volumes:
+      - docketry-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - docketry-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      API_PORT: "4000"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-docketry}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:?}
+      API_BASE_URL: ${API_BASE_URL:-http://localhost:4000}
+      RATE_LIMIT_PER_MIN: ${RATE_LIMIT_PER_MIN:-600}
+      GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+      GITHUB_APP_SLUG: ${GITHUB_APP_SLUG:-}
+      GITHUB_APP_PRIVATE_KEY: ${GITHUB_APP_PRIVATE_KEY:-}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET:-}
+      SLACK_APP_TOKEN: ${SLACK_APP_TOKEN:-}
+      SLACK_WORKSPACE_SLUG: ${SLACK_WORKSPACE_SLUG:-}
+      SLACK_INTAKE_EMOJI: ${SLACK_INTAKE_EMOJI:-ticket}
+      DOCKETRY_LLM_API_KEY: ${DOCKETRY_LLM_API_KEY:-}
+      DOCKETRY_LLM_BASE_URL: ${DOCKETRY_LLM_BASE_URL:-https://openrouter.ai/api/v1}
+      DOCKETRY_LLM_MODEL: ${DOCKETRY_LLM_MODEL:-google/gemini-2.5-flash-lite}
+    ports:
+      - "${API_PUBLISH_PORT:-4000}:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    environment:
+      NODE_ENV: production
+      # server-side bridge routes hit the API over the internal network
+      API_INTERNAL_URL: http://api:4000
+    ports:
+      - "${WEB_PUBLISH_PORT:-3100}:3100"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  docketry-postgres:
+  docketry-redis:
