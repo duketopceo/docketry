@@ -63,7 +63,6 @@ const ALL_TABLES = [
   dispatches,
   slackLinks,
   issues,
-  slackLinks,
   issues,
   labels,
   agentKeys,
