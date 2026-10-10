@@ -1,4 +1,4 @@
-import { BoardClient } from "@/components/board-client";
+import { BoardLoader } from "@/components/board-loader";
 import type { ListIssue } from "@/components/issue-list-client";
 import { api } from "@/lib/api";
 
@@ -28,7 +28,7 @@ export default async function BoardPage() {
           {rows.length} active
         </span>
       </header>
-      <BoardClient issues={rows} />
+      <BoardLoader issues={rows} />
     </main>
   );
 }
