@@ -220,6 +220,25 @@ describe("slack receiver", () => {
     expect(calls.some((c) => c.method === "chat.postMessage")).toBe(true);
   });
 
+  it("emoji intake is idempotent — a retried event doesn't double-create", async () => {
+    const s = createSlack(fakeSlack);
+    const before = await db
+      .select()
+      .from(issues)
+      .where(eq(issues.source, "slack"));
+    // same reaction on the same message, delivered again (Slack retry)
+    await s.handleReactionAdded({
+      reaction: "ticket",
+      item: { type: "message", channel: "C555", ts: "1700.5" },
+      item_user: "U2",
+    });
+    const after = await db
+      .select()
+      .from(issues)
+      .where(eq(issues.source, "slack"));
+    expect(after.length).toBe(before.length);
+  });
+
   it("mirrors thread replies into comments — and ignores bot posts", async () => {
     const s = createSlack(fakeSlack);
     calls.length = 0;

@@ -214,6 +214,19 @@ export function createSlack(fetchImpl?: FetchLike) {
     if (ev.item?.type !== "message" || !ev.item.channel || !ev.item.ts) return;
     const channel = ev.item.channel;
     const parentTs = ev.item.ts;
+    // one intake per thread — Slack retries events it thinks we dropped,
+    // and a second person's :ticket: on the same message must not
+    // double-create
+    const [existing] = await db
+      .select({ id: slackLinks.id })
+      .from(slackLinks)
+      .where(
+        and(
+          eq(slackLinks.channel, channel),
+          eq(slackLinks.threadTs, parentTs),
+        ),
+      );
+    if (existing) return;
     // thread context: the reacted message + its replies form the body
     let threadText = "";
     try {

@@ -1,4 +1,5 @@
-import { InsightsClient, type Insights } from "@/components/insights-charts";
+import type { Insights } from "@/components/insights-charts";
+import { InsightsLoader } from "@/components/insights-loader";
 import { api } from "@/lib/api";
 
 interface Me {
@@ -30,7 +31,7 @@ export default async function InsightsPage() {
           Failed to load insights.
         </p>
       ) : (
-        <InsightsClient insights={ins} />
+        <InsightsLoader insights={ins} />
       )}
     </main>
   );

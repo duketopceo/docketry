@@ -1,11 +1,11 @@
-import {
-  RoadmapClient,
-  type RoadmapCycle,
-  type RoadmapIssue,
-  type RoadmapMilestone,
-  type RoadmapProject,
-  type RoadmapTeam,
+import type {
+  RoadmapCycle,
+  RoadmapIssue,
+  RoadmapMilestone,
+  RoadmapProject,
+  RoadmapTeam,
 } from "@/components/roadmap-client";
+import { RoadmapLoader } from "@/components/roadmap-loader";
 import { api } from "@/lib/api";
 
 interface Me {
@@ -40,7 +40,7 @@ export default async function RoadmapPage() {
           {cyclesRes.data?.cycles?.length ?? 0} cycles
         </span>
       </header>
-      <RoadmapClient
+      <RoadmapLoader
         projects={projectsRes.data?.projects ?? []}
         cycles={cyclesRes.data?.cycles ?? []}
         teams={teamsRes.data?.teams ?? []}

@@ -136,7 +136,13 @@ export function IssueListClient({
     const isCursor = i === cursor;
     const isSelected = selected.has(issue.key);
     return (
-      <li key={issue.key}>
+      // content-visibility virtualizes rows past ~100 — the browser skips
+      // layout/paint for off-screen rows while keeping them in the DOM for
+      // j/k nav and find-in-page (R10 list budget)
+      <li
+        key={issue.key}
+        className="[content-visibility:auto] [contain-intrinsic-size:36px]"
+      >
         <button
           type="button"
           data-index={i}
