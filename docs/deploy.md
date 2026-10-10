@@ -52,6 +52,15 @@ Set these in `.env` next to the compose file (it reads `.env` automatically):
 | `COMPOSIO_API_KEY`, `LINEAR_API_KEY` | no | — | Optional integration credentials |
 | `AUTH_SECRET` | — | — | **removed** — legacy var older `.env` files may still carry; nothing reads it. `JWT_SECRET` is the live secret |
 
+**MCP endpoint (optional `--profile mcp` service):**
+
+| Var | Required | Default | Purpose |
+|---|---|---|---|
+| `MCP_PUBLISH_PORT` | no | `3101` | Host port for the hosted-MCP endpoint |
+| `DOCKETRY_MCP_API_URL` | no | `http://api:4000` | API the MCP server proxies to (service-internal; named distinctly so a caller-facing `DOCKETRY_API_URL` can't misroute it) |
+| `DOCKETRY_TOKEN` / `DOCKETRY_WORKSPACE` | no | — | Set both → single-tenant mode; neither → per-request header passthrough (see [klavis.md](./klavis.md)) |
+| `DOCKETRY_ALLOW_API_URL_OVERRIDE` | no | off | `1` honors `x-docketry-api-url` per request — needed for a multi-deployment hosted endpoint; SSRF surface, enable deliberately |
+
 ## Cloudflare Tunnel — public access, zero open ports
 
 The free path to put a homelab instance on a real hostname without

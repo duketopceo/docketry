@@ -10,12 +10,15 @@ stay the single source of truth.
 
 | Var | Required | Notes |
 | --- | --- | --- |
-| `DOCKETRY_TOKEN` | yes | `dok_agt_*` agent key (preferred — actions are attributed to the agent) or `dok_pat_*` personal token. Mutating tools require the `write` scope. |
-| `DOCKETRY_WORKSPACE` | yes | Workspace slug, e.g. `acme`. |
+| `DOCKETRY_TOKEN` | stdio / env-http | `dok_agt_*` agent key (preferred — actions are attributed to the agent) or `dok_pat_*` personal token. Mutating tools require the `write` scope. |
+| `DOCKETRY_WORKSPACE` | stdio / env-http | Workspace slug, e.g. `acme`. |
 | `DOCKETRY_API_URL` | no | API base URL. Default `http://localhost:4000`. |
+| `DOCKETRY_ALLOW_API_URL_OVERRIDE` | no | HTTP passthrough only — `1` honors per-request `x-docketry-api-url`. Off by default. |
 
-Missing required vars fail fast: the server writes the missing names to
-stderr and exits 1 instead of serving tools that can only 401.
+stdio always needs `DOCKETRY_TOKEN` + `DOCKETRY_WORKSPACE` — missing vars
+fail fast: the server writes the missing names to stderr and exits 1.
+`--http` needs them only for single-tenant mode; with neither set it runs
+per-request header passthrough instead (see below).
 
 ## Transports
 
@@ -24,7 +27,14 @@ stderr and exits 1 instead of serving tools that can only 401.
   apps/mcp-server/dist/index.js` after `pnpm --filter @docketry/mcp-server
   build`.
 - **Streamable HTTP** — `--http[=PORT]` (or `MCP_HTTP_PORT`, default `3101`)
-  serves a stateless `POST /mcp` endpoint plus `GET /health`.
+  serves a stateless `POST /mcp` endpoint plus `GET /health`. Credentials
+  resolve per deployment: with `DOCKETRY_TOKEN`+`DOCKETRY_WORKSPACE` set,
+  every request shares them (single-tenant). With neither set the endpoint
+  runs **passthrough** — each request supplies `Authorization: Bearer
+  <key>` + `x-docketry-workspace: <slug>` headers, which is what hosted
+  multi-tenant front-ends (Klavis Strata `externalServers`, gateways) send.
+  `x-docketry-api-url` is honored only when the deployment sets
+  `DOCKETRY_ALLOW_API_URL_OVERRIDE=1`. See [klavis.md](./klavis.md).
 
 ## Client config
 
