@@ -1,0 +1,353 @@
+import { randomBytes } from "node:crypto";
+import {
+  mkAgent,
+  mkCycle,
+  mkDelivery,
+  mkDispatch,
+  mkEndpoint,
+  mkInvite,
+  mkIssue,
+  mkMember,
+  mkMilestone,
+  mkProject,
+  mkProvider,
+  mkToken,
+  mkView,
+  PASSWORD,
+  type Tenant,
+} from "./tenants.js";
+
+// Request builders, one per OpenAPI operation. Each builds a *valid* request
+// against fresh rows in tenant `t` (so validation never masks authorization
+// and destructive operations always have a real target). The permission
+// matrix runs these once per credential; the tenancy suite re-uses them with
+// foreign ids.
+
+export const CREDENTIALS = [
+  "anonymous",
+  "member",
+  "admin",
+  "owner",
+  "agent_read",
+  "agent_write",
+  "pat_read",
+  "pat_write",
+  "outsider",
+] as const;
+export type CredName = (typeof CREDENTIALS)[number];
+
+export interface Caller {
+  name: CredName;
+  /** the user behind the credential, when it has one */
+  userId: string | null;
+}
+
+export interface Built {
+  method: string;
+  path: string;
+  body?: unknown;
+  rawBody?: string;
+  headers?: Record<string, string>;
+}
+
+export type Builder = (t: Tenant, who: Caller) => Promise<Built>;
+
+const u = () => randomBytes(4).toString("hex");
+const base = (t: Tenant) => `/v1/workspaces/${t.ws.slug}`;
+const letters = () =>
+  Array.from(randomBytes(5), (b) => String.fromCharCode(65 + (b % 26))).join("");
+
+const get = (p: (t: Tenant) => string): Builder => async (t) => ({ method: "GET", path: p(t) });
+const simple =
+  (method: string, p: (t: Tenant) => string, body?: unknown): Builder =>
+  async (t) => ({ method, path: p(t), ...(body === undefined ? {} : { body }) });
+
+const issueOp =
+  (method: string, suffix: string, body?: unknown, over?: Parameters<typeof mkIssue>[1]): Builder =>
+  async (t) => {
+    const i = await mkIssue(t, over);
+    return { method, path: `${base(t)}/issues/${i.key}${suffix}`, ...(body === undefined ? {} : { body }) };
+  };
+
+const projectOp =
+  (method: string, suffix: string, body?: unknown): Builder =>
+  async (t) => {
+    const p = await mkProject(t);
+    return { method, path: `${base(t)}/projects/${p.id}${suffix}`, ...(body === undefined ? {} : { body }) };
+  };
+
+const milestoneOp =
+  (method: string, body?: unknown): Builder =>
+  async (t) => {
+    const p = await mkProject(t);
+    const m = await mkMilestone(t, p.id);
+    return { method, path: `${base(t)}/projects/${p.id}/milestones/${m.id}`, ...(body === undefined ? {} : { body }) };
+  };
+
+const cycleOp =
+  (method: string, suffix: string, body?: unknown): Builder =>
+  async (t) => {
+    const c = await mkCycle(t);
+    return { method, path: `${base(t)}/cycles/${c.id}${suffix}`, ...(body === undefined ? {} : { body }) };
+  };
+
+// views are per-user: the target view belongs to the caller
+const viewOp =
+  (method: string, body?: unknown): Builder =>
+  async (t, who) => {
+    const v = await mkView(t, who.userId ?? t.people.owner.id);
+    return { method, path: `${base(t)}/views/${v.id}`, ...(body === undefined ? {} : { body }) };
+  };
+
+const endpointOp =
+  (method: string, suffix = "", body?: unknown): Builder =>
+  async (t) => {
+    const e = await mkEndpoint(t);
+    return { method, path: `${base(t)}/webhook-endpoints/${e.id}${suffix}`, ...(body === undefined ? {} : { body }) };
+  };
+
+const dispatchOp =
+  (method: string, suffix: string, body?: unknown): Builder =>
+  async (t) => {
+    const i = await mkIssue(t);
+    const d = await mkDispatch(t, i.id);
+    return { method, path: `${base(t)}/dispatches/${d.id}${suffix}`, ...(body === undefined ? {} : { body }) };
+  };
+
+const providerOp =
+  (method: string, suffix = "", body?: unknown): Builder =>
+  async () => {
+    const p = await mkProvider();
+    return { method, path: `/v1/auth/providers/${p.id}${suffix}`, ...(body === undefined ? {} : { body }) };
+  };
+
+export const OPERATIONS: Record<string, Builder> = {
+  // ── public / infrastructure ────────────────────────────────────────────────
+  "GET /health": get(() => "/health"),
+  "GET /openapi.json": get(() => "/openapi.json"),
+  "GET /v1/auth/methods": get(() => "/v1/auth/methods"),
+  "GET /v1/auth/oauth/{provider}/start": get(() => "/v1/auth/oauth/nope/start"),
+  "GET /v1/auth/oauth/{provider}/callback": get(() => "/v1/auth/oauth/nope/callback?code=x&state=y"),
+  "POST /v1/auth/oauth/exchange": simple("POST", () => "/v1/auth/oauth/exchange", { code: "no-such-code" }),
+  "POST /v1/auth/oauth/link": simple("POST", () => "/v1/auth/oauth/link", { code: "no-such-code" }),
+  "POST /v1/auth/accept-invite": simple("POST", () => "/v1/auth/accept-invite", { token: "no-such-invite" }),
+  "POST /v1/auth/bootstrap": simple("POST", () => "/v1/auth/bootstrap", {
+    workspaceSlug: "bootstrap-attempt",
+    workspaceName: "x",
+    teamKey: "BOO",
+    email: "boot@matrix.test",
+    name: "Boot",
+    password: PASSWORD,
+  }),
+  "POST /v1/auth/login": async (t) => ({
+    method: "POST",
+    path: "/v1/auth/login",
+    body: { email: t.people.member.email, password: PASSWORD },
+  }),
+  "POST /v1/auth/logout": simple("POST", () => "/v1/auth/logout"),
+  "GET /github/manifest/callback/{state}": get(() => "/github/manifest/callback/not-a-state?code=x"),
+  "POST /webhooks/github": async () => ({
+    method: "POST",
+    path: "/webhooks/github",
+    rawBody: "{}",
+    headers: { "x-github-event": "ping", "x-github-delivery": `d-${u()}` },
+  }),
+  "POST /webhooks/slack": async () => ({
+    method: "POST",
+    path: "/webhooks/slack",
+    rawBody: "{}",
+    headers: { "x-slack-request-timestamp": "1", "x-slack-signature": "v0=bad" },
+  }),
+
+  // ── session / identity ─────────────────────────────────────────────────────
+  "GET /v1/auth/me": get(() => "/v1/auth/me"),
+  "POST /v1/auth/session": async (t) => ({
+    method: "POST",
+    path: "/v1/auth/session",
+    body: { workspaceSlug: t.ws.slug },
+  }),
+  "POST /v1/auth/token": simple("POST", () => "/v1/auth/token"),
+  "GET /v1/whoami": get(() => "/v1/whoami"),
+
+  // ── instance admin: providers ──────────────────────────────────────────────
+  "GET /v1/auth/providers": get(() => "/v1/auth/providers"),
+  "POST /v1/auth/providers": async () => ({
+    method: "POST",
+    path: "/v1/auth/providers",
+    body: { key: `p-${u()}`, type: "github", label: "Matrix", clientId: "cid", clientSecret: "csecret" },
+  }),
+  "PATCH /v1/auth/providers/{id}": providerOp("PATCH", "", { label: "Renamed" }),
+  "DELETE /v1/auth/providers/{id}": providerOp("DELETE"),
+  "POST /v1/auth/providers/{id}/test": providerOp("POST", "/test"),
+
+  // ── workspaces / teams ─────────────────────────────────────────────────────
+  "POST /v1/workspaces": simple("POST", () => "/v1/workspaces", {
+    slug: `created-${u()}`,
+    name: "Created by matrix",
+  }),
+  "GET /v1/workspaces/{ws}": get(base),
+  "PATCH /v1/workspaces/{ws}": simple("PATCH", base, { name: "Renamed workspace" }),
+  "GET /v1/workspaces/{ws}/teams": get((t) => `${base(t)}/teams`),
+  "POST /v1/workspaces/{ws}/teams": async (t) => ({
+    method: "POST",
+    path: `${base(t)}/teams`,
+    body: { key: letters(), name: "New team" },
+  }),
+  "PATCH /v1/workspaces/{ws}/teams/{id}": async (t) => ({
+    method: "PATCH",
+    path: `${base(t)}/teams/${t.team.id}`,
+    body: { name: "Renamed team" },
+  }),
+
+  // ── issues ─────────────────────────────────────────────────────────────────
+  "GET /v1/workspaces/{ws}/issues": get((t) => `${base(t)}/issues`),
+  "POST /v1/workspaces/{ws}/issues": simple("POST", (t) => `${base(t)}/issues`, { title: "Matrix issue" }),
+  "GET /v1/workspaces/{ws}/issues/{key}": issueOp("GET", ""),
+  "PATCH /v1/workspaces/{ws}/issues/{key}": issueOp("PATCH", "", { title: "Edited" }),
+  "GET /v1/workspaces/{ws}/issues/{key}/comments": issueOp("GET", "/comments"),
+  "POST /v1/workspaces/{ws}/issues/{key}/comments": issueOp("POST", "/comments", { body: "hello" }),
+  "POST /v1/workspaces/{ws}/issues/{key}/summarize": issueOp("POST", "/summarize"),
+  "POST /v1/workspaces/{ws}/issues/{key}/triage-suggest": issueOp("POST", "/triage-suggest"),
+  "POST /v1/workspaces/{ws}/issues/dup-check": simple("POST", (t) => `${base(t)}/issues/dup-check`, {
+    title: "Matrix duplicate probe",
+  }),
+  "GET /v1/workspaces/{ws}/llm/status": get((t) => `${base(t)}/llm/status`),
+  "GET /v1/workspaces/{ws}/issues/{key}/slack-link": issueOp("GET", "/slack-link"),
+  "DELETE /v1/workspaces/{ws}/issues/{key}/slack-link": issueOp("DELETE", "/slack-link"),
+  "GET /v1/workspaces/{ws}/issues/{key}/events": issueOp("GET", "/events"),
+  "POST /v1/workspaces/{ws}/issues/{key}/triage": issueOp("POST", "/triage", { action: "accept" }, { state: "triage" }),
+  "POST /v1/workspaces/{ws}/issues/{key}/review": issueOp("POST", "/review", { action: "approve" }, { state: "in_review" }),
+  "GET /v1/workspaces/{ws}/issues/{key}/sessions": issueOp("GET", "/sessions"),
+  "GET /v1/workspaces/{ws}/labels": get((t) => `${base(t)}/labels`),
+  "POST /v1/workspaces/{ws}/labels": async (t) => ({
+    method: "POST",
+    path: `${base(t)}/labels`,
+    body: { name: `label-${u()}`, color: "#112233" },
+  }),
+
+  // ── agents ─────────────────────────────────────────────────────────────────
+  "GET /v1/workspaces/{ws}/agents": get((t) => `${base(t)}/agents`),
+  "POST /v1/workspaces/{ws}/agents": async (t) => ({
+    method: "POST",
+    path: `${base(t)}/agents`,
+    body: { name: `agent-${u()}`, harness: "test" },
+  }),
+  "GET /v1/workspaces/{ws}/agents/{id}/keys": async (t) => {
+    const a = await mkAgent(t);
+    return { method: "GET", path: `${base(t)}/agents/${a.id}/keys` };
+  },
+  "POST /v1/workspaces/{ws}/agents/{id}/keys": async (t) => {
+    const a = await mkAgent(t);
+    return { method: "POST", path: `${base(t)}/agents/${a.id}/keys`, body: { name: "k", scopes: ["read"] } };
+  },
+
+  // ── members / invites / tokens ─────────────────────────────────────────────
+  "GET /v1/workspaces/{ws}/members": get((t) => `${base(t)}/members`),
+  "PATCH /v1/workspaces/{ws}/members/{id}": async (t) => {
+    const m = await mkMember(t);
+    return { method: "PATCH", path: `${base(t)}/members/${m.memberRowId}`, body: { role: "admin" } };
+  },
+  "DELETE /v1/workspaces/{ws}/members/{id}": async (t) => {
+    const m = await mkMember(t);
+    return { method: "DELETE", path: `${base(t)}/members/${m.memberRowId}` };
+  },
+  "GET /v1/workspaces/{ws}/invites": get((t) => `${base(t)}/invites`),
+  "POST /v1/workspaces/{ws}/invites": simple("POST", (t) => `${base(t)}/invites`, { role: "member" }),
+  "DELETE /v1/workspaces/{ws}/invites/{id}": async (t) => {
+    const i = await mkInvite(t, t.people.owner.id);
+    return { method: "DELETE", path: `${base(t)}/invites/${i.id}` };
+  },
+  "GET /v1/workspaces/{ws}/tokens": get((t) => `${base(t)}/tokens`),
+  "POST /v1/workspaces/{ws}/tokens": simple("POST", (t) => `${base(t)}/tokens`, {
+    name: "matrix token",
+    scopes: ["read"],
+  }),
+  "DELETE /v1/workspaces/{ws}/tokens/{id}": async (t, who) => {
+    const tok = await mkToken(t, who.userId ?? t.people.owner.id);
+    return { method: "DELETE", path: `${base(t)}/tokens/${tok.id}` };
+  },
+
+  // ── projects / milestones / cycles / views ────────────────────────────────
+  "GET /v1/workspaces/{ws}/projects": get((t) => `${base(t)}/projects`),
+  "POST /v1/workspaces/{ws}/projects": simple("POST", (t) => `${base(t)}/projects`, { name: "Matrix project" }),
+  "PATCH /v1/workspaces/{ws}/projects/{id}": projectOp("PATCH", "", { name: "Renamed project" }),
+  "DELETE /v1/workspaces/{ws}/projects/{id}": projectOp("DELETE", ""),
+  "GET /v1/workspaces/{ws}/milestones": get((t) => `${base(t)}/milestones`),
+  "GET /v1/workspaces/{ws}/projects/{id}/milestones": projectOp("GET", "/milestones"),
+  "POST /v1/workspaces/{ws}/projects/{id}/milestones": projectOp("POST", "/milestones", { title: "M1" }),
+  "PATCH /v1/workspaces/{ws}/projects/{id}/milestones/{mid}": milestoneOp("PATCH", { title: "M1b" }),
+  "DELETE /v1/workspaces/{ws}/projects/{id}/milestones/{mid}": milestoneOp("DELETE"),
+  "GET /v1/workspaces/{ws}/cycles": get((t) => `${base(t)}/cycles`),
+  "POST /v1/workspaces/{ws}/cycles": async (t) => ({
+    method: "POST",
+    path: `${base(t)}/cycles`,
+    body: { teamKey: t.team.key, startsAt: "2026-11-01T00:00:00.000Z", endsAt: "2026-11-14T00:00:00.000Z" },
+  }),
+  "GET /v1/workspaces/{ws}/cycles/{id}": cycleOp("GET", ""),
+  "PATCH /v1/workspaces/{ws}/cycles/{id}": cycleOp("PATCH", "", { name: "Renamed cycle" }),
+  "DELETE /v1/workspaces/{ws}/cycles/{id}": cycleOp("DELETE", ""),
+  "POST /v1/workspaces/{ws}/cycles/{id}/complete": cycleOp("POST", "/complete"),
+  "GET /v1/workspaces/{ws}/views": get((t) => `${base(t)}/views`),
+  "POST /v1/workspaces/{ws}/views": simple("POST", (t) => `${base(t)}/views`, {
+    name: "Matrix view",
+    filters: { state: "todo" },
+  }),
+  "PATCH /v1/workspaces/{ws}/views/{id}": viewOp("PATCH", { name: "Renamed view" }),
+  "DELETE /v1/workspaces/{ws}/views/{id}": viewOp("DELETE"),
+
+  // ── feeds ──────────────────────────────────────────────────────────────────
+  "GET /v1/workspaces/{ws}/insights": get((t) => `${base(t)}/insights`),
+  "GET /v1/workspaces/{ws}/events": get((t) => `${base(t)}/events`),
+  "GET /v1/workspaces/{ws}/events/stream": get((t) => `${base(t)}/events/stream`),
+
+  // ── dispatches / review ────────────────────────────────────────────────────
+  "GET /v1/workspaces/{ws}/dispatches": get((t) => `${base(t)}/dispatches`),
+  "GET /v1/workspaces/{ws}/review-queue": get((t) => `${base(t)}/review-queue`),
+  "POST /v1/workspaces/{ws}/dispatches/{id}/report": dispatchOp("POST", "/report", { outcome: "completed" }),
+  "GET /v1/workspaces/{ws}/dispatches/{id}/events": dispatchOp("GET", "/events"),
+  "POST /v1/workspaces/{ws}/dispatches/{id}/events": dispatchOp("POST", "/events", {
+    events: [{ kind: "note", message: "progress" }],
+  }),
+
+  // ── github / import ────────────────────────────────────────────────────────
+  "GET /v1/workspaces/{ws}/github/manifest": get((t) => `${base(t)}/github/manifest`),
+  "GET /v1/workspaces/{ws}/github/install-url": get((t) => `${base(t)}/github/install-url`),
+  "GET /v1/workspaces/{ws}/github/setup": get((t) => `${base(t)}/github/setup?installation_id=424242`),
+  "GET /v1/workspaces/{ws}/github/repos": get((t) => `${base(t)}/github/repos`),
+  "POST /v1/workspaces/{ws}/github/repos/connect": async (t) => ({
+    method: "POST",
+    path: `${base(t)}/github/repos/connect`,
+    body: { fullName: `matrix/repo-${u()}` },
+  }),
+  "POST /v1/workspaces/{ws}/github/repos/disconnect": async (t) => ({
+    method: "POST",
+    path: `${base(t)}/github/repos/disconnect`,
+    body: { fullName: `matrix/repo-${u()}` },
+  }),
+  "POST /v1/workspaces/{ws}/import/github": async (t) => ({
+    method: "POST",
+    path: `${base(t)}/import/github`,
+    body: { fullName: "matrix/none", token: "ghp_not_a_token" },
+  }),
+  "POST /v1/workspaces/{ws}/import/linear": async (t) => ({
+    method: "POST",
+    path: `${base(t)}/import/linear`,
+    body: { teamKey: t.team.key, csv: "ID,Title,Status\nL-1,Imported,Todo\n" },
+  }),
+
+  // ── outbound webhooks ──────────────────────────────────────────────────────
+  "GET /v1/workspaces/{ws}/webhook-endpoints": get((t) => `${base(t)}/webhook-endpoints`),
+  "POST /v1/workspaces/{ws}/webhook-endpoints": async (t) => ({
+    method: "POST",
+    path: `${base(t)}/webhook-endpoints`,
+    body: { url: `http://127.0.0.1:9/hook-${u()}` },
+  }),
+  "PATCH /v1/workspaces/{ws}/webhook-endpoints/{id}": endpointOp("PATCH", "", { enabled: false }),
+  "DELETE /v1/workspaces/{ws}/webhook-endpoints/{id}": endpointOp("DELETE"),
+  "GET /v1/workspaces/{ws}/webhook-endpoints/{id}/deliveries": async (t) => {
+    const e = await mkEndpoint(t);
+    await mkDelivery(t, e.id);
+    return { method: "GET", path: `${base(t)}/webhook-endpoints/${e.id}/deliveries` };
+  },
+};
+
