@@ -378,7 +378,7 @@ export const OPERATIONS: Record<string, Builder> = {
   // ── github / import ────────────────────────────────────────────────────────
   "GET /v1/workspaces/{ws}/github/manifest": get((t) => `${base(t)}/github/manifest`),
   "GET /v1/workspaces/{ws}/github/install-url": get((t) => `${base(t)}/github/install-url`),
-  "GET /v1/workspaces/{ws}/github/setup": get((t) => `${base(t)}/github/setup?installation_id=424242`),
+  "POST /v1/workspaces/{ws}/github/setup": simple("POST", (t) => `${base(t)}/github/setup`, { installationId: 424242 }),
   "GET /v1/workspaces/{ws}/github/repos": get((t) => `${base(t)}/github/repos`),
   "POST /v1/workspaces/{ws}/github/repos/connect": async (t) => ({
     method: "POST",

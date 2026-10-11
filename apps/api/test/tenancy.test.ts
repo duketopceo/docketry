@@ -55,7 +55,7 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
       "GET /v1/workspaces/{ws}/insights",
     ],
   },
-  github_installations: { ops: ["GET /v1/workspaces/{ws}/github/setup", "GET /v1/workspaces/{ws}/github/install-url"] },
+  github_installations: { ops: ["POST /v1/workspaces/{ws}/github/setup", "GET /v1/workspaces/{ws}/github/install-url"] },
   github_issue_links: { ops: ["POST /v1/workspaces/{ws}/import/github", "GET /v1/workspaces/{ws}/issues/{key}"] },
   github_repos: {
     ops: [
@@ -448,7 +448,7 @@ describe("tenancy: cross-tenant references in A's writes", () => {
     { name: "connect B's team to a repo", table: "github_repos", build: () => ({ method: "POST", path: `${ws()}/github/repos/connect`, body: { fullName: "acme/x", teamKey: B.team.key } }) },
     { name: "disconnect B's repo", table: "github_repos", build: () => ({ method: "POST", path: `${ws()}/github/repos/disconnect`, body: { fullName: EB.github.repo.fullName } }) },
     { name: "linear import into B's team", table: "issue_external_refs", build: () => ({ method: "POST", path: `${ws()}/import/linear`, body: { teamKey: B.team.key, csv: "ID,Title,Status\nL-1,x,Todo\n" } }) },
-    { name: "bind B's github installation", table: "github_installations", build: () => ({ method: "GET", path: `${ws()}/github/setup?installation_id=${EB.github.installation.installationId}` }) },
+    { name: "bind B's github installation", table: "github_installations", build: () => ({ method: "POST", path: `${ws()}/github/setup`, body: { installationId: EB.github.installation.installationId } }) },
   ];
 
   it("covers every tenant table that has endpoints", () => {

@@ -155,7 +155,7 @@ export const extraPaths: Record<string, PathItem> = {
   "/v1/workspaces/{ws}/issues/{key}/review": {
     post: {
       summary:
-        "Review an in_review issue — approve (moves to done) or send_back (re-dispatches with feedback)",
+        "Review an in_review issue — approve (moves to done) or send_back (re-dispatches with feedback). Human members only; agent credentials get 403 FORBIDDEN_AGENT",
       parameters: [wsParam, keyParam],
       requestBody: jsonBody({
         type: "object",
@@ -167,6 +167,7 @@ export const extraPaths: Record<string, PathItem> = {
       }),
       responses: {
         "200": { description: "Review recorded" },
+        "403": { description: "Agent credential (FORBIDDEN_AGENT)" },
         "409": { description: "Issue is not in_review" },
       },
     },
@@ -303,22 +304,19 @@ export const extraPaths: Record<string, PathItem> = {
     },
   },
   "/v1/workspaces/{ws}/github/setup": {
-    get: {
+    post: {
       summary:
-        "Bind a GitHub App installation to this workspace (verifies the App owns installation_id; 409 if bound elsewhere)",
-      parameters: [
-        wsParam,
-        {
-          name: "installation_id",
-          in: "query",
-          required: true,
-          schema: { type: "integer" },
-        },
-        { name: "account_login", in: "query", schema: { type: "string" } },
-      ],
+        "Bind a GitHub App installation to this workspace (owner/admin only; verifies the App owns installationId; 409 if bound elsewhere). Called by the web Setup-URL page, not by GitHub directly",
+      parameters: [wsParam],
+      requestBody: jsonBody({
+        type: "object",
+        required: ["installationId"],
+        properties: { installationId: { type: "integer", minimum: 1 } },
+      }),
       responses: {
         "200": { description: "Bound" },
-        "400": { description: "Missing/invalid installation_id" },
+        "400": { description: "Malformed body" },
+        "403": { description: "Not an owner/admin (human credential required)" },
         "404": { description: "Installation does not belong to this GitHub App" },
         "409": { description: "Installation already bound to another workspace" },
         "503": { description: "GitHub App credentials not configured" },
@@ -387,12 +385,12 @@ export const extraPaths: Record<string, PathItem> = {
   },
   "/v1/workspaces/{ws}/webhook-endpoints": {
     get: {
-      summary: "List outbound webhook endpoints (secrets masked to last 4)",
+      summary: "List outbound webhook endpoints (owner/admin only; secrets masked to last 4)",
       parameters: [wsParam],
       responses: { "200": { description: "Endpoints" } },
     },
     post: {
-      summary: "Create an outbound webhook endpoint; the signing secret is returned once",
+      summary: "Create an outbound webhook endpoint (owner/admin only); the signing secret is returned once",
       parameters: [wsParam],
       requestBody: jsonBody({
         type: "object",
@@ -408,7 +406,7 @@ export const extraPaths: Record<string, PathItem> = {
   },
   "/v1/workspaces/{ws}/webhook-endpoints/{id}": {
     patch: {
-      summary: "Update an endpoint (url, events, enabled)",
+      summary: "Update an endpoint (owner/admin only)",
       parameters: [wsParam, idParam],
       requestBody: jsonBody({
         type: "object",
@@ -421,7 +419,7 @@ export const extraPaths: Record<string, PathItem> = {
       responses: { "200": { description: "Endpoint" }, "404": { description: "Not found" } },
     },
     delete: {
-      summary: "Delete an endpoint",
+      summary: "Delete an endpoint (owner/admin only)",
       parameters: [wsParam, idParam],
       responses: { "200": { description: "Deleted" }, "404": { description: "Not found" } },
     },
