@@ -40,8 +40,8 @@ function isTypingTarget(el: EventTarget | null): boolean {
   );
 }
 
-function timeAgo(iso: string): string {
-  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+function timeAgo(iso: string, nowMs: number): string {
+  const s = Math.max(0, (nowMs - new Date(iso).getTime()) / 1000);
   if (s < 10) return "now";
   if (s < 60) return `${Math.floor(s)}s`;
   const m = s / 60;
@@ -77,7 +77,21 @@ function actionLabel(e: FeedEvent): string {
   }
 }
 
-export function ActivityFeed({ initial }: { initial: FeedEvent[] }) {
+export function ActivityFeed({
+  initial,
+  renderedAt,
+}: {
+  initial: FeedEvent[];
+  /** server render time (ms): the first client render must use the same
+   *  "now" as the SSR HTML or relative times ("56s" vs "57s") mismatch */
+  renderedAt: number;
+}) {
+  const [now, setNow] = useState(renderedAt);
+  useEffect(() => {
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(t);
+  }, []);
   const router = useRouter();
   const [events, setEvents] = useState<FeedEvent[]>(initial);
   const [status, setStatus] = useState<LiveStatus>("connecting");
@@ -202,9 +216,11 @@ export function ActivityFeed({ initial }: { initial: FeedEvent[] }) {
             >
               <span
                 className="w-8 shrink-0 font-mono text-[11px] text-ink-tertiary"
+                // locale/timezone of the tooltip legitimately differ server vs browser
+                suppressHydrationWarning
                 title={new Date(evt.createdAt).toLocaleString()}
               >
-                {timeAgo(evt.createdAt)}
+                {timeAgo(evt.createdAt, now)}
               </span>
               <span className="flex w-36 shrink-0 items-center gap-1.5 truncate">
                 {evt.actorType === "agent" && (

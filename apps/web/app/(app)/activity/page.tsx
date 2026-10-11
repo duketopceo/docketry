@@ -25,7 +25,7 @@ export default async function ActivityPage() {
           {events.length}
         </span>
       </header>
-      <ActivityFeed initial={events} />
+      <ActivityFeed initial={events} renderedAt={Date.now()} />
     </main>
   );
 }

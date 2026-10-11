@@ -187,7 +187,11 @@ export function InvitePanel({
               <li key={i.id} className="flex items-center justify-between py-2.5 text-sm">
                 <div>
                   <span className="text-ink">{i.email ?? "open link"}</span>
-                  <span className="ml-2 font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+                  <span
+                    className="ml-2 font-mono text-[10px] uppercase tracking-wider text-ink-tertiary"
+                    // date format follows the viewer's locale, which can differ from the server's
+                    suppressHydrationWarning
+                  >
                     {i.role} · {teamName(i.teamId)} · exp{" "}
                     {new Date(i.expiresAt).toLocaleDateString()}
                   </span>
