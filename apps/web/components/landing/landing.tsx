@@ -355,7 +355,7 @@ export function LandingPage() {
               Clone to board in ten minutes
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-ink-subtle">
-              MIT-licensed, Docker Compose for Postgres, Redis, API and web.
+              AGPL-3.0 licensed, Docker Compose for Postgres, Redis, API and web.
               Run it on a VPS, a homelab, or your laptop — your issues stay
               yours. Cloudflare Tunnel recipe in the docs.
             </p>
@@ -389,7 +389,7 @@ export function LandingPage() {
             Work the same board.
           </h2>
           <p className="mx-auto mt-3 max-w-md text-sm text-ink-subtle">
-            Free, MIT-licensed, and yours to run. Bring your agents — they get
+            Free, open source, and yours to run. Bring your agents — they get
             their own keys.
           </p>
           <div className="mt-7 flex items-center justify-center gap-3">
@@ -434,12 +434,12 @@ export function LandingPage() {
             Docs
           </a>
           <a
-            href={`${REPO}/blob/main/LICENSE-MIT`}
+            href={`${REPO}/blob/main/LICENSING.md`}
             target="_blank"
             rel="noreferrer"
             className="hover:text-ink-muted"
           >
-            MIT
+            AGPL-3.0
           </a>
           <span className="ml-auto font-mono text-[10px]">
             humans · agents · one state machine

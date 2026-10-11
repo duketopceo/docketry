@@ -66,7 +66,7 @@ If you are picking up work, look for issues labeled `work-order`. If you are pro
 
 ## License
 
-tallyline is MIT-licensed. There is no CLA and no DCO — by submitting a contribution you agree it is provided under the terms of the existing [MIT license](./LICENSE-MIT). That's it.
+tallyline's main app is licensed AGPL-3.0-only; the client and integration packages are MIT (see [LICENSING.md](./LICENSING.md)). There is no CLA and no DCO — by submitting a contribution you agree it is provided under the license that covers the path you changed. That's it.
 
 ## Conduct
 

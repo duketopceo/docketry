@@ -2,6 +2,7 @@
   "name": "@tallyline/e2e",
   "private": true,
   "version": "0.0.0",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "test:e2e": "playwright test",

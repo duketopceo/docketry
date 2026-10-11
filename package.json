@@ -1,5 +1,6 @@
 {
   "name": "tallyline",
+  "license": "AGPL-3.0-only",
   "private": true,
   "packageManager": "pnpm@10.20.0",
   "scripts": {

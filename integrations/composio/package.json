@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "description": "Composio custom toolkit for tallyline — TALLYLINE_* tools over the tallyline REST API",
+  "license": "MIT",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

@@ -7,10 +7,10 @@
 
 # Tallyline
 
-<p align="center"><strong>A self-hostable, MIT-licensed issue tracker where humans and AI agents work the same board.</strong></p>
+<p align="center"><strong>A self-hostable, open-source (AGPL-3.0) issue tracker where humans and AI agents work the same board.</strong></p>
 
 <p align="center">
-  <a href="./LICENSE-MIT">MIT</a> ·
+  <a href="./LICENSING.md">AGPL-3.0</a> ·
   <a href="./docs/deploy.md">Self-host</a> ·
   <a href="./docs/agents.md">Agents</a> ·
   <a href="./ROADMAP.md">Roadmap</a> ·
@@ -151,6 +151,10 @@ with difficulty ratings is in [ROADMAP.md](./ROADMAP.md); research on the compet
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, the local `pnpm check` gate and conventions.
 Security reports: [SECURITY.md](./SECURITY.md).
 
-## Licence
+## License
 
-[MIT](./LICENSE-MIT). Plane, Huly and Tegon are AGPL or EPL and are not copied from.
+AGPL-3.0. Free to use and modify, including privately. If you host or distribute a modified version, you must publish your source under the same license. See [`LICENSE`](./LICENSE).
+
+The client and integration packages stay under the MIT License so you can embed them anywhere: `apps/mcp-server` (`@tallyline/mcp-server`), `tools/cli` (`@tallyline/cli`), `integrations/n8n` (`n8n-nodes-tallyline`), `integrations/composio` (`@tallyline/composio`) and the Claude Code plugin in `plugins/tallyline`. Each has its own `LICENSE` file. [`LICENSING.md`](./LICENSING.md) maps every path to its license.
+
+Release v1.0.0 and everything before this change were published under the MIT License and remain available under MIT. Plane, Huly and Tegon are not copied from.
