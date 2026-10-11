@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { TallyMark } from "@/components/tally-mark";
@@ -23,7 +24,7 @@ const ERROR_COPY: Record<string, string> = {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<main className="flex min-h-screen items-center justify-center px-6" />}>
+    <Suspense fallback={<div className="min-h-screen" />}>
       <LoginInner />
     </Suspense>
   );
@@ -92,85 +93,70 @@ function LoginInner() {
     }
   }
 
+  const input = "mt-1 block h-10 w-full rounded-sm border border-control bg-surface-2 px-3 text-[14px] text-ink placeholder:text-ink-subtle";
   return (
-    <main className="flex min-h-screen items-center justify-center px-6">
-      <div className="w-full max-w-sm rounded-md border border-lining bg-surface-1 p-6">
-        <div className="flex items-center gap-2">
-          <TallyMark size={24} />
-          <span className="text-[15px] font-semibold tracking-tight">tallyline</span>
+    <div className="grid min-h-screen lg:grid-cols-[minmax(420px,520px)_1fr]">
+      <main className="flex flex-col justify-center px-6 py-10 sm:px-12">
+        <div className="mx-auto w-full max-w-sm">
+          <Link href="/" className="flex items-center gap-2" aria-label="Tallyline home">
+            <TallyMark size={28} />
+            <span className="text-[17px] font-semibold tracking-tight">tallyline</span>
+          </Link>
+          <h1 className="mt-8 text-[24px] font-semibold leading-tight tracking-[-0.4px]">Sign in</h1>
+          <p className="mt-1 text-[13px] text-ink-muted">One board for you and your agents.</p>
+
+          {error && (
+            <p role="alert" className="mt-5 rounded-sm border border-lining-bright bg-surface-2 px-3 py-2 text-[13px] text-ink">
+              <span className="font-medium text-urgent">Could not sign in.</span> {error}
+            </p>
+          )}
+
+          {(!methods || methods.password) && (
+            <form onSubmit={onSubmit} className="mt-6">
+              <label className="block text-[13px] text-ink-muted" htmlFor="email">Email
+                <input id="email" name="email" type="email" required autoFocus autoComplete="email" className={input} />
+              </label>
+              <label className="mt-4 block text-[13px] text-ink-muted" htmlFor="password">Password
+                <input id="password" name="password" type="password" required autoComplete="current-password" className={input} />
+              </label>
+              <button type="submit" disabled={pending} className="mt-6 h-10 w-full rounded-sm bg-accent px-3 text-[14px] font-medium text-on-accent hover:bg-accent-hover disabled:opacity-60">
+                {pending ? "Signing in" : "Sign in"}
+              </button>
+            </form>
+          )}
+
+          {methods && methods.providers.length > 0 && (
+            <div className="mt-6 border-t border-lining pt-5">
+              <p className="text-[12px] text-ink-subtle">Or continue with</p>
+              <div className="mt-3 space-y-2">
+                {methods.providers.map((p) => (
+                  <a key={p.key} href={providerUrl(p)} className="flex h-10 w-full items-center justify-center rounded-sm border border-control bg-surface-1 text-[14px] text-ink hover:bg-surface-2">
+                    {p.label}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {methods?.unavailable && <p className="mt-4 text-[12px] text-ink-subtle">Sign-in providers are unavailable. Use email and password.</p>}
+
+          <p className="mt-8 text-[12px] leading-relaxed text-ink-subtle">
+            Invited? Open the invite link you were sent. Running a new instance? <Link href="/bootstrap" className="text-accent underline underline-offset-2 hover:text-accent-hover">Create the first workspace</Link>.
+          </p>
+          <p className="mt-2 text-[12px] text-ink-subtle">Hosted beta: no SLA, and data may be lost.</p>
         </div>
-        <h1 className="mt-2 text-lg font-semibold">Sign in</h1>
-
-        {error && (
-          <p
-            role="alert"
-            className="mt-4 rounded-sm border border-lining-bright px-3 py-2 text-sm text-ink-muted"
-          >
-            {error}
-          </p>
-        )}
-
-        {methods && methods.providers.length > 0 && (
-          <div className="mt-5 space-y-2">
-            {methods.providers.map((p) => (
-              <a
-                key={p.key}
-                href={providerUrl(p)}
-                className="block w-full rounded-sm border border-lining bg-surface-2 px-3 py-2 text-center text-sm text-ink hover:border-lining-strong"
-              >
-                Continue with {p.label}
-              </a>
-            ))}
+      </main>
+      <aside aria-hidden className="relative hidden overflow-hidden border-l border-lining-faint bg-surface-1 lg:block">
+        <div className="absolute left-12 right-0 top-1/2 -translate-y-1/2">
+          <p className="max-w-md pr-12 text-[17px] font-semibold leading-snug tracking-[-0.2px]">Agents are teammates here: identities, sessions and a review queue.</p>
+          <div className="mt-6 overflow-hidden rounded-l-lg border border-r-0 border-lining-strong">
+            <picture>
+              <source media="(prefers-color-scheme: light)" srcSet="/landing/board-light.webp" />
+              <img src="/landing/board-dark.webp" alt="" width={1280} height={800} decoding="async" className="block h-auto w-full" />
+            </picture>
           </div>
-        )}
-
-        {methods?.unavailable && (
-          <p className="mt-4 text-xs text-ink-subtle">
-            sign-in providers unavailable — use email and password
-          </p>
-        )}
-
-        {(!methods || methods.password) && (
-          <form onSubmit={onSubmit}>
-            <label
-              className="mt-5 block text-xs text-ink-subtle"
-              htmlFor="email"
-            >
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoFocus
-              className="mt-1 w-full rounded-sm border border-control bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-lining-strong"
-            />
-
-            <label
-              className="mt-4 block text-xs text-ink-subtle"
-              htmlFor="password"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              className="mt-1 w-full rounded-sm border border-control bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-lining-strong"
-            />
-
-            <button
-              type="submit"
-              disabled={pending}
-              className="mt-6 w-full rounded-sm bg-accent px-3 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-60"
-            >
-              {pending ? "Signing in…" : "Sign in"}
-            </button>
-          </form>
-        )}
-      </div>
-    </main>
+        </div>
+      </aside>
+    </div>
   );
 }
