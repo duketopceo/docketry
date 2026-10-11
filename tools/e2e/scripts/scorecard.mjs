@@ -1,7 +1,6 @@
 // Renders docs/design/ux-scorecard.md from the scores below.
 // node tools/e2e/scripts/scorecard.mjs > docs/design/ux-scorecard.md
 const DIMS = ["Hierarchy", "Density", "Type", "Color", "Keyboard", "Feedback", "States", "Mobile", "Agent"];
-const before = JSON.parse(process.env.BEFORE ?? "null") ?? {};
 export const BEFORE = {
   "App shell + sidebar": [5, 6, 5, 7, 6, 4, 5, 2, 5],
   "My Issues": [5, 6, 5, 6, 6, 4, 6, 2, 5],
