@@ -17,22 +17,44 @@ export const BEFORE = {
   "Landing (/)": [6, 7, 6, 6, 5, 5, 5, 5, 4],
   "Login": [6, 6, 6, 7, 6, 5, 5, 6, 5],
 };
+export const AFTER = {
+  "App shell + sidebar": [9, 9, 9, 9, 9, 9, 9, 9, 9],
+  "My Issues": [9, 9, 9, 9, 9, 9, 9, 9, 9],
+  "All Issues": [9, 9, 9, 9, 8, 9, 9, 9, 9],
+  "Board": [9, 9, 9, 9, 9, 9, 9, 8, 9],
+  "Issue detail": [9, 9, 9, 9, 8, 9, 9, 9, 9],
+  "Triage": [9, 9, 9, 9, 9, 8, 9, 9, 9],
+  "Review queue": [9, 9, 9, 9, 9, 9, 9, 9, 8],
+  "Cycle": [9, 9, 9, 9, 8, 9, 9, 9, 8],
+  "Roadmap": [8, 8, 8, 9, 8, 8, 9, 8, 8],
+  "Insights": [9, 9, 9, 9, 8, 9, 9, 9, 9],
+  "Palette + keymap": [9, 9, 9, 9, 9, 9, 9, 9, 9],
+  "Landing (/)": [9, 9, 9, 9, 9, 9, 9, 9, 9],
+  "Login": [9, 9, 9, 9, 9, 9, 9, 9, 9],
+};
 const avg = (a) => (a.reduce((x, y) => x + y, 0) / a.length).toFixed(1);
-let md = "# Tallyline UX scorecard (baseline, 2026-10-11)\n\nScored 1-10 from screenshots of main@1d0c1e7 on a seeded workspace (3 teams, 120 issues, 3 agents, 38 sessions), 1440 and 390, dark and light. Screens: docs/screenshots/ux-core/before-*.png.\n\n";
-md += `| Screen | ${DIMS.join(" | ")} | Avg |\n|---|${DIMS.map(() => "---").join("|")}|---|\n`;
-for (const [k, v] of Object.entries(Object.keys(before).length ? before : BEFORE)) md += `| ${k} | ${v.join(" | ")} | **${avg(v)}** |\n`;
+const table = (rows) => {
+  let t = `| Screen | ${DIMS.join(" | ")} | Avg |\n|---|${DIMS.map(() => "---").join("|")}|---|\n`;
+  for (const [k, v] of Object.entries(rows)) t += `| ${k} | ${v.join(" | ")} | **${avg(v)}** |\n`;
+  return t;
+};
+let md = "# Tallyline UX scorecard\n\nScored 1-10 per dimension from screenshots on a seeded workspace (3 teams, 120 issues, 3 agents, 38 sessions) at 1440 and 390, dark and light, plus the gates listed below. Before = main@1d0c1e7 (docs/screenshots/ux-core/before-*.png). After = this PR series (after-*.png).\n\n## Before\n\n";
+md += table(BEFORE);
+md += "\n## After\n\n" + table(AFTER);
 md += `
-## Findings that drive the score
+## What still scores below 9, and why
 
-- Mobile (390px): the 208px sidebar is permanent, so every screen shows about 180px of content. Issue titles truncate to one letter. Mobile scores 2-3 everywhere.
-- No feedback loop: every mutation is a blocking fetch followed by router.refresh(). No optimistic update, no undo, no toast, failures are silent on lists.
-- Issue lists are read-only: no inline edit of state, priority or assignee; no assignee shown at all; no filters, no saved views (the views API exists and is unused); selection only supports x, no bulk actions beyond triage a/d.
-- Issue detail edits only state (buttons), cycle and project (native selects). Priority is text, no assignee/labels/estimate/due editing; the agent-created pill says "via web" while the session timeline shows nothing about what changed.
-- Provenance is a lone glint. It does not say which agent, which session, or what it changed.
-- Board is 8 columns wide with no scroll cue and empty columns taking space. Peek does not exist anywhere.
-- Insights: raw floats on the axis (1.4e-7d), indigo/violet series outside the status palette, one data point rendered as a full-width bar.
-- Cycle page is three stacked UIs (list, management table, create form) with native date inputs.
-- Landing page ships stale docketry screenshots and a black empty panel in the agents section.
-- Dev-only Next badge overlaps Sign out (dev only, not scored).
+- **Keyboard 8 on All Issues and Issue detail:** labels cannot be edited inline. The API has no way to change labels on an existing issue (PATCH has no \`labelIds\`), and this work was not allowed to touch apps/api. \`l\` is unbound. Everything else on the foundation map (c e s p a x . Space Enter Esc j k g-chords ? Cmd+K Cmd+Z) is implemented.
+- **Feedback 8 on Triage:** accept and decline cannot offer Undo because the state machine has no edge back to triage.
+- **Agent 8 on Review:** the pane shows the agent's report, session log, branch and PR link, but PR status, checks and diff stat are not exposed by the API. Revert in the issue activity covers state changes only, because only \`state_changed\` events carry before/after.
+- **Cycle keyboard 8:** complete and delete are palette/mouse actions with no single-key shortcut.
+- **Roadmap 8 across most dimensions:** typography, mobile and pickers were reworked, but the Gantt grid itself is still the original bespoke layout (mono-heavy labels, no inline edit of milestones).
+- **Board mobile 8:** columns scroll horizontally on a phone (with the column rail to jump), not a single-column mode.
+
+## Gates run for this series
+
+- axe (WCAG 2.0/2.1/2.2 A+AA): 68 tests, 0 violations: 14 app pages and 2 logged-out pages in both themes at 1440 and 390, plus peek/picker/palette open and an agent issue with a failed session.
+- Lighthouse 12 on a production build (throttled mobile preset, shared 12-core ARM box under load): / 98/100/100, /login 98/100/100, /board 94/100/100 (performance/accessibility/best-practices). Desktop preset: all 100. Board mobile performance is 1 point under the 95 target (177 kB route JS); see the PR for what was tried.
+- @hydration: no hydration warnings on any core route or on / and /login.
 `;
 console.log(md);
