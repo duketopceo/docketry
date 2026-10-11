@@ -72,8 +72,14 @@ export const config_ = {
     .split(",")
     .map((d) => d.trim().toLowerCase())
     .filter(Boolean),
-  authAutoJoinSingleWorkspace: !["0", "false", "no"].includes(
+  // default OFF: on an internet-facing install auto-join is open membership
+  authAutoJoinSingleWorkspace: ["1", "true", "yes"].includes(
     env("AUTH_AUTO_JOIN_SINGLE_WORKSPACE", "").toLowerCase(),
+  ),
+  // default OFF: only instance admins may create workspaces; 1 lets any
+  // signed-in human do so (self-host teams that want self-serve orgs)
+  allowWorkspaceCreate: ["1", "true", "yes"].includes(
+    env("TALLYLINE_ALLOW_WORKSPACE_CREATE", "").toLowerCase(),
   ),
 
   // oauth providers — empty client id = provider absent

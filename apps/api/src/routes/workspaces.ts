@@ -3,9 +3,10 @@ import { and, eq } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { db } from "../db/client.js";
-import { teams, workspaceMembers, workspaces } from "../db/schema.js";
+import { teams, users, workspaceMembers, workspaces } from "../db/schema.js";
 import { apiError, HttpError } from "../lib/errors.js";
-import { memberOf, requireRole } from "../services/members.js";
+import { isInstanceAdmin, memberOf, requireRole } from "../services/members.js";
+import { config_ } from "../env.js";
 import { isCookieSession } from "./auth.js";
 
 const createWorkspaceSchema = z.object({
@@ -46,6 +47,21 @@ export const workspaceRoutes = new Hono()
         "FORBIDDEN",
         "workspace creation requires a human session",
       );
+    }
+    if (!config_.allowWorkspaceCreate) {
+      const [u] = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, session.userId));
+      const admin = u && (await isInstanceAdmin({ id: session.userId, email: u.email }));
+      if (!admin) {
+        return apiError(
+          c,
+          403,
+          "FORBIDDEN_INSTANCE_ADMIN",
+          "workspace creation is limited to instance admins (set TALLYLINE_ALLOW_WORKSPACE_CREATE=1 to allow all members)",
+        );
+      }
     }
     const body = c.req.valid("json");
     const existing = await db

@@ -1,5 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { config_ } from "../env.js";
 import { app } from "../index.js";
 import { closeDb, db } from "../db/client.js";
 import { runMigrations } from "../db/migrate.js";
@@ -302,5 +303,41 @@ describe("x-actor terminal rule", () => {
     });
     expect(human.status).toBe(201);
     expect(human.body.actorId).toBe(memberUserId); // x-actor-id never honored
+  });
+});
+
+describe("workspace creation gate", () => {
+  const cfg = config_ as { allowWorkspaceCreate: boolean };
+  it("non-admin member is refused by default; instance admin (bootstrap owner) is allowed", async () => {
+    expect(cfg.allowWorkspaceCreate).toBe(false);
+    const denied = await req("/v1/workspaces", {
+      method: "POST",
+      cookie: memberCookie,
+      body: JSON.stringify({ slug: "u2-gate", name: "Gate" }),
+    });
+    expect(denied.status).toBe(403);
+    expect((denied.body as { error: { code: string } }).error.code).toBe(
+      "FORBIDDEN_INSTANCE_ADMIN",
+    );
+    const ok = await req("/v1/workspaces", {
+      method: "POST",
+      cookie: ownerCookie,
+      body: JSON.stringify({ slug: "u2-gate-admin", name: "Gate admin" }),
+    });
+    expect(ok.status).toBe(201);
+  });
+
+  it("TALLYLINE_ALLOW_WORKSPACE_CREATE=1 opens creation to any signed-in member", async () => {
+    cfg.allowWorkspaceCreate = true;
+    try {
+      const res = await req("/v1/workspaces", {
+        method: "POST",
+        cookie: memberCookie,
+        body: JSON.stringify({ slug: "u2-gate-open", name: "Gate open" }),
+      });
+      expect(res.status).toBe(201);
+    } finally {
+      cfg.allowWorkspaceCreate = false;
+    }
   });
 });

@@ -1,3 +1,4 @@
+import { config_ } from "../../env.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { app } from "../../index.js";
@@ -41,6 +42,7 @@ const stub: OAuthProvider = {
 };
 
 beforeAll(async () => {
+  (config_ as { authAutoJoinSingleWorkspace: boolean }).authAutoJoinSingleWorkspace = true; // default off
   await runMigrations();
   for (const t of WIPE) await db.delete(t);
   // one workspace exists so the JIT sole-workspace auto-join rung can land

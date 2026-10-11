@@ -41,7 +41,11 @@ const mutableConfig = config_ as {
   authAutoJoinSingleWorkspace: boolean;
 };
 
+// captured at import, before the suite opts in below
+const DEFAULT_AUTO_JOIN = config_.authAutoJoinSingleWorkspace;
+
 beforeAll(async () => {
+  mutableConfig.authAutoJoinSingleWorkspace = true; // default is off; suite opts in
   await runMigrations();
   for (const t of WIPE) await db.delete(t);
 });
@@ -61,6 +65,10 @@ async function reset() {
 }
 
 describe("resolveIdentity", () => {
+  it("AUTH_AUTO_JOIN_SINGLE_WORKSPACE defaults to off", () => {
+    expect(DEFAULT_AUTO_JOIN).toBe(false);
+  });
+
   it("sole-workspace auto-join: verified email → user+identity+member in one go", async () => {
     const ws = await reset();
     const r = await resolveIdentity(ident(), { providerKey: "stub", inviteHash: null });
