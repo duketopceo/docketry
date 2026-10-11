@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
 import { WORKSPACE_COOKIE } from "@/lib/session";
+import { upstreamFetch } from "@/lib/upstream";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
   const lastEventId = req.headers.get("last-event-id");
   if (lastEventId) headers["last-event-id"] = lastEventId;
 
-  const upstream = await fetch(url, {
+  const upstream = await upstreamFetch(url, {
     headers,
     cache: "no-store",
     signal: req.signal, // client disconnect aborts the upstream poll loop

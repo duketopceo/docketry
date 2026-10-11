@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
 import { forwardSessionCookies } from "@/lib/session";
+import { upstreamFetch } from "@/lib/upstream";
 
 // invite claim/accept bridge — forwards the session cookie so the API can
 // resolve the caller server-side; replays the minted session on claim
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
   }
   const jar = await cookies();
   const session = jar.get(SESSION_COOKIE)?.value;
-  const upstream = await fetch(`${API_URL}/v1/auth/accept-invite`, {
+  const upstream = await upstreamFetch(`${API_URL}/v1/auth/accept-invite`, {
     method: "POST",
     headers: {
       "content-type": "application/json",

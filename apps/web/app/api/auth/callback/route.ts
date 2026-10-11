@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_URL } from "@/lib/api";
+import { upstreamFetch } from "@/lib/upstream";
 import {
   forwardSessionCookies,
   safeReturnTo,
@@ -17,7 +18,7 @@ interface Exchange {
 }
 
 async function exchange(code: string, loginNonce: string | undefined, bootstrap?: object) {
-  return fetch(`${API_URL}/v1/auth/oauth/exchange`, {
+  return upstreamFetch(`${API_URL}/v1/auth/oauth/exchange`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ code, login_nonce: loginNonce, bootstrap }),

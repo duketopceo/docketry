@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
+import { upstreamFetch } from "@/lib/upstream";
 
 // pending-link completion — password auth or live-session proof, forwarded
 // verbatim to the API (the API decides which challenge applies to the
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
   }
   const jar = await cookies();
   const session = jar.get(SESSION_COOKIE)?.value;
-  const upstream = await fetch(`${API_URL}/v1/auth/oauth/link`, {
+  const upstream = await upstreamFetch(`${API_URL}/v1/auth/oauth/link`, {
     method: "POST",
     headers: {
       "content-type": "application/json",

@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_URL, PUBLIC_API_URL } from "@/lib/api";
+import { upstreamFetch } from "@/lib/upstream";
 
 export const LOGIN_NONCE_COOKIE = "dok_login_nonce";
 
@@ -29,7 +30,7 @@ export async function GET() {
       maxAge: 10 * 60,
     });
   }
-  const upstream = await fetch(`${API_URL}/v1/auth/methods`, {
+  const upstream = await upstreamFetch(`${API_URL}/v1/auth/methods`, {
     cache: "no-store",
   });
   if (!upstream.ok) {

@@ -1,12 +1,13 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
+import { upstreamFetch } from "@/lib/upstream";
 
 export async function POST(req: Request) {
   const jar = await cookies();
   const session = jar.get(SESSION_COOKIE)?.value;
   if (session) {
-    await fetch(`${API_URL}/v1/auth/logout`, {
+    await upstreamFetch(`${API_URL}/v1/auth/logout`, {
       method: "POST",
       headers: { cookie: `${SESSION_COOKIE}=${session}` },
     }).catch(() => undefined);

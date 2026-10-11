@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
 import { WORKSPACE_COOKIE } from "@/lib/session";
+import { upstreamFetch } from "@/lib/upstream";
 
 // Workspace event list — used by the activity feed's polling fallback when
 // the SSE stream is unavailable.
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
     const v = req.nextUrl.searchParams.get(k);
     if (v) qs.set(k, v);
   }
-  const upstream = await fetch(
+  const upstream = await upstreamFetch(
     `${API_URL}/v1/workspaces/${workspace}/events?${qs}`,
     {
       headers: { cookie: `${SESSION_COOKIE}=${session}` },

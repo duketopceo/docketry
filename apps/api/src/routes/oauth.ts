@@ -21,7 +21,7 @@ import {
 } from "../db/schema.js";
 import { config_ } from "../env.js";
 import { apiError } from "../lib/errors.js";
-import { createRateLimiter } from "../lib/rate-limit.js";
+import { authLimiter } from "../lib/rate-limit.js";
 import {
   createSession,
   SESSION_COOKIE,
@@ -34,7 +34,6 @@ import { setSessionCookie } from "./auth.js";
 
 // auth-scoped limiter (R16a): the global middleware skips /v1/auth/*, so
 // the tight ceilings live inside the routers that serve it
-const authLimiter = createRateLimiter(30);
 
 // purpose-scoped code TTLs (KTD5): login codes are machine-redeemed in
 // seconds; pending codes bound a human-in-the-loop step

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
 import { WORKSPACE_COOKIE } from "@/lib/session";
+import { upstreamFetch } from "@/lib/upstream";
 
 export async function GET(req: NextRequest) {
   const jar = await cookies();
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
     );
   }
   const q = req.nextUrl.searchParams.get("q") ?? "";
-  const upstream = await fetch(
+  const upstream = await upstreamFetch(
     `${API_URL}/v1/workspaces/${workspace}/issues?search=${encodeURIComponent(q)}&limit=10`,
     { headers: { cookie: `${SESSION_COOKIE}=${session}` } },
   );

@@ -6,7 +6,7 @@ import { runMigrations } from "./db/migrate.js";
 import { config_ } from "./env.js";
 import { checkHealth } from "./health.js";
 import { apiError, HttpError } from "./lib/errors.js";
-import { createRateLimiter } from "./lib/rate-limit.js";
+import { createAnonymousLimiter, createRateLimiter } from "./lib/rate-limit.js";
 import { securityHeaders } from "./lib/security-headers.js";
 import { openApiDoc } from "./openapi.js";
 import { sweepExpiredCycles } from "./services/cycles.js";
@@ -30,12 +30,21 @@ import { webhookEndpointRoutes } from "./routes/webhook-endpoints.js";
 import { webhookRoutes } from "./routes/webhooks.js";
 import { whoamiRoutes } from "./routes/whoami.js";
 import { workspaceRoutes } from "./routes/workspaces.js";
+import { SESSION_COOKIE } from "./services/auth.js";
 import { NotFoundError } from "./services/issues.js";
 
 const rateLimiter = createRateLimiter(config_.rateLimitPerMin);
+// counts unauthenticated traffic + failed credentials per client IP; health
+// probes and HMAC-signed provider webhooks are exempt
+const anonymousLimiter = createAnonymousLimiter(
+  config_.rateLimitAnonPerMin,
+  SESSION_COOKIE,
+  { skip: (p) => p === "/health" || p.startsWith("/webhooks/") },
+);
 
 export const app = new Hono()
   .use("*", securityHeaders)
+  .use("*", anonymousLimiter)
   .get("/health", async (c) => {
     const report = await checkHealth(config_.databaseUrl, config_.redisUrl);
     return c.json(report, report.status === "ok" ? 200 : 503);

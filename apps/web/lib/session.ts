@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
+import { upstreamFetch } from "@/lib/upstream";
 
 export const WORKSPACE_COOKIE = "dok_ws";
 
@@ -39,7 +40,7 @@ export async function forwardSessionCookies(
   }
   let slug = workspaceSlug;
   if (!slug && match) {
-    const me = await fetch(`${API_URL}/v1/auth/me`, {
+    const me = await upstreamFetch(`${API_URL}/v1/auth/me`, {
       headers: { cookie: `${SESSION_COOKIE}=${match[1]}` },
     });
     if (me.ok) {

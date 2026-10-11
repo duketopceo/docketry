@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
 import { setWorkspaceCookie } from "@/lib/session";
 import { cookies } from "next/headers";
+import { upstreamFetch } from "@/lib/upstream";
 
 // workspace switch — rebinding dok_ws only happens through this bridge,
 // which proves membership via the API's session endpoint first
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
   }
   const jar = await cookies();
   const session = jar.get(SESSION_COOKIE)?.value;
-  const upstream = await fetch(`${API_URL}/v1/auth/session`, {
+  const upstream = await upstreamFetch(`${API_URL}/v1/auth/session`, {
     method: "POST",
     headers: {
       "content-type": "application/json",

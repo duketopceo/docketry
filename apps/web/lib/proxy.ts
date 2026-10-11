@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
 import { WORKSPACE_COOKIE } from "@/lib/session";
+import { upstreamFetch } from "@/lib/upstream";
 
 // shared upstream forwarder for the settings bridges — session + dok_ws
 // from the web jar; path is built by the caller, never the client
@@ -33,7 +34,7 @@ export async function proxy(
   const body = ["GET", "HEAD", "DELETE"].includes(method)
     ? undefined
     : await req.text();
-  const upstream = await fetch(`${API_URL}${path}`, {
+  const upstream = await upstreamFetch(`${API_URL}${path}`, {
     method,
     headers: {
       "content-type": "application/json",

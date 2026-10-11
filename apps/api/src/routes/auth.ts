@@ -14,6 +14,7 @@ import {
 } from "../db/schema.js";
 import { apiError } from "../lib/errors.js";
 import { requestIsHttps } from "../lib/https.js";
+import { authLimiter } from "../lib/rate-limit.js";
 import { config_ } from "../env.js";
 import {
   createSession,
@@ -63,6 +64,7 @@ const loginSchema = z.object({
 export const authRoutes = new Hono()
   .post(
     "/bootstrap",
+    authLimiter,
     zValidator("json", bootstrapSchema),
     async (c) => {
       if (config_.authDisablePassword) {
@@ -140,7 +142,7 @@ export const authRoutes = new Hono()
       );
     },
   )
-  .post("/login", zValidator("json", loginSchema), async (c) => {
+  .post("/login", authLimiter, zValidator("json", loginSchema), async (c) => {
     if (config_.authDisablePassword) {
       return apiError(
         c,

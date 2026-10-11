@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { API_URL } from "@/lib/api";
 import { forwardSessionCookies, safeReturnTo } from "@/lib/session";
+import { upstreamFetch } from "@/lib/upstream";
 
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as {
@@ -8,7 +9,7 @@ export async function POST(req: Request) {
     password?: string;
     return_to?: string;
   } | null;
-  const upstream = await fetch(`${API_URL}/v1/auth/login`, {
+  const upstream = await upstreamFetch(`${API_URL}/v1/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email: body?.email, password: body?.password }),

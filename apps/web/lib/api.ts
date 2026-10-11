@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { upstreamFetch } from "@/lib/upstream";
 
 export const API_URL =
   process.env.API_INTERNAL_URL ??
@@ -13,7 +14,7 @@ export async function api<T>(
 ): Promise<{ ok: boolean; status: number; data: T | null }> {
   const jar = await cookies();
   const session = jar.get(SESSION_COOKIE)?.value;
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await upstreamFetch(`${API_URL}${path}`, {
     ...init,
     headers: {
       "content-type": "application/json",

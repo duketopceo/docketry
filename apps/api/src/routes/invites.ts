@@ -16,7 +16,7 @@ import {
 } from "../db/schema.js";
 import { config_ } from "../env.js";
 import { apiError } from "../lib/errors.js";
-import { createRateLimiter } from "../lib/rate-limit.js";
+import { authLimiter } from "../lib/rate-limit.js";
 import {
   createSession,
   hashPassword,
@@ -29,7 +29,6 @@ import { userFromToken } from "../services/tokens.js";
 import { setSessionCookie } from "./auth.js";
 import { requireWorkspace } from "./workspaces.js";
 
-const authLimiter = createRateLimiter(30);
 
 const createSchema = z.object({
   email: z.email().optional(),

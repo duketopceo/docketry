@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
+import { upstreamFetch } from "@/lib/upstream";
 
 export async function GET() {
   const jar = await cookies();
@@ -11,7 +12,7 @@ export async function GET() {
       { status: 401 },
     );
   }
-  const upstream = await fetch(`${API_URL}/v1/auth/me`, {
+  const upstream = await upstreamFetch(`${API_URL}/v1/auth/me`, {
     headers: { cookie: `${SESSION_COOKIE}=${session}` },
     cache: "no-store",
   });

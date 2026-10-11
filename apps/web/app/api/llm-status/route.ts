@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
 import { WORKSPACE_COOKIE } from "@/lib/session";
+import { upstreamFetch } from "@/lib/upstream";
 
 export async function GET() {
   const jar = await cookies();
@@ -10,7 +11,7 @@ export async function GET() {
   if (!session || !workspace) {
     return NextResponse.json({ enabled: false, model: null });
   }
-  const upstream = await fetch(
+  const upstream = await upstreamFetch(
     `${API_URL}/v1/workspaces/${workspace}/llm/status`,
     {
       headers: { cookie: `${SESSION_COOKIE}=${session}` },

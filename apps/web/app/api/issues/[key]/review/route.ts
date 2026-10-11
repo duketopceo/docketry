@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
 import { WORKSPACE_COOKIE } from "@/lib/session";
+import { upstreamFetch } from "@/lib/upstream";
 
 export async function POST(
   req: Request,
@@ -17,7 +18,7 @@ export async function POST(
       { status: 401 },
     );
   }
-  const upstream = await fetch(
+  const upstream = await upstreamFetch(
     `${API_URL}/v1/workspaces/${workspace}/issues/${key}/review`,
     {
       method: "POST",

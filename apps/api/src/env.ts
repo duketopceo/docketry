@@ -28,6 +28,10 @@ export const config_ = {
   redisUrl: env("REDIS_URL", "redis://localhost:6380"),
   jwtSecret: env("JWT_SECRET", DEV_JWT_SECRET),
   rateLimitPerMin: Number(env("RATE_LIMIT_PER_MIN", "600")),
+  // unauthenticated traffic per client IP (and failed-credential attempts)
+  rateLimitAnonPerMin: Number(env("RATE_LIMIT_ANON_PER_MIN", "120")),
+  // login / bootstrap / invite-accept / OAuth start+callback per client IP
+  rateLimitAuthPerMin: Number(env("RATE_LIMIT_AUTH_PER_MIN", "30")),
   apiBaseUrl: env("API_BASE_URL", "http://localhost:4000"),
   githubAppSlug: env("GITHUB_APP_SLUG", ""),
   githubWebhookSecret: env("GITHUB_WEBHOOK_SECRET", ""),
@@ -49,8 +53,8 @@ export const config_ = {
 
   // oauth / web origins
   webUrl: env("WEB_URL", "http://localhost:3100").replace(/\/$/, ""),
-  // honors x-forwarded-for in rate limiting + logs — only set behind a
-  // real reverse proxy (spoofable otherwise)
+  // honors CF-Connecting-IP / x-forwarded-for / x-forwarded-proto — only set
+  // behind a real reverse proxy or Cloudflare (spoofable otherwise)
   trustedProxy: ["1", "true", "yes"].includes(
     env("TRUSTED_PROXY", "").toLowerCase(),
   ),
