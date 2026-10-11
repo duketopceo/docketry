@@ -79,16 +79,24 @@ export async function importGithubIssues(input: {
   }
 
   for (let page = 1; page <= 20; page++) {
-    const res = await fetcher(
-      `https://api.github.com/repos/${input.fullName}/issues?state=all&per_page=100&page=${page}`,
-      {
-        headers: {
-          authorization: `Bearer ${input.token}`,
-          accept: "application/vnd.github+json",
-          "x-github-api-version": "2022-11-28",
+    let res: Awaited<ReturnType<Fetcher>>;
+    try {
+      res = await fetcher(
+        `https://api.github.com/repos/${input.fullName}/issues?state=all&per_page=100&page=${page}`,
+        {
+          headers: {
+            authorization: `Bearer ${input.token}`,
+            accept: "application/vnd.github+json",
+            "x-github-api-version": "2022-11-28",
+          },
         },
-      },
-    );
+      );
+    } catch {
+      // DNS/connect/TLS failure: report as an import failure (502 upstream),
+      // not an unhandled 500
+      result.errors.push("github api unreachable");
+      return result;
+    }
     if (!res.ok) {
       result.errors.push(`github api returned ${res.status}`);
       return result;

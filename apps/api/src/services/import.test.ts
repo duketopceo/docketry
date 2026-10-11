@@ -241,6 +241,21 @@ describe("github import (#36)", () => {
     expect(links.map((l) => l.ghIssueNumber).sort()).toEqual([10, 11, 12]);
   });
 
+  it("reports an unreachable GitHub API as an import error instead of throwing", async () => {
+    const r = await importGithubIssues({
+      workspaceId: wsId,
+      fullName: "acme/unreachable",
+      token: "ghp_test",
+      target: "triage",
+      teamId,
+      fetchImpl: async () => {
+        throw new TypeError("fetch failed");
+      },
+    });
+    expect(r.created).toBe(0);
+    expect(r.errors).toEqual(["github api unreachable"]);
+  });
+
   it("re-run creates no duplicates", async () => {
     const r = await importGithubIssues({
       workspaceId: wsId,
