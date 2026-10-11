@@ -36,10 +36,8 @@ for (const [name, path, kind] of screens) {
       });
       const page = await ctx.newPage();
       await page.goto(path, { waitUntil: "networkidle" }).catch(() => {});
-      await page.evaluate((t) => {
-        document.documentElement.classList.remove("light", "dark");
-        document.documentElement.classList.add(t);
-      }, theme);
+      await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
+      await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
       await page.waitForTimeout(500);
       const full = name === "landing";
       await page.screenshot({ path: `${out}/${prefix}${name}-${sz}-${theme}.png`, fullPage: full });

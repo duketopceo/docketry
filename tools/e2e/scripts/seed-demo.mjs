@@ -150,25 +150,14 @@ for (const [title, offset, done] of [
   await call("POST", `${W}/projects/${project.id}/milestones`, { ...h, body: { title, targetDate: new Date(now + offset * day).toISOString(), done } });
 }
 
-const TITLES = [
-  "Webhook deliveries retry with jittered backoff", "Board drops cards when two agents move one issue", "Dark mode contrast on state pills",
-  "Cycle rollover leaves orphan sub-issues", "MCP server reconnects after idle timeout", "Slack intake: map emoji to team",
-  "Search ignores diacritics in titles", "Keyboard palette: recent issues first", "Import from Linear CSV drops labels",
-  "Agent session log truncates long tool output", "Review queue shows stale PR status", "Rate limit headers missing on 429",
-  "Docs: agent key rotation walkthrough", "Insights axis shows raw floats", "Triage: bulk decline with reason",
-  "Session cookie not rotated after role change", "GitHub sync: PR merged does not close issue", "Add estimate field to quick create",
-  "Roadmap milestone drag reorders wrong item", "Light theme: focus ring invisible on surface-3", "Sidebar collapses at 1024px",
-  "Per-agent scopes in key creation form", "Audit export as NDJSON", "Webhook signature verification docs",
-  "Optimistic update flickers on slow networks", "Peek panel keyboard focus trap", "Saved view sharing with the workspace",
-  "SSE stream drops events after 5 minutes", "Add due date to issue detail", "Duplicate detection suggests closed issues",
-  "CLI: tally issue list --mine", "CLI auth uses PAT from keyring", "Mobile board: horizontal scroll cue",
-  "Skeletons for issue detail", "Markdown description editor", "Comment composer @agent mention",
-  "Provenance: show which session changed state", "Agent reports PR url on completion", "Dispatch fails when endpoint is private IP",
-  "Cycle burndown off by one on DST change", "Project health from milestone slip", "Postgres connection pool exhaustion under load",
-  "Redis reconnect storm on failover", "Backfill sort_order for legacy issues", "Reduce first load JS under 200 kB",
-  "Preload Inter and JetBrains Mono", "Empty state copy for review queue", "Error boundary should offer retry",
+const AREAS = ["Board", "Triage", "Review queue", "Command palette", "Insights", "Cycles", "Roadmap", "Webhooks", "MCP server", "CLI", "GitHub sync", "Slack intake", "Agent keys", "Session log", "Auth", "Search"];
+const PROBLEMS = [
+  "drops updates when two agents move one issue", "retries without jitter under load", "ignores the dark theme on small screens", "shows stale counts after a bulk edit",
+  "loses focus after the first keystroke", "needs an undo for the last change", "reports the wrong actor in the activity log", "is slow past a few hundred issues",
 ];
-const SUFFIX = ["", "", " (flaky)", " in staging", " on Safari", " for new workspaces", " (regression)", " after upgrade"];
+// 16 x 8 distinct titles, deterministic order, so the demo never repeats a title
+const TITLES = AREAS.flatMap((a) => PROBLEMS.map((p) => `${a}: ${p}`));
+const order = [...TITLES.keys()].sort((x, y) => ((x * 37) % 128) - ((y * 37) % 128));
 const STATES = [
   ["triage", 9], ["backlog", 32], ["todo", 18], ["in_progress", 16], ["in_review", 9], ["done", 26], ["canceled", 5], ["duplicate", 3],
 ];
@@ -185,7 +174,7 @@ for (let i = 0; i < 120; i++) {
   const state = weighted(STATES);
   const byAgent = rnd() < 0.3;
   const agent = byAgent ? pick(agents) : null;
-  const title = TITLES[i % TITLES.length] + SUFFIX[Math.floor(i / TITLES.length) % SUFFIX.length];
+  const title = TITLES[order[i]];
   const assignRoll = rnd();
   const assignee =
     state === "triage" ? null
