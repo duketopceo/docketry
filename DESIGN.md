@@ -1,56 +1,60 @@
 ---
 version: alpha
 name: tallyline-design-system
-description: "An operator-first dark console for an agent-native issue tracker. The canvas is near-black (#0a0c10) with a cool silver cast; a four-step surface ladder carries elevation; and every card, row, and panel wears a 1px metallic hairline — the 'silver lining' that carries the product's signature edge. The single chromatic accent is signal azure (#3ea1f7), reserved for primary actions, links, focus, and the four-point glint glyph that marks agent provenance. Status is a fixed 4-color system (red / amber / green / neutral); blue is never a status color. Typography is Inter for UI and JetBrains Mono for issue IDs and code, tuned to 13px body density with 32–40px rows. Depth comes from hairlines, not shadows. The lining is functional decoration: it is literally brightest where things go wrong, and a lit lining always ships with a recommended action."
+description: "An operator-first dark console for an agent-native issue tracker. The canvas is near-black (#06080c) with a cool silver cast; a four-step surface ladder carries elevation; and every card, row, and panel wears a 1px metallic hairline — the 'silver lining' that carries the product's signature edge. The single chromatic accent is signal azure (#339fee), reserved for primary actions, links, focus, and the four-point glint glyph that marks agent provenance. Status is a fixed 4-color system (red / amber / green / neutral); blue is never a status color. Typography is Inter for UI and JetBrains Mono for issue IDs and code, tuned to 13px body density with 32–40px rows. Depth comes from hairlines, not shadows. The lining is functional decoration: it is literally brightest where things go wrong, and a lit lining always ships with a recommended action."
 
 colors:
   # --- Dark theme (default) ---
-  accent: "#3ea1f7"
-  accent-hover: "#6eb9fb"
-  accent-pressed: "#2f8de0"
-  accent-soft: "rgba(62,161,247,0.14)"
-  on-accent: "#06080c"
-  ink: "#eef1f6"
-  ink-muted: "#c3c9d4"
-  ink-subtle: "#8b93a3"
-  ink-tertiary: "#7c8593"
-  canvas: "#0a0c10"
-  surface-1: "#10141b"
-  surface-2: "#161b24"
-  surface-3: "#1c222e"
-  surface-4: "#232a38"
-  lining-faint: "#1f232b"
-  lining: "#39404c"
-  lining-strong: "#5a6270"
-  lining-bright: "#c9cdd4"
-  status-urgent: "#ef4444"
+  accent: "#339fee"
+  accent-hover: "#59b5ff"
+  accent-pressed: "#1c8fdd"
+  accent-soft: "rgba(51,159,238,0.14)"
+  on-accent: "#07090d"
+  ink: "#e0e5eb"
+  ink-muted: "#c1cad5"
+  ink-subtle: "#969faa"
+  ink-tertiary: "#8c949f"
+  ink-disabled: "#6b747e"
+  control: "#717a84"
+  canvas: "#06080c"
+  surface-1: "#0a0f15"
+  surface-2: "#0f1620"
+  surface-3: "#141e2a"
+  surface-4: "#192535"
+  lining-faint: "#1d242d"
+  lining: "#3b434d"
+  lining-strong: "#717a84"
+  lining-bright: "#c9d3de"
+  status-urgent: "#f06a6a"
   status-attention: "#f59e0b"
   status-healthy: "#10b981"
   status-neutral: "#9ca3af"
-  status-urgent-soft: "rgba(239,68,68,0.14)"
+  status-urgent-soft: "rgba(240,106,106,0.14)"
   status-attention-soft: "rgba(245,158,11,0.14)"
   status-healthy-soft: "rgba(16,185,129,0.14)"
   status-neutral-soft: "rgba(156,163,175,0.14)"
-  glint: "#3ea1f7"
-  glint-silver: "#c9cdd4"
-  overlay: "rgba(3,4,6,0.72)"
+  glint: "#339fee"
+  glint-silver: "#c9d3de"
+  overlay: "rgba(1,1,2,0.72)"
+  scrim: "rgba(1,1,2,0.5)"
   # --- Light theme (inverse, secondary) ---
-  light-canvas: "#f4f5f8"
+  light-canvas: "#f4f5f7"
   light-surface-1: "#ffffff"
-  light-surface-2: "#eef0f4"
-  light-surface-3: "#e4e7ec"
-  light-ink: "#151923"
-  light-ink-muted: "#3f4756"
-  light-ink-subtle: "#667080"
-  light-lining-faint: "#e8eaef"
-  light-lining: "#c9cdd4"
-  light-lining-strong: "#a3aab6"
-  light-lining-bright: "#5f6879"
-  light-accent: "#0b66cc"
-  light-accent-hover: "#0a56ad"
+  light-surface-2: "#edeef0"
+  light-surface-3: "#e6e7e9"
+  light-surface-4: "#dfe0e2"
+  light-ink: "#1a1a1c"
+  light-ink-muted: "#323539"
+  light-ink-subtle: "#515458"
+  light-lining-faint: "#d8dae0"
+  light-lining: "#adafb5"
+  light-lining-strong: "#727479"
+  light-lining-bright: "#2c2e33"
+  light-accent: "#005fba"
+  light-accent-hover: "#0054a6"
   light-status-urgent-ink: "#b91c1c"
-  light-status-attention-ink: "#b45309"
-  light-status-healthy-ink: "#047857"
+  light-status-attention-ink: "#92400e"
+  light-status-healthy-ink: "#036149"
   light-status-neutral-ink: "#4b5563"
 
 typography:
@@ -312,13 +316,15 @@ components:
 ---
 
 > **Rules live in [docs/design/silver-lining.md](docs/design/silver-lining.md).** This file holds token values; the foundation document holds the rules they serve (theme engine, contrast floors, interaction, performance budgets, long-session comfort, agent-native patterns and the CI gates). When they disagree, the foundation document wins and this file gets fixed.
+>
+> **Color values are generated.** The dark, light and high-contrast values below come from `packages/silver-lining` (OKLCH generator, clamped to the section 3 contrast floors); `pnpm --filter @tallyline/silver-lining test` fails if they drift by more than ΔE 2. The earlier hand-picked dark values broke the 16:1 ink ceiling and the 12:1 floor on `surface-4`, so they were replaced with the generated ones (2026-10-11).
 
 
 ## Overview
 
 tallyline is a self-hostable, agent-native issue tracker — humans and AI agents work the same board. The mark is four tally strokes struck through by a signal-azure line — work counted, lined off. The interface concept is **the silver lining** — every card, row, and panel wears a 1px metallic hairline (`{colors.lining}` family), and that lining literally brightens (`{colors.lining-bright}`) wherever the system needs attention: a blocked issue, a failed agent run, a stale sync. Functional decoration — the lining is brightest where things go wrong.
 
-The default surface is a near-black operator console (`{colors.canvas}` #0a0c10, faint cool-silver cast) built for density: 13px body, 36px rows, 8–12px in-row padding, one level of elevation maximum. The single chromatic accent is **signal azure** `{colors.accent}` (#3ea1f7) — electric blue-azure at ~208° hue, deliberately a full cyan-step away from the indigo-lavender family common to this product category; it reads as "action," never as "status." Status is the fixed four-color system (`{colors.status-*}`), and blue is never a status color.
+The default surface is a near-black operator console (`{colors.canvas}` #06080c, faint cool-silver cast) built for density: 13px body, 36px rows, 8–12px in-row padding, one level of elevation maximum. The single chromatic accent is **signal azure** `{colors.accent}` (#339fee) — electric blue-azure at ~208° hue, deliberately a full cyan-step away from the indigo-lavender family common to this product category; it reads as "action," never as "status." Status is the fixed four-color system (`{colors.status-*}`), and blue is never a status color.
 
 The second signature is the **glint** — a four-point sparkle glyph (`{component.sparkle-glint}`) that means exactly one thing: *an agent touched this*. Agent-filed issue, agent comment, agent-shipped PR — the glint marks provenance. It is sparse by rule: never decorative, never animated, never a shimmer.
 
@@ -326,7 +332,7 @@ The second signature is the **glint** — a four-point sparkle glyph (`{componen
 - **Dark-first operator console** — near-black canvas, four-step surface ladder, one level of card elevation.
 - **The silver lining** — 1px metallic hairline on every container; `lining-bright` on attention states, always paired with a status color and a recommended action.
 - **Signal azure accent** — `{colors.accent}` only on primary actions, links, focus rings, and the glint. Nowhere else.
-- **Fixed 4-color status** — red `#ef4444` urgent/blocked, amber `#f59e0b` attention/pending, green `#10b981` healthy/done, neutral `#9ca3af` inactive/archive. No fifth status color, ever.
+- **Fixed 4-color status** — red `#f06a6a` urgent/blocked, amber `#f59e0b` attention/pending, green `#10b981` healthy/done, neutral `#9ca3af` inactive/archive. No fifth status color, ever.
 - **Glint = agent provenance** — a 4-point star, rendered at 12/16/20px, always static.
 - **Density as a feature** — `{density.row}` 36px default (32 compact / 40 comfortable), 4px spacing base, hairlines instead of shadows.
 - **Inter + JetBrains Mono** — UI and provenance-of-data (IDs, SHAs, branch names) respectively.
@@ -334,40 +340,40 @@ The second signature is the **glint** — a four-point sparkle glyph (`{componen
 ## Colors
 
 ### Brand & Accent
-- **Signal Azure** (`{colors.accent}` — `#3ea1f7`): the only chromatic accent. Primary action fill, inline links, focus ring, active-nav indicator, and the glint glyph. ~6.8:1 contrast on `{colors.canvas}`.
-- **Azure Hover** (`{colors.accent-hover}` — `#6eb9fb`): lighter azure — hovered primary CTA, hovered link.
-- **Azure Pressed** (`{colors.accent-pressed}` — `#2f8de0`): pressed/active fill.
+- **Signal Azure** (`{colors.accent}` — `#339fee`): the only chromatic accent. Primary action fill, inline links, focus ring, active-nav indicator, and the glint glyph. ~7.0:1 contrast on `{colors.canvas}`.
+- **Azure Hover** (`{colors.accent-hover}` — `#59b5ff`): lighter azure — hovered primary CTA, hovered link.
+- **Azure Pressed** (`{colors.accent-pressed}` — `#1c8fdd`): pressed/active fill.
 - **Azure Soft** (`{colors.accent-soft}` — `rgba(62,161,247,0.14)`): translucent azure wash — selected row background, active nav item, "this thing is targeted" state.
-- **On Accent** (`{colors.on-accent}` — `#06080c`): text/icons on azure fills — near-black, not white (azure at ~6.8:1 against near-black vs ~2.9:1 against white).
+- **On Accent** (`{colors.on-accent}` — `#07090d`): text/icons on azure fills — near-black, not white (azure at ~7.0:1 against near-black vs ~2.9:1 against white).
 
 ### Surface (dark, default)
-- **Canvas** (`{colors.canvas}` — `#0a0c10`): app background. Near-black with a faint cool cast — never true `#000`.
-- **Surface 1** (`{colors.surface-1}` — `#10141b`): cards, panels, inputs. The workhorse lift.
-- **Surface 2** (`{colors.surface-2}` — `#161b24`): raised panels — command palette, popovers, hover-state fills.
-- **Surface 3** (`{colors.surface-3}` — `#1c222e`): nested insets — code blocks, quote panels, active palette rows.
-- **Surface 4** (`{colors.surface-4}` — `#232a38`): deepest lift — pinned/sticky regions inside panels.
+- **Canvas** (`{colors.canvas}` — `#06080c`): app background. Near-black with a faint cool cast — never true `#000`.
+- **Surface 1** (`{colors.surface-1}` — `#0a0f15`): cards, panels, inputs. The workhorse lift.
+- **Surface 2** (`{colors.surface-2}` — `#0f1620`): raised panels — command palette, popovers, hover-state fills.
+- **Surface 3** (`{colors.surface-3}` — `#141e2a`): nested insets — code blocks, quote panels, active palette rows.
+- **Surface 4** (`{colors.surface-4}` — `#192535`): deepest lift — pinned/sticky regions inside panels.
 - **Overlay** (`{colors.overlay}` — `rgba(3,4,6,0.72)`): scrim behind palette/dialogs.
 
 ### The Silver Lining
 The lining is a separate border system from generic dividers. Generic dividers use `lining-faint`; the **lining** tokens are the signature edge.
 
-- **Lining Faint** (`{colors.lining-faint}` — `#1f232b`): inner table rules, row bottom borders, quiet separators. Structurally present, visually recessive.
-- **Lining** (`{colors.lining}` — `#39404c`): the default 1px metallic hairline on every card, panel, input, and bordered button. Dull silver at rest — a cool, desaturated blue-gray that reads as metal, not as a color.
-- **Lining Strong** (`{colors.lining-strong}` — `#5a6270`): hover/focus strengthening of the same edge; outer border of floating surfaces (palette, menus).
-- **Lining Bright** (`{colors.lining-bright}` — `#c9cdd4`): the lit lining. Bright silver — used ONLY when a surface enters an attention state (blocked, failed, overdue, conflict). The brightening is the decoration-as-signal: the edge of the thing that needs you literally shines. A `lining-bright` state is never naked — it always carries a status color (dot/pill) AND a recommended action (button or `Cmd+K` action).
+- **Lining Faint** (`{colors.lining-faint}` — `#1d242d`): inner table rules, row bottom borders, quiet separators. Structurally present, visually recessive.
+- **Lining** (`{colors.lining}` — `#3b434d`): the default 1px metallic hairline on every card, panel, input, and bordered button. Dull silver at rest — a cool, desaturated blue-gray that reads as metal, not as a color.
+- **Lining Strong** (`{colors.lining-strong}` — `#717a84`): hover/focus strengthening of the same edge; outer border of floating surfaces (palette, menus).
+- **Lining Bright** (`{colors.lining-bright}` — `#c9d3de`): the lit lining. Bright silver — used ONLY when a surface enters an attention state (blocked, failed, overdue, conflict). The brightening is the decoration-as-signal: the edge of the thing that needs you literally shines. A `lining-bright` state is never naked — it always carries a status color (dot/pill) AND a recommended action (button or `Cmd+K` action).
 
 ### Text
-- **Ink** (`{colors.ink}` — `#eef1f6`): titles, emphasized body, selected states.
-- **Ink Muted** (`{colors.ink-muted}` — `#c3c9d4`): secondary text, palette row text.
-- **Ink Subtle** (`{colors.ink-subtle}` — `#8b93a3`): metadata, timestamps, placeholders, unselected nav. ~6:1 on canvas — minimum for body text.
-- **Ink Tertiary** (`{colors.ink-tertiary}` — `#7c8593`): disabled, footnotes, decorative-only text. ~5.3:1 (AA) — hint text that must stay legible.
+- **Ink** (`{colors.ink}` — `#e0e5eb`): titles, emphasized body, selected states.
+- **Ink Muted** (`{colors.ink-muted}` — `#c1cad5`): secondary text, palette row text.
+- **Ink Subtle** (`{colors.ink-subtle}` — `#969faa`): metadata, timestamps, placeholders, unselected nav. ~7.5:1 on canvas, 5.8:1 on surface-4 — minimum for body text (floor 4.5:1).
+- **Ink Tertiary** (`{colors.ink-tertiary}` — `#8c949f`): footnotes, decorative-only text. 6.5:1 on canvas, 5.0:1 on surface-4 (floor 4.5:1). Disabled text uses `{colors.ink-disabled}` (floor 3:1, never the only signal).
 
 ### Status — the fixed 4-color system
 Pinned values; do not author alternates for the dark theme (all four pass ≥4.5:1 as text on canvas).
 
 | Token | Value | Meaning |
 |---|---|---|
-| `{colors.status-urgent}` | `#ef4444` | Urgent / blocked / failing |
+| `{colors.status-urgent}` | `#f06a6a` | Urgent / blocked / failing |
 | `{colors.status-attention}` | `#f59e0b` | Attention / pending / stuck |
 | `{colors.status-healthy}` | `#10b981` | Healthy / complete / shipped |
 | `{colors.status-neutral}` | `#9ca3af` | Inactive / archived / not started |
@@ -379,12 +385,12 @@ Pinned values; do not author alternates for the dark theme (all four pass ≥4.5
 ### Inverse theme (light, secondary)
 A complete inverse set for documentation, emails, print-exported issues, and the optional light mode. Applied as a theme swap — token names map 1:1 with `light-` prefixes on values.
 
-- **Light Canvas** (`{colors.light-canvas}` — `#f4f5f8`): silver-white, not pure white — the canvas keeps the metallic cast.
-- **Light Surface 1–3** (`#ffffff` → `#eef0f4` → `#e4e7ec`): cards rise to white; insets sink a step darker.
-- **Light Ink** (`{colors.light-ink}` — `#151923`) / **Muted** (`#3f4756`) / **Subtle** (`#667080`).
-- **Light Lining** (`{colors.light-lining}` — `#c9cdd4`): the literal silver value — the resting hairline on light. **Strong** `#a3aab6`; **Bright** `{colors.light-lining-bright}` `#5f6879` (on light, "lit" reads as darker-contrast silver).
-- **Light Accent** (`{colors.light-accent}` — `#0b66cc`): darkened azure, ~5.7:1 on white — the azure is hue-stable across themes, only lightness moves.
-- **Light status ink**: `#b91c1c` / `#b45309` / `#047857` / `#4b5563` for status text on light; the pinned 500-values remain the dot/indicator colors.
+- **Light Canvas** (`{colors.light-canvas}` — `#f4f5f7`): silver-white, not pure white — the canvas keeps the metallic cast.
+- **Light Surface 1–4** (`#ffffff` → `#edeef0` → `#e6e7e9` → `#dfe0e2`): cards rise to white; insets sink a step darker.
+- **Light Ink** (`{colors.light-ink}` — `#1a1a1c`) / **Muted** (`#323539`) / **Subtle** (`#515458`).
+- **Light Lining** (`{colors.light-lining}` — `#adafb5`): the literal silver value — the resting hairline on light. **Strong** `#727479`; **Bright** `{colors.light-lining-bright}` `#2c2e33` (on light, "lit" reads as darker-contrast silver).
+- **Light Accent** (`{colors.light-accent}` — `#005fba`): darkened azure, ~6.3:1 on white — the azure is hue-stable across themes, only lightness moves.
+- **Light status ink**: `#b91c1c` / `#92400e` / `#036149` / `#4b5563` for status text on light; the pinned 500-values remain the dot/indicator colors.
 
 ## Typography
 
@@ -515,7 +521,7 @@ Terse, technical, declarative. The UI is written by an engineer for an operator.
 ## Components
 
 ### Buttons
-- **`button-primary`** — azure CTA. `{colors.accent}` fill, `{colors.on-accent}` near-black label (azure fails 4.5:1 against white text; near-black reads ~6.8:1). 32px height, `{rounded.sm}`, padding 6px 12px. One per view region.
+- **`button-primary`** — azure CTA. `{colors.accent}` fill, `{colors.on-accent}` near-black label (azure fails 4.5:1 against white text; near-black reads ~7.0:1). 32px height, `{rounded.sm}`, padding 6px 12px. One per view region.
 - **`button-primary-hover` / `-pressed`** — `accent-hover` / `accent-pressed` fills.
 - **`button-secondary`** — transparent + 1px `{colors.lining}`; the default action in lists and cards.
 - **`button-ghost`** — borderless, `ink-subtle` text; toolbar/inline actions only.
@@ -657,7 +663,7 @@ with Refero styles before any marketing site work.
 
 ```text
 Primary direction: this file's existing system (Silver Lining Console), unchanged.
-Preserve: near-black canvas #0a0c10; 1px lining on every container; azure only on actions,
+Preserve: near-black canvas #06080c; 1px lining on every container; azure only on actions,
   links, focus and the glint; 4-color status with shape + label; 13px body at 36px rows.
 Borrow only: (1) Linear's use of an inbox with explicit accept/decline verbs for triage copy
   (behaviour, not visuals); (2) Epiq's terminal-first, event-log-as-truth feel for the CLI/TUI

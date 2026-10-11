@@ -8,6 +8,9 @@
     "test": "turbo test",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
+    "lint:design": "pnpm --filter @tallyline/silver-lining run lint:design",
+    "test:contrast": "pnpm --filter @tallyline/silver-lining run test:contrast",
+    "test:token-parity": "pnpm --filter @tallyline/silver-lining run test:token-parity",
     "check": "turbo run typecheck lint && turbo run test --concurrency=1",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down"
@@ -15,6 +18,7 @@
   "devDependencies": {
     "@types/node": "^26.6.4",
     "eslint": "^10.12.0",
+    "stylelint": "^17.16.0",
     "turbo": "^2.11.7",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.71.1",
