@@ -23,7 +23,14 @@ export default async function AppLayout({
   }
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar workspace={me.data.workspaceSlug} />
+      <Sidebar
+        workspace={me.data.workspaceSlug}
+        role={
+          me.data.memberships.find(
+            (m) => m.workspaceSlug === me.data!.workspaceSlug,
+          )?.role
+        }
+      />
       <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       <QuickCreate />
       <CommandPalette workspace={me.data.workspaceSlug} />

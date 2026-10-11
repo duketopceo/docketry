@@ -12,7 +12,18 @@ const NAV = [
   { href: "/activity", label: "Activity", hint: "g e" },
 ];
 
-export function Sidebar({ workspace }: { workspace: string }) {
+export function Sidebar({
+  workspace,
+  role,
+}: {
+  workspace: string;
+  role: string | undefined;
+}) {
+  const items =
+    role === "owner" || role === "admin"
+      ? [...NAV, { href: "/settings/members", label: "Settings", hint: "g ," }]
+      : NAV;
+
   return (
     <aside className="flex w-52 shrink-0 flex-col border-r border-lining bg-surface-1">
       <div className="flex h-12 items-center gap-2 border-b border-lining-faint px-4">
@@ -31,7 +42,7 @@ export function Sidebar({ workspace }: { workspace: string }) {
           Workspace
         </p>
         <ul>
-          {NAV.map((item) => (
+          {items.map((item) => (
             <li key={item.href}>
               <Link
                 href={item.href}

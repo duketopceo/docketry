@@ -24,6 +24,12 @@ interface MeLite {
   workspaceSlug?: string;
 }
 
+interface MemberLite {
+  userId: string;
+  name: string;
+  email: string;
+}
+
 async function getIssue(key: string): Promise<IssueDetailLite | null> {
   const res = await fetch(`/api/issues/${encodeURIComponent(key)}`);
   if (!res.ok) return null;
@@ -94,7 +100,7 @@ export async function runColonCommand(line: string): Promise<CommandResult> {
     case "assign": {
       const who = rest[1];
       if (!arg0 || !who) {
-        return { ok: false, message: "usage: :assign KEY me|agent-name" };
+        return { ok: false, message: "usage: :assign KEY me|member|agent" };
       }
       let assigneeType: "human" | "agent";
       let assigneeId: string;
@@ -104,12 +110,32 @@ export async function runColonCommand(line: string): Promise<CommandResult> {
         assigneeType = "human";
         assigneeId = me.userId;
       } else {
-        const res = await fetch("/api/agents");
-        const { agents } = (await res.json()) as { agents: AgentLite[] };
-        const agent = agents?.find((a) => a.name === who);
-        if (!agent) return { ok: false, message: `agent '${who}' not found` };
-        assigneeType = "agent";
-        assigneeId = agent.id;
+        // member resolution first — humans are the common assignee; fall
+        // back to agent names when no member matches
+        const membersRes = await fetch("/api/settings/members");
+        const { members } = (await membersRes
+          .json()
+          .catch(() => ({}))) as { members?: MemberLite[] };
+        const needle = who.toLowerCase();
+        const member = members?.find(
+          (m) =>
+            m.name.toLowerCase() === needle ||
+            m.email.toLowerCase() === needle ||
+            m.email.split("@")[0]!.toLowerCase() === needle,
+        );
+        if (member) {
+          assigneeType = "human";
+          assigneeId = member.userId;
+        } else {
+          const res = await fetch("/api/agents");
+          const { agents } = (await res.json()) as { agents: AgentLite[] };
+          const agent = agents?.find((a) => a.name === who);
+          if (!agent) {
+            return { ok: false, message: `member or agent '${who}' not found` };
+          }
+          assigneeType = "agent";
+          assigneeId = agent.id;
+        }
       }
       const r = await patchIssue(arg0, { assigneeType, assigneeId });
       return r.ok

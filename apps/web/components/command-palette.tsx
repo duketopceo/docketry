@@ -163,6 +163,7 @@ export function CommandPalette({ workspace }: CommandPaletteProps) {
               { label: "Insights", path: "/insights", hint: "g s" },
               { label: "Roadmap", path: "/roadmap", hint: "g p" },
               { label: "Activity", path: "/activity", hint: "g e" },
+              { label: "Settings", path: "/settings/members", hint: "g ," },
             ].map((item) => (
               <Command.Item
                 key={item.path}

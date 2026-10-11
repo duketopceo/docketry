@@ -31,6 +31,7 @@ const GROUPS: { name: string; bindings: Binding[] }[] = [
       { keys: "g s", action: "insights" },
       { keys: "g p", action: "roadmap" },
       { keys: "g e", action: "activity" },
+      { keys: "g ,", action: "settings" },
     ],
   },
   {
@@ -51,7 +52,7 @@ const GROUPS: { name: string; bindings: Binding[] }[] = [
       { keys: ":state KEY STATE", action: "walk issue to state (legal path)" },
       { keys: ":done KEY", action: "shortcut for state done" },
       { keys: ":start KEY", action: "shortcut for in_progress" },
-      { keys: ":assign KEY me|agent", action: "assign issue" },
+      { keys: ":assign KEY me|member|agent", action: "assign issue" },
       { keys: ":comment KEY text…", action: "post a comment" },
       { keys: ":open KEY", action: "jump to issue" },
     ],
