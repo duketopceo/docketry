@@ -11,6 +11,7 @@ import { requireRole } from "../services/members.js";
 import { isCookieSession } from "./auth.js";
 import { requireWorkspace } from "./workspaces.js";
 import { clock } from "../services/clock.js";
+import { assertWithinLimit } from "../services/entitlements.js";
 
 const AGENT_SCOPES = ["read", "write"] as const;
 
@@ -63,6 +64,7 @@ export const agentRoutes = new Hono()
       if (dup.length > 0) {
         throw new HttpError(409, "CONFLICT", "agent name already exists");
       }
+      await assertWithinLimit("agents", ws.id);
       const [agent] = await db
         .insert(agents)
         .values({
@@ -101,6 +103,7 @@ export const agentRoutes = new Hono()
       if (!agent || agent.workspaceId !== ws.id) {
         throw new HttpError(404, "NOT_FOUND", "agent not found");
       }
+      await assertWithinLimit("agent_keys", ws.id);
       const body = c.req.valid("json");
       const { key, id } = await createAgentKey(
         agent.id,

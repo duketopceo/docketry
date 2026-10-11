@@ -50,6 +50,7 @@ import { requireHumanReviewer } from "../services/members.js";
 import { requireWorkspace } from "./workspaces.js";
 import { track } from "../services/background.js";
 import { clock } from "../services/clock.js";
+import { assertWithinLimit } from "../services/entitlements.js";
 
 const assist = createAssist();
 const slack = createSlack();
@@ -431,6 +432,10 @@ export const issueRoutes = new Hono()
       if (body.assigneeId && body.assigneeType) {
         await validateAssignee(ws.id, body.assigneeType, body.assigneeId);
       }
+      // assigning to an agent starts a run: refuse before writing anything
+      if (body.assigneeType === "agent" && body.assigneeId) {
+        await assertWithinLimit("agent_runs", ws.id);
+      }
       if (body.parentId) await validateParent(ws.id, body.parentId, key);
       if (body.cycleId || body.projectId) {
         const issue = await findIssue(ws.id, key);
@@ -511,6 +516,23 @@ export const issueRoutes = new Hono()
       await validateAgentActor(ws.id, actor);
       const body = c.req.valid("json");
 
+      // @agent mentions → dispatch intents (one per agent per comment)
+      const mentioned = new Set(
+        [...body.body.matchAll(/@([a-z0-9][a-z0-9_-]*)/gi)].map((m) =>
+          m[1]!.toLowerCase(),
+        ),
+      );
+      const mentionedAgents =
+        mentioned.size > 0
+          ? (
+              await db.select().from(agents).where(eq(agents.workspaceId, ws.id))
+            ).filter((a) => mentioned.has(a.name.toLowerCase()))
+          : [];
+      // a mention starts a run: refuse before the comment is written
+      if (mentionedAgents.length > 0) {
+        await assertWithinLimit("agent_runs", ws.id, mentionedAgents.length);
+      }
+
       const [comment] = await db
         .insert(comments)
         .values({
@@ -551,27 +573,14 @@ export const issueRoutes = new Hono()
         }),
       );
 
-      // @agent mentions → dispatch intents (one per agent per comment)
-      const mentioned = new Set(
-        [...body.body.matchAll(/@([a-z0-9][a-z0-9_-]*)/gi)].map((m) =>
-          m[1]!.toLowerCase(),
-        ),
-      );
-      if (mentioned.size > 0) {
-        const wsAgents = await db
-          .select()
-          .from(agents)
-          .where(eq(agents.workspaceId, ws.id));
-        for (const agent of wsAgents) {
-          if (!mentioned.has(agent.name.toLowerCase())) continue;
-          await createDispatch({
-            workspaceId: ws.id,
-            issueId: issue.id,
-            agentId: agent.id,
-            trigger: "mention",
-            commentBody: body.body,
-          });
-        }
+      for (const agent of mentionedAgents) {
+        await createDispatch({
+          workspaceId: ws.id,
+          issueId: issue.id,
+          agentId: agent.id,
+          trigger: "mention",
+          commentBody: body.body,
+        });
       }
 
       // slack mirror — best-effort, slack-originated bodies skip themselves
@@ -678,6 +687,8 @@ export const issueRoutes = new Hono()
         .where(eq(dispatches.issueId, issue.id))
         .orderBy(desc(dispatches.createdAt))
         .limit(1);
+      // sending back re-dispatches: refuse before the state moves
+      if (last) await assertWithinLimit("agent_runs", ws.id);
       const updated = await transitionIssue(
         ws.id,
         issue.key,

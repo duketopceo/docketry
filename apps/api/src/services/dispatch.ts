@@ -12,6 +12,7 @@ import {
   queueDeliveries,
   queueDispatchDelivery,
 } from "./outbound.js";
+import { assertWithinLimit } from "./entitlements.js";
 import { clock } from "./clock.js";
 
 // ── Adapter contract ─────────────────────────────────────────────
@@ -232,10 +233,14 @@ export async function createDispatch(input: {
     .where(eq(agents.id, input.agentId))
     .limit(1);
   if (!agent) return null;
+  // routes pre-check before writing; this is the backstop for any caller
+  await assertWithinLimit("agent_runs", input.workspaceId);
 
   const [dispatch] = await db
     .insert(dispatches)
     .values({
+      // the clock, not the DB, so monthly run windows are testable
+      createdAt: clock.now(),
       workspaceId: input.workspaceId,
       issueId: input.issueId,
       agentId: input.agentId,

@@ -115,6 +115,11 @@ export const config_ = {
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean),
 
+  // hosted plans + limits (PLAN-059). Default OFF: self-host is
+  // self_host_unlimited and no limit is ever enforced. BILLING=on reads
+  // workspaces.plan and enforces the numbers in src/plans.ts.
+  billing: ["1", "true", "yes", "on"].includes(env("BILLING", "").toLowerCase()),
+
   // LLM assist — entirely opt-in; empty key means every llm surface is off
   llmApiKey: env("TALLYLINE_LLM_API_KEY", ""),
   llmBaseUrl: env("TALLYLINE_LLM_BASE_URL", "https://openrouter.ai/api/v1"),

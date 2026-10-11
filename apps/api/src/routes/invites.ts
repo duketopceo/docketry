@@ -29,6 +29,7 @@ import { userFromToken } from "../services/tokens.js";
 import { setSessionCookie } from "./auth.js";
 import { requireWorkspace } from "./workspaces.js";
 import { clock } from "../services/clock.js";
+import { assertSeatForJoin, assertWithinLimit } from "../services/entitlements.js";
 
 
 const createSchema = z.object({
@@ -73,6 +74,8 @@ export const inviteRoutes = new Hono()
           return apiError(c, 422, "BAD_TEAM", "team_id must belong to this workspace");
         }
       }
+      // every live invite reserves a seat
+      await assertWithinLimit("seats", ws.id);
       const { invite, token } = await createInvite({
         workspaceId: ws.id,
         email: body.email ?? null,
@@ -143,6 +146,7 @@ export const inviteAcceptRoutes = new Hono()
       if (invite.email && invite.email !== u.email.trim().toLowerCase()) {
         return apiError(c, 403, "INVITE_EMAIL_MISMATCH", "this invite is bound to a different email");
       }
+      await assertSeatForJoin(invite.workspaceId);
       await acceptForUser(userId, invite);
       return c.json({ ok: true, workspaceId: invite.workspaceId });
     }
@@ -161,6 +165,7 @@ export const inviteAcceptRoutes = new Hono()
     if (!body.name || !body.password) {
       return apiError(c, 401, "UNAUTHENTICATED", "sign in or claim with name+password");
     }
+    await assertSeatForJoin(invite.workspaceId);
     const [u] = await db
       .insert(users)
       .values({
