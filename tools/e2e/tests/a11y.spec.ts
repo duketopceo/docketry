@@ -28,7 +28,9 @@ const VIEWPORTS = [
 ] as const;
 const THEMES = ["dark", "light"] as const;
 
-const KEY = /\b[A-Z][A-Z0-9]*-\d+\b/;
+// no trailing \b: the row renders key and title as adjacent flex items, so
+// innerText can be "E2E-1a11y fixture issue" with no separator
+const KEY = /\b[A-Z][A-Z0-9]*-\d+/;
 
 async function issueKey(page: Page): Promise<string> {
   await page.goto("/issues");
