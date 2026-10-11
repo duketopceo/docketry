@@ -283,6 +283,7 @@ export function BoardClient({ issues }: { issues: ListIssue[] }) {
         case "L": return nav(() => nudge(1));
         case "ArrowLeft": return nav(() => (e.shiftKey ? nudge(-1) : moveCursorCol(-1)));
         case "ArrowRight": return nav(() => (e.shiftKey ? nudge(1) : moveCursorCol(1)));
+        case ".": e.preventDefault(); document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true })); return;
         case "Escape": if (peek.key) peek.close(); return;
         case "Enter":
           if (!pos || (e.target instanceof HTMLElement && e.target.dataset.boardCard !== undefined)) return;

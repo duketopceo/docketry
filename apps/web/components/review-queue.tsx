@@ -148,9 +148,9 @@ export function ReviewQueue({ queue }: { queue: QueueRow[] }) {
   }
 
   return (
-    <div className="relative flex min-h-0 flex-1">
+    <div className="relative flex min-h-0 flex-1 flex-col lg:flex-row">
       <NewPill count={live.count} onShow={() => { live.reset(); router.refresh(); }} />
-      <div className="flex min-h-0 w-full flex-col border-lining-faint lg:w-[400px] lg:shrink-0 lg:border-r">
+      <div className="flex min-h-0 w-full flex-col border-lining-faint max-lg:max-h-[42%] max-lg:shrink-0 max-lg:border-b lg:w-[400px] lg:shrink-0 lg:border-r">
         {selected.size > 0 && (
           <div role="toolbar" aria-label="Bulk review" className="flex shrink-0 flex-wrap items-center gap-2 border-b border-lining-faint bg-surface-1 px-4 py-1.5">
             <span className="text-[13px] font-medium tabular-nums">{selected.size} selected</span>
@@ -164,7 +164,7 @@ export function ReviewQueue({ queue }: { queue: QueueRow[] }) {
               <button type="button" role="checkbox" aria-checked={selected.has(r.key)} aria-label={`Select ${r.key}`} onClick={() => setSelected((s) => { const n = new Set(s); if (n.has(r.key)) n.delete(r.key); else n.add(r.key); return n; })} className="flex h-6 w-6 shrink-0 items-center justify-center rounded-xs hover:bg-surface-3">
                 <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-xs border ${selected.has(r.key) ? "border-accent bg-accent text-on-accent" : "border-control"}`}>{selected.has(r.key) && <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><path d="M2 5.3l2 2 4-4.3" /></svg>}</span>
               </button>
-              <Link href={`/issues/${r.key}`} tabIndex={i === cursor ? 0 : -1} className="min-w-0 flex-1 lg:pointer-events-none lg:cursor-default" onClick={(e) => { if (window.matchMedia("(min-width: 1024px)").matches) e.preventDefault(); }}>
+              <Link href={`/issues/${r.key}`} tabIndex={i === cursor ? 0 : -1} className="min-w-0 flex-1" onClick={(e) => { e.preventDefault(); setCursor(i); }}>
                 <span className="flex items-center gap-2"><PriorityGlyph priority={r.priority as never} /><span className="font-mono text-[12px] text-ink-subtle">{r.key}</span></span>
                 <span className="mt-0.5 line-clamp-2 block text-[13px] text-ink">{r.title}</span>
                 <span className="mt-1 flex flex-wrap items-center gap-x-2 text-[12px] text-ink-subtle"><Glint size={12} label="" /><span className="text-ink-muted">{r.agentName}</span><SessionBadge status={r.dispatchStatus} /><time dateTime={r.sessionAt} title={new Date(r.sessionAt).toLocaleString()} suppressHydrationWarning>waiting {relTime(r.sessionAt)}</time></span>
@@ -177,7 +177,7 @@ export function ReviewQueue({ queue }: { queue: QueueRow[] }) {
         </footer>
       </div>
 
-      <section aria-label="Evidence" className="scroll-quiet hidden min-w-0 flex-1 overflow-y-auto p-6 lg:block">
+      <section aria-label="Evidence" className="scroll-quiet min-h-0 min-w-0 flex-1 overflow-y-auto p-4 lg:p-6">
         {cur && (
           <div className="mx-auto max-w-[72ch]">
             <p className="flex items-center gap-2 text-[12px] text-ink-subtle"><span className="font-mono">{cur.key}</span><span>asked of</span><Glint size={12} label="" /><span className="font-medium text-ink-muted">{cur.agentName}</span></p>
@@ -198,7 +198,7 @@ export function ReviewQueue({ queue }: { queue: QueueRow[] }) {
                 <SessionTimeline issueKey={cur.key} initial={evidence.sessions} outcomes={evidence.outcomes} onRerun={() => router.push(`/issues/${cur.key}`)} onReassign={() => router.push(`/issues/${cur.key}`)} />
               </>
             )}
-            <div className="sticky bottom-0 -mx-6 mt-6 border-t border-lining bg-canvas px-6 py-3">
+            <div className="sticky bottom-0 -mx-4 mt-6 border-t border-lining bg-canvas px-4 py-3 lg:-mx-6 lg:px-6">
               {sendBack ? (
                 <form onSubmit={(e) => { e.preventDefault(); if (note.trim()) decide([cur], "send_back", note.trim()); }}>
                   <label htmlFor="send-back-note" className="text-[12px] text-ink-subtle">What should {cur.agentName} change? (required)</label>

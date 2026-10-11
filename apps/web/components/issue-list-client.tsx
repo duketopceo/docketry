@@ -204,6 +204,7 @@ export function IssueListClient({
     else if (id === "peek" && cur) peek.toggle(cur.key);
     else if (id === "select" && cur) toggle(cur.key, cursor, false);
     else if (id === "open" && cur) router.push(`/issues/${cur.key}`);
+    else if (id === "menu") document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
     else if (id === "edit" && cur) setEditing(cur.key);
     else if (id === "accept") editors.run(t, { state: "backlog" }, `${t.length === 1 ? t[0]!.key : `${t.length} issues`} accepted to Backlog`);
     else if (id === "accept-todo") editors.run(t, { state: "todo" }, `${t.length === 1 ? t[0]!.key : `${t.length} issues`} accepted to Todo`);
@@ -224,6 +225,7 @@ export function IssueListClient({
       { id: "peek", label: "Peek issue", group: "Issue", keys: "Space" },
       { id: "select", label: "Select issue", group: "Issue", keys: "x" },
       { id: "open", label: "Open issue", group: "Issue", keys: "Enter" },
+      { id: "menu", label: "Actions menu for this issue", group: "Issue", keys: "." },
       ...(mode === "triage"
         ? [
             { id: "accept", label: "Accept to Backlog", group: "Triage", keys: "a" },
@@ -252,6 +254,7 @@ export function IssueListClient({
       };
       if (k === "j" || k === "ArrowDown" || k === "J") return move(cursor + 1, e.shiftKey);
       if (k === "k" || k === "ArrowUp" || k === "K") return move(cursor - 1, e.shiftKey);
+      if (k === ".") { e.preventDefault(); document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true })); return; }
       if (k === "Home") return move(0, false);
       if (k === "End") return move(last, false);
       if (k === "Escape") {

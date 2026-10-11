@@ -51,7 +51,8 @@ const TIP = {
 // durations read as minutes, hours or days, never as raw floats
 export function fmtDays(d: number): string {
   if (!Number.isFinite(d) || d <= 0) return "0m";
-  if (d < 1 / 1440) return "<1m";
+  if (d < 1 / 86400) return "<1s";
+  if (d < 1 / 1440) return `${Math.round(d * 86400)}s`;
   if (d < 1 / 24) return `${Math.round(d * 1440)}m`;
   if (d < 1) return `${(d * 24).toFixed(1)}h`;
   return `${d.toFixed(1)}d`;

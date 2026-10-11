@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import { usePicker } from "@/components/app/picker";
+import { Kbd } from "@/components/app/ui";
 import { EmptyState, StateDot } from "@/components/primitives";
 
 export interface RoadmapProject {
@@ -371,7 +372,7 @@ export function RoadmapClient({
           aria-expanded={open}
           onClick={() => toggleRow({ kind: "project", project: p })}
           onMouseEnter={() => setCursor(i)}
-          className={`grid w-full grid-cols-[16rem_1fr] items-center border-b border-lining-faint text-left focus-visible:outline-none ${
+          className={`grid w-full grid-cols-[8.5rem_1fr] sm:grid-cols-[16rem_1fr] items-center border-b border-lining-faint text-left focus-visible:outline-none ${
             isCursor ? "bg-surface-2" : "hover:bg-surface-1"
           }`}
         >
@@ -379,17 +380,17 @@ export function RoadmapClient({
             <span className="truncate text-[13px] text-ink-muted">
               {p.name}
             </span>
-            <span className="shrink-0 font-mono text-[11px] text-ink-tertiary">
+            <span className="shrink-0 font-mono text-[11px] text-ink-tertiary max-sm:hidden">
               {p.teamId ? (teamById.get(p.teamId) ?? "?") : "ws"}
             </span>
             {iss.length > 0 && (
-              <span className="shrink-0 font-mono text-[11px] text-ink-tertiary">
+              <span className="shrink-0 font-mono text-[11px] text-ink-tertiary max-sm:hidden">
                 {done}/{iss.length}
               </span>
             )}
             {(() => {
               const h = projectHealth(p, done, iss.length, now);
-              return h ? <span className={`shrink-0 text-[11px] font-medium ${h.tone}`}><span aria-hidden>{h.glyph} </span>{h.label}</span> : null;
+              return h ? <span className={`shrink-0 text-[11px] font-medium ${h.tone}`} title={h.label}><span aria-hidden>{h.glyph}</span><span className="max-sm:sr-only"> {h.label}</span></span> : null;
             })()}
           </span>
           <span className="relative h-10 flex-1">
@@ -465,7 +466,7 @@ export function RoadmapClient({
           data-index={i}
           onClick={() => toggleRow({ kind: "cycle", cycle: c })}
           onMouseEnter={() => setCursor(i)}
-          className={`grid w-full grid-cols-[16rem_1fr] items-center border-b border-lining-faint text-left focus-visible:outline-none ${
+          className={`grid w-full grid-cols-[8.5rem_1fr] sm:grid-cols-[16rem_1fr] items-center border-b border-lining-faint text-left focus-visible:outline-none ${
             isCursor ? "bg-surface-2" : "hover:bg-surface-1"
           }`}
         >
@@ -473,13 +474,11 @@ export function RoadmapClient({
             <span className="shrink-0 font-mono text-xs text-ink-tertiary">
               {teamById.get(c.teamId) ?? "?"} · C{c.number}
             </span>
-            <span className="truncate text-[12px] text-ink-subtle">
+            <span className="truncate text-[12px] text-ink-subtle max-sm:hidden">
               {c.name ?? ""}
             </span>
             {c.isActive && (
-              <span className="shrink-0 rounded-full bg-healthy/15 px-1.5 font-mono text-[11px] text-healthy">
-                active
-              </span>
+              <span className="shrink-0 text-[11px] font-medium text-healthy"><span aria-hidden>●</span><span className="max-sm:sr-only"> Active</span></span>
             )}
           </span>
           <span className="relative h-8 flex-1">
@@ -505,22 +504,22 @@ export function RoadmapClient({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* axis header — shares the same grid so ticks align with rows */}
-      <div className="grid h-7 shrink-0 grid-cols-[16rem_1fr] items-end border-b border-lining-faint">
+      <div className="grid h-7 shrink-0 grid-cols-[8.5rem_1fr] sm:grid-cols-[16rem_1fr] items-end border-b border-lining-faint">
         <span className="px-4 text-[11px] font-medium uppercase tracking-[0.4px] text-ink-subtle">
           roadmap
         </span>
         <div className="relative h-full">
-          {ticks.map(({ t, label }) => (
+          {ticks.filter(({ t }) => Math.abs(pct(t) - pct(now)) > 12).map(({ t, label }) => (
             <span
               key={t}
-              className="absolute bottom-0.5 -translate-x-1/2 font-mono text-[11px] whitespace-nowrap text-ink-tertiary"
+              className="absolute bottom-0.5 -translate-x-1/2 text-[11px] whitespace-nowrap tabular-nums text-ink-subtle"
               style={{ left: `${pct(t)}%` }}
             >
               {label}
             </span>
           ))}
           <span
-            className="absolute bottom-0.5 -translate-x-1/2 font-mono text-[11px] text-accent"
+            className="absolute bottom-0.5 -translate-x-1/2 text-[11px] font-medium text-accent"
             style={{ left: `${pct(now)}%` }}
           >
             today
@@ -575,17 +574,11 @@ export function RoadmapClient({
           {error}
         </p>
       )}
-      <footer className="flex h-8 shrink-0 items-center gap-4 border-t border-lining-faint px-4 font-mono text-[11px] text-ink-tertiary">
-        <span>
-          <kbd>j</kbd>/<kbd>k</kbd> move
-        </span>
-        <span>
-          <kbd>⏎</kbd> open
-        </span>
-        <span>
-          <kbd>esc</kbd> collapse
-        </span>
-        <span className="ml-auto">◆ milestone · open ends fade</span>
+      <footer className="flex h-8 shrink-0 items-center gap-4 overflow-hidden border-t border-lining-faint px-4 text-[11px] text-ink-subtle max-sm:hidden">
+        <span><Kbd>j</Kbd> <Kbd>k</Kbd> move</span>
+        <span><Kbd>Enter</Kbd> expand a project</span>
+        <span><Kbd>Esc</Kbd> collapse</span>
+        <span className="ml-auto">◆ milestone · bars fade where the end is open</span>
       </footer>
     </div>
   );
@@ -636,7 +629,7 @@ function ProjectDetail({
   }
 
   return (
-    <div className="grid grid-cols-[16rem_1fr] border-b border-lining-faint bg-surface-1">
+    <div className="grid grid-cols-1 border-b border-lining-faint bg-surface-1 sm:grid-cols-[16rem_1fr]">
       <div className="px-4 py-3">
         <div className="flex items-center gap-2">
           <button
