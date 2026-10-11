@@ -1,8 +1,53 @@
 # Changelog
 
-All notable changes to docketry. Format loosely follows
+All notable changes to Tallyline (formerly docketry). Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); this project is pre-1.x
 semver until stated otherwise.
+
+## [Unreleased] — renamed: docketry → Tallyline
+
+The project is now **Tallyline**. Existing local instances keep working;
+nothing below requires a database migration or re-issuing credentials.
+
+### Migration notes
+
+- **Packages and binaries** — `@docketry/*` → `@tallyline/*`; `docketry` →
+  `tallyline`; `docketry-mcp` → `tallyline-mcp`; short alias `dok` → `tly`.
+  `dok` remains as a deprecated bin that prints a one-line notice on stderr
+  and then runs `tly`. Update agent/MCP configs to the new names.
+- **Environment variables** — `DOCKETRY_*` → `TALLYLINE_*`. The old names
+  are still read as a fallback when the new one is unset or empty (one
+  helper, `readEnv` in `@tallyline/types`; the compose files forward the
+  old names the same way). The new name always wins. The fallback will be
+  removed in a future release.
+- **Token prefixes** — newly issued agent keys, PATs, webhook secrets
+  (n8n) and invites use `tly_agt_` / `tly_pat_` / `tly_wh_` / `tly_inv_`.
+  Existing `dok_agt_*` and `dok_pat_*` credentials keep working
+  (validation is hash-based and accepts both prefixes); no need to rotate.
+- **HTTP headers** — outbound webhooks now send
+  `X-Tallyline-Signature`, `-Event`, `-Delivery`; passthrough MCP uses
+  `x-tallyline-workspace` / `x-tallyline-api-url`. Inbound handling
+  (MCP passthrough, the n8n trigger) accepts both the new names and the old
+  `X-Docketry-*` ones. Consumers verifying webhook signatures should read
+  `X-Tallyline-Signature` (old header is no longer sent).
+- **CLI config files** — `.tallyline.json`, `.tallyline/config.json` and
+  `~/.config/tallyline/config.json` are the new locations; the old
+  `docketry` paths are still read at lower precedence. `tallyline init` and
+  `tallyline work` write `.tallyline/` going forward.
+- **n8n / Composio** — node and credential types are now `Tallyline*`,
+  Composio tool slugs `TALLYLINE_*`; workflows using the old node types need
+  to be re-pointed.
+- **Deliberately unchanged** — Postgres database/user (`docketry`/`postgres`)
+  and the `docketry-postgres` / `docketry-redis` volume names, session
+  cookie names (`dok_session`, `dok_ws`, …), the default dev `JWT_SECRET`,
+  and the GitHub repository URL. Changing them would orphan existing data or
+  sign everyone out; they are follow-ups.
+
+### Brand
+
+- New mark and lockup in `assets/brand/` (four tally strokes struck by an
+  azure line, with a dedicated 16px variant); the old docketry card logo
+  is removed.
 
 ## [1.0.0] — 2026-10-10
 
