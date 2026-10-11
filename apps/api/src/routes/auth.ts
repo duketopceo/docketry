@@ -32,6 +32,12 @@ import {
 } from "../services/members.js";
 import { agentFromKey, type AgentAuth } from "../services/agents.js";
 import {
+  INTERNAL_HEADER,
+  accessFromToken,
+  isInternalCall,
+  isOAuthAccessToken,
+} from "../services/mcp-oauth.js";
+import {
   ACCESS_TOKEN_TTL_S,
   signAccessToken,
   userFromToken,
@@ -389,6 +395,30 @@ export async function requireSession(c: Context, next: Next) {
       c.set("session", null);
       c.set("agentAuth", agent);
       c.set("tokenScopes", agent.scopes);
+      await next();
+      return;
+    }
+  }
+  // OAuth access tokens are audience-bound to the MCP resource: only the
+  // in-process MCP dispatch (which holds the per-boot internal secret) may
+  // present one to /v1. Presented directly, it falls through to 401.
+  if (
+    isOAuthAccessToken(bearerToken) &&
+    isInternalCall(c.req.header(INTERNAL_HEADER))
+  ) {
+    const access = await accessFromToken(bearerToken);
+    if (access) {
+      const denied = scopeGuard(c, access.scopes);
+      if (denied) return denied;
+      c.set("session", null);
+      c.set("agentAuth", {
+        agentId: access.agentId,
+        agentName: access.agentName,
+        workspaceId: access.workspaceId,
+        keyId: access.tokenId,
+        scopes: access.scopes,
+      });
+      c.set("tokenScopes", access.scopes);
       await next();
       return;
     }

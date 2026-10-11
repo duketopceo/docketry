@@ -19,6 +19,8 @@ assertProductionSecrets({
   authSecretKey: readEnv(process.env, "AUTH_SECRET_KEY"),
 });
 
+const apiBaseUrl = env("API_BASE_URL", "http://localhost:4000").replace(/\/+$/, "");
+
 export const config_ = {
   port: Number(env("API_PORT", "4000")),
   databaseUrl: env(
@@ -32,7 +34,20 @@ export const config_ = {
   rateLimitAnonPerMin: Number(env("RATE_LIMIT_ANON_PER_MIN", "120")),
   // login / bootstrap / invite-accept / OAuth start+callback per client IP
   rateLimitAuthPerMin: Number(env("RATE_LIMIT_AUTH_PER_MIN", "30")),
-  apiBaseUrl: env("API_BASE_URL", "http://localhost:4000"),
+  apiBaseUrl,
+  // MCP remote endpoint + OAuth authorization server (PLAN-010/011). The
+  // issuer is apiBaseUrl; the resource is the canonical MCP endpoint URL that
+  // access tokens are audience-bound to.
+  mcpResourceUrl: env("MCP_RESOURCE_URL", `${apiBaseUrl}/mcp`).replace(/\/+$/, ""),
+  // browser Origins allowed to call /mcp (DNS-rebinding guard); requests with
+  // no Origin (every non-browser MCP client) are always allowed
+  mcpAllowedOrigins: env(
+    "MCP_ALLOWED_ORIGINS",
+    "https://claude.ai,https://chatgpt.com",
+  )
+    .split(",")
+    .map((o) => o.trim().replace(/\/+$/, ""))
+    .filter(Boolean),
   githubAppSlug: env("GITHUB_APP_SLUG", ""),
   githubWebhookSecret: env("GITHUB_WEBHOOK_SECRET", ""),
 

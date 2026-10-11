@@ -130,7 +130,7 @@ type LookupCb = (
 // dns.lookup replacement used as the socket's resolver: the address that is
 // validated is the address that is dialled, so DNS rebinding between check
 // and connect cannot happen.
-function guardedLookup(
+export function guardedLookup(
   hostname: string,
   options: { all?: boolean; family?: number } | number,
   cb: LookupCb,
@@ -200,5 +200,75 @@ export async function safePost(rawUrl: string, init: SafePostInit): Promise<numb
     req.on("timeout", () => req.destroy(new Error("endpoint timed out")));
     req.on("error", reject);
     req.end(init.body);
+  });
+}
+
+export interface SafeGetInit {
+  timeoutMs: number;
+  maxBytes: number;
+  headers?: Record<string, string>;
+}
+
+/**
+ * GET a caller-supplied https URL with the SSRF policy enforced at connect
+ * time, redirects refused and the body capped. Used for OAuth Client ID
+ * Metadata Documents — the client_id URL is attacker-chosen.
+ */
+export async function safeGetText(
+  rawUrl: string,
+  init: SafeGetInit,
+): Promise<{ status: number; body: string; cacheControl: string | null }> {
+  const url = new URL(rawUrl);
+  if (url.protocol !== "https:" && !(webhookAllowPrivate() && url.protocol === "http:")) {
+    throw new Error("metadata URL must be https");
+  }
+  const allowPrivate = webhookAllowPrivate();
+  const host = stripBrackets(url.hostname);
+  if (!allowPrivate) {
+    if (!isIP(host)) assertHostnameAllowed(host, "metadata");
+    else if (isPrivateAddress(host)) {
+      throw new Error(`blocked: ${host} is a non-public address`);
+    }
+  }
+  const mod = url.protocol === "https:" ? https : http;
+  return new Promise((resolve, reject) => {
+    const req = mod.request(
+      url,
+      {
+        method: "GET",
+        headers: { accept: "application/json", ...init.headers },
+        timeout: init.timeoutMs,
+        ...(allowPrivate ? {} : { lookup: guardedLookup as never }),
+      },
+      (res) => {
+        const status = res.statusCode ?? 0;
+        if (status >= 300 && status < 400) {
+          res.resume();
+          reject(new Error(`metadata URL returned redirect ${status}`));
+          return;
+        }
+        const chunks: Buffer[] = [];
+        let size = 0;
+        res.on("data", (chunk: Buffer) => {
+          size += chunk.length;
+          if (size > init.maxBytes) {
+            req.destroy(new Error("metadata document too large"));
+            return;
+          }
+          chunks.push(chunk);
+        });
+        res.on("end", () =>
+          resolve({
+            status,
+            body: Buffer.concat(chunks).toString("utf8"),
+            cacheControl: (res.headers["cache-control"] as string | undefined) ?? null,
+          }),
+        );
+        res.on("error", reject);
+      },
+    );
+    req.on("timeout", () => req.destroy(new Error("metadata fetch timed out")));
+    req.on("error", reject);
+    req.end();
   });
 }

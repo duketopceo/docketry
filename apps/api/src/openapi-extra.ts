@@ -433,4 +433,183 @@ export const extraPaths: Record<string, PathItem> = {
       responses: { "200": { description: "Deliveries" } },
     },
   },
+  "/.well-known/oauth-protected-resource": {
+    get: {
+      summary: "RFC 9728 protected resource metadata for the MCP endpoint (root form)",
+      responses: { "200": { description: "resource, authorization_servers, scopes_supported" } },
+    },
+  },
+  "/.well-known/oauth-protected-resource/mcp": {
+    get: {
+      summary: "RFC 9728 protected resource metadata for https://<api>/mcp (path-suffixed form)",
+      responses: { "200": { description: "resource, authorization_servers, scopes_supported" } },
+    },
+  },
+  "/.well-known/oauth-authorization-server": {
+    get: {
+      summary:
+        "RFC 8414 authorization server metadata: S256 PKCE, CIMD + DCR, RFC 9207 iss, public clients",
+      responses: { "200": { description: "Authorization server metadata" } },
+    },
+  },
+  "/oauth/authorize": {
+    get: {
+      summary:
+        "OAuth 2.1 authorization endpoint (code + PKCE S256 + resource indicator). Validates client_id (registered or Client ID Metadata Document URL), exact-match redirect_uri, then redirects the browser to the web consent page",
+      parameters: [
+        { name: "response_type", in: "query", required: true, schema: { type: "string", enum: ["code"] } },
+        { name: "client_id", in: "query", required: true, schema: { type: "string" } },
+        { name: "redirect_uri", in: "query", schema: { type: "string" } },
+        { name: "code_challenge", in: "query", required: true, schema: { type: "string" } },
+        { name: "code_challenge_method", in: "query", required: true, schema: { type: "string", enum: ["S256"] } },
+        { name: "resource", in: "query", schema: { type: "string", format: "uri" } },
+        { name: "scope", in: "query", schema: { type: "string", example: "read write" } },
+        { name: "state", in: "query", schema: { type: "string" } },
+      ],
+      responses: {
+        "302": { description: "Redirect to the consent page (or to the client redirect_uri with an OAuth error and iss)" },
+        "400": { description: "Unknown client or unregistered redirect_uri (never redirected)" },
+      },
+    },
+  },
+  "/oauth/token": {
+    post: {
+      summary:
+        "OAuth token endpoint (form-encoded): authorization_code + code_verifier, or refresh_token with single-use rotation. Tokens are audience-bound to the MCP resource",
+      requestBody: {
+        required: true,
+        content: {
+          "application/x-www-form-urlencoded": {
+            schema: {
+              type: "object",
+              required: ["grant_type", "client_id"],
+              properties: {
+                grant_type: { type: "string", enum: ["authorization_code", "refresh_token"] },
+                client_id: { type: "string" },
+                code: { type: "string" },
+                redirect_uri: { type: "string" },
+                code_verifier: { type: "string" },
+                refresh_token: { type: "string" },
+                resource: { type: "string", format: "uri" },
+                scope: { type: "string" },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        "200": { description: "access_token, refresh_token, expires_in, scope" },
+        "400": { description: "invalid_request / invalid_grant / invalid_target / invalid_scope" },
+        "401": { description: "invalid_client" },
+        "429": { description: "Rate limited" },
+      },
+    },
+  },
+  "/oauth/register": {
+    post: {
+      summary: "RFC 7591 dynamic client registration (public clients, token_endpoint_auth_method none)",
+      requestBody: jsonBody({
+        type: "object",
+        required: ["redirect_uris"],
+        properties: {
+          client_name: { type: "string", maxLength: 100 },
+          redirect_uris: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 10 },
+          grant_types: { type: "array", items: { type: "string" } },
+          response_types: { type: "array", items: { type: "string" } },
+          token_endpoint_auth_method: { type: "string", enum: ["none"] },
+        },
+      }),
+      responses: {
+        "201": { description: "Registered client (client_id)" },
+        "400": { description: "invalid_client_metadata" },
+        "429": { description: "Rate limited" },
+      },
+    },
+  },
+  "/oauth/revoke": {
+    post: {
+      summary: "RFC 7009 token revocation (a refresh token revokes the whole grant); always 200",
+      requestBody: {
+        required: true,
+        content: {
+          "application/x-www-form-urlencoded": {
+            schema: {
+              type: "object",
+              required: ["token"],
+              properties: { token: { type: "string" }, client_id: { type: "string" } },
+            },
+          },
+        },
+      },
+      responses: { "200": { description: "Revoked (or unknown token)" } },
+    },
+  },
+  "/mcp": {
+    post: {
+      summary:
+        "Remote MCP endpoint (Streamable HTTP, stateless, JSON responses). Requires an OAuth access token issued by this server for this resource; the tool surface is apps/mcp-server",
+      responses: {
+        "200": { description: "JSON-RPC response" },
+        "202": { description: "Notification accepted" },
+        "401": { description: "Missing/invalid token; WWW-Authenticate carries resource_metadata" },
+        "403": { description: "Origin not allowed, or insufficient_scope (write tool with a read grant)" },
+      },
+    },
+    get: {
+      summary: "Not offered: the endpoint is stateless (no standalone SSE stream)",
+      responses: { "405": { description: "Method not allowed" } },
+    },
+    delete: {
+      summary: "Not offered: the endpoint is stateless (no sessions to terminate)",
+      responses: { "405": { description: "Method not allowed" } },
+    },
+  },
+  "/v1/oauth/consent/{id}": {
+    get: {
+      summary:
+        "Consent page data for a pending MCP authorization request: client, redirect host, requested scopes, the caller's workspaces, and a per-view CSRF token. Cookie session only",
+      parameters: [idParam],
+      responses: {
+        "200": { description: "Consent view" },
+        "403": { description: "Not a human session" },
+        "404": { description: "Request expired or already used" },
+      },
+    },
+    post: {
+      summary:
+        "Approve or deny the request for one workspace and scope set; returns redirectTo (client redirect_uri with code, state, iss). Requires the CSRF token from the view; the redirect URI comes from the stored request, never the body",
+      parameters: [idParam],
+      requestBody: jsonBody({
+        type: "object",
+        required: ["approve", "csrf"],
+        properties: {
+          approve: { type: "boolean" },
+          workspace: { type: "string" },
+          scopes: { type: "array", items: { type: "string", enum: ["read", "write"] } },
+          csrf: { type: "string" },
+        },
+      }),
+      responses: {
+        "200": { description: "{ redirectTo }" },
+        "400": { description: "Invalid decision" },
+        "403": { description: "CSRF/user mismatch or not a member of the workspace" },
+        "404": { description: "Request expired or already used" },
+      },
+    },
+  },
+  "/v1/workspaces/{ws}/oauth/grants": {
+    get: {
+      summary:
+        "Connected MCP clients (OAuth grants) in the workspace: own for members, all for admins. Cookie session only",
+      parameters: [wsParam],
+      responses: { "200": { description: "Grants" }, "403": { description: "Forbidden" } },
+    },
+  },
+  "/v1/workspaces/{ws}/oauth/grants/{id}": {
+    delete: {
+      summary: "Revoke a grant: kills its access and refresh tokens immediately. Own grants, or any as admin",
+      parameters: [wsParam, idParam],
+      responses: { "200": { description: "Revoked" }, "404": { description: "Not found" } },
+    },
+  },
 };

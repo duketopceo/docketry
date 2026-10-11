@@ -21,6 +21,9 @@ import { importRoutes } from "./routes/import.js";
 import { inviteAcceptRoutes, inviteRoutes } from "./routes/invites.js";
 import { issueRoutes } from "./routes/issues.js";
 import { memberRoutes } from "./routes/members.js";
+import { mcpRoutes, setMcpInternalFetch } from "./routes/mcp.js";
+import { buildMcpOAuthRoutes } from "./routes/mcp-oauth.js";
+import { mcpOAuthAdminRoutes } from "./routes/mcp-oauth-admin.js";
 import { oauthRoutes } from "./routes/oauth.js";
 import { providerRoutes } from "./routes/providers.js";
 import { resourceRoutes } from "./routes/resources.js";
@@ -39,7 +42,15 @@ const rateLimiter = createRateLimiter(config_.rateLimitPerMin);
 const anonymousLimiter = createAnonymousLimiter(
   config_.rateLimitAnonPerMin,
   SESSION_COOKIE,
-  { skip: (p) => p === "/health" || p.startsWith("/webhooks/") },
+  {
+    // OAuth discovery/token traffic arrives from shared client egress IPs
+    // (Claude, ChatGPT) and carries no cookie; it has its own limiters
+    skip: (p) =>
+      p === "/health" ||
+      p.startsWith("/webhooks/") ||
+      p.startsWith("/.well-known/") ||
+      p.startsWith("/oauth/"),
+  },
 );
 
 export const app = new Hono()
@@ -50,6 +61,8 @@ export const app = new Hono()
     return c.json(report, report.status === "ok" ? 200 : 503);
   })
   .get("/openapi.json", (c) => c.json(openApiDoc))
+  .route("/", buildMcpOAuthRoutes())
+  .route("/", mcpRoutes)
   .route("/webhooks", webhookRoutes)
   .route("/webhooks", slackRoutes)
   .route("/github", githubPublicRoutes)
@@ -59,6 +72,7 @@ export const app = new Hono()
   .route("/v1/auth", providerRoutes)
   .use("/v1/*", requireSession)
   .use("/v1/*", rateLimiter)
+  .route("/v1", mcpOAuthAdminRoutes)
   .route("/v1", workspaceRoutes)
   .route("/v1", whoamiRoutes)
   .route("/v1", eventRoutes)
@@ -89,6 +103,8 @@ export const app = new Hono()
     console.error(err);
     return apiError(c, 500, "INTERNAL", "internal server error");
   });
+
+setMcpInternalFetch((req) => app.fetch(req));
 
 if (process.env.NODE_ENV !== "test") {
   await runMigrations();

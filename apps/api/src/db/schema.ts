@@ -824,6 +824,104 @@ export const oauthCodes = pgTable("oauth_codes", {
     .notNull(),
 });
 
+// ── MCP OAuth authorization server (PLAN-011) ────────────────────────────
+// Clients are public (PKCE, no secret): either dynamically registered
+// (RFC 7591, client_id = tly_cli_*) or a Client ID Metadata Document URL
+// (https client_id, metadata cached here). redirect_uris is the exact-match
+// allowlist for that client.
+export const oauthClients = pgTable("oauth_clients", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  clientId: text("client_id").notNull().unique(),
+  kind: text("kind").$type<"dcr" | "cimd">().notNull(),
+  name: text("name").notNull(),
+  redirectUris: jsonb("redirect_uris").$type<string[]>().notNull(),
+  clientUri: text("client_uri"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// pending authorization request, held between /oauth/authorize and the
+// consent decision. The consent page only ever carries this row's id; every
+// security-relevant parameter was validated at /oauth/authorize and is read
+// back from here, never from the decision POST.
+export const oauthRequests = pgTable("oauth_requests", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  clientId: text("client_id").notNull(),
+  redirectUri: text("redirect_uri").notNull(),
+  scopes: jsonb("scopes").$type<string[]>().notNull(),
+  state: text("state"),
+  codeChallenge: text("code_challenge").notNull(),
+  resource: text("resource").notNull(),
+  // minted when the consent page is viewed; the decision must come from the
+  // same user and present the matching CSRF token
+  csrfHash: text("csrf_hash"),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+// one grant = one user consenting one client into one workspace. The grant
+// owns a connector agent row so writes carry agent provenance while the
+// user stays accountable (user_id). Revoking the grant kills every token.
+export const oauthGrants = pgTable(
+  "oauth_grants",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id, { onDelete: "cascade" }),
+    agentId: uuid("agent_id")
+      .notNull()
+      .references(() => agents.id, { onDelete: "cascade" }),
+    clientId: text("client_id").notNull(),
+    clientName: text("client_name").notNull(),
+    scopes: jsonb("scopes").$type<string[]>().notNull(),
+    resource: text("resource").notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.workspaceId), index().on(t.userId)],
+);
+
+// authorization codes, access tokens and refresh tokens — hashed at rest.
+// kind='code' rows also carry the PKCE challenge + redirect_uri they were
+// minted for. A refresh token is single-use (rotated): redeeming sets
+// used_at; presenting a used one again revokes the whole grant.
+export const oauthTokens = pgTable(
+  "oauth_tokens",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    grantId: uuid("grant_id")
+      .notNull()
+      .references(() => oauthGrants.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<"code" | "access" | "refresh">().notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    scopes: jsonb("scopes").$type<string[]>().notNull(),
+    resource: text("resource").notNull(),
+    codeChallenge: text("code_challenge"),
+    redirectUri: text("redirect_uri"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    redeemedAt: timestamp("redeemed_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [index().on(t.grantId)],
+);
+
 // audit trail for the 0019 duplicate-email merge — snapshot keeps the full
 // deleted row so a bad canonical pick is forensically reconstructible
 export const userIdMap = pgTable("user_id_map", {
