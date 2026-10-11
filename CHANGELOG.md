@@ -27,6 +27,12 @@ semver until stated otherwise.
 
 ### Added
 
+- **Remote MCP endpoint with OAuth 2.1** (PLAN-010/011): `POST /mcp`
+  (Streamable HTTP) on the API host, Tallyline as its own authorization
+  server (RFC 9728/8414, CIMD + DCR, PKCE S256, resource-bound tokens, rotating
+  refresh tokens), a minimal consent page in the web app, and grant
+  list/revoke endpoints. See `docs/mcp.md`.
+
 - Security headers on web and API: CSP (nonce + `strict-dynamic` on the web
   app, `default-src 'none'` on the API), `frame-ancestors 'none'`,
   `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy:

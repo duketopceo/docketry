@@ -98,3 +98,76 @@ API errors surface as MCP tool errors (`isError: true`) preserving the API's
 `create_issue` returns `FORBIDDEN_SCOPE`, an illegal state move returns
 `INVALID_TRANSITION`, a missing issue returns `NOT_FOUND`. Tool errors never
 crash the server.
+
+## Remote endpoint with OAuth (hosted)
+
+The API also serves the same tool surface over Streamable HTTP at
+`/mcp` (for the hosted cloud, `https://api.tallyline.app/mcp`) and acts as its
+own OAuth 2.1 authorization server, so Claude, ChatGPT/Codex and other remote
+MCP clients connect with a browser sign-in instead of a pasted key. The tool
+definitions are not forked: `apps/mcp-server/src/lib.ts` exports
+`createMcpServer`, and the API mounts it. stdio and `--http` modes above are
+unchanged.
+
+Spec basis: MCP authorization and Streamable HTTP, protocol revision
+**2026-07-28** (current; the draft at modelcontextprotocol.io was read on
+2026-10-11). The authorization server follows OAuth 2.1, RFC 9728 (protected
+resource metadata), RFC 8414 (AS metadata), RFC 7591 (DCR), Client ID Metadata
+Documents (draft-ietf-oauth-client-id-metadata-document-00), RFC 8707
+(resource indicators), RFC 9207 (`iss`) and RFC 7009 (revocation). The `/mcp`
+transport speaks the handshake-based stateless JSON mode (`2025-11-25` and
+earlier): the pinned SDK (1.31.0) does not yet implement the `2026-07-28`
+per-request-metadata transport, so clients that send it fall back to
+`initialize`.
+
+| Piece | URL (cloud) |
+| --- | --- |
+| MCP endpoint (connector URL) | `https://api.tallyline.app/mcp` |
+| Protected resource metadata | `/.well-known/oauth-protected-resource` and `/.well-known/oauth-protected-resource/mcp` |
+| Authorization server metadata | `/.well-known/oauth-authorization-server` |
+| Authorize / token / register / revoke | `/oauth/authorize`, `/oauth/token`, `/oauth/register`, `/oauth/revoke` |
+| Consent page | `<WEB_URL>/oauth/consent` |
+
+Behaviour:
+
+- Public clients only: PKCE `S256` is required (`plain` is refused), no client
+  secrets. Clients register by Client ID Metadata Document (an https
+  `client_id` URL, fetched through the SSRF guard, 5 KB cap, cached) or by
+  dynamic registration (`/oauth/register`).
+- `redirect_uri` must exactly match a registered URI (https, or http loopback;
+  a registered loopback URI without a port matches any port, RFC 8252). A bad
+  client or redirect URI is never redirected to.
+- The `resource` parameter must be the MCP URL; tokens are bound to it.
+  Access tokens (`tly_oat_`, 1 h) are accepted only at `/mcp`, never by the
+  REST API directly. Refresh tokens (`tly_ort_`, 30 d) rotate on every use;
+  presenting a used one revokes the grant. Codes live 60 s and are single
+  use; replaying one revokes everything it produced. All tokens and codes
+  are SHA-256 hashed at rest.
+- Scopes are `read` and `write` (the existing token scopes). The consent page
+  asks for one workspace and read-only or read-write; a read-only grant that
+  calls a mutating tool gets `403 insufficient_scope` with a
+  `WWW-Authenticate` step-up challenge.
+- Each grant (user x workspace x client) owns a connector agent
+  (`harness: mcp-connector`), so writes carry agent provenance while the grant
+  records the consenting user. A user removed from the workspace loses access
+  on the next request.
+- Management API for the Agents & keys settings UI (cookie session only):
+  `GET /v1/workspaces/:ws/oauth/grants` (own for members, all for admins) and
+  `DELETE /v1/workspaces/:ws/oauth/grants/:id`. Audit rows are written to
+  `events` with `entity_type = oauth_grant`.
+
+Env: `API_BASE_URL` (the issuer), `WEB_URL` (consent page), optional
+`MCP_RESOURCE_URL` (default `<API_BASE_URL>/mcp`) and `MCP_ALLOWED_ORIGINS`
+(browser origins allowed at `/mcp`; default `https://claude.ai,https://chatgpt.com`;
+requests with no `Origin` are always allowed).
+
+Client requirements this was built against: Claude (custom connectors) needs
+a `401` + `resource_metadata` challenge, `resource` equal to the URL the user
+typed, `S256` PKCE, CIMD (advertising `client_id_metadata_document_supported`
+and `none` in `token_endpoint_auth_methods_supported`) or DCR, redirect URI
+`https://claude.ai/api/mcp/auth_callback` plus port-agnostic loopback for
+Claude Code, rotating refresh tokens, form-encoded token requests and 10 s
+endpoint latency. ChatGPT/Codex need `code_challenge_methods_supported`
+containing `S256`, the `resource` parameter copied into the token audience,
+and, because this server returns `iss` on every authorization response,
+`authorization_response_iss_parameter_supported: true`.
