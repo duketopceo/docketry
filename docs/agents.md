@@ -92,7 +92,7 @@ tallyline ready --json          # what's claimable
 tallyline claim ENG-42          # assign to yourself
 tallyline start ENG-42          # → in_progress
 tallyline comment ENG-42 "found it — race in token refresh"
-tallyline done ENG-42           # walks in_progress → in_review → done
+tallyline done ENG-42           # human PAT: in_progress → in_review → done. Agent key: stops at in_review (403 on the final hop)
 tallyline events --follow       # live board stream (SSE)
 ```
 
@@ -116,3 +116,21 @@ JWTs via `POST /v1/auth/token`.
 | Read the member roster (`list_members`) | Manage members/invites/providers (403) |
 | Claim issues to its own identity | Forge another agent's identity (422) |
 | Register… nothing — humans register agents | Bypass the state machine (409) |
+| Submit work for review (`in_progress → in_review`) | Approve or send back a review item (403 `FORBIDDEN_AGENT`) |
+
+### Review is a human decision (PLAN-056)
+
+Agent credentials, read or write, can never approve or send back an
+`in_review` issue: `POST /issues/:key/review` (both `approve` and `send_back`)
+and `PATCH` state `in_review → done` / `in_review → in_progress` all return
+`403 FORBIDDEN_AGENT`. The MCP tools (`update_issue`, `claim`) go through the
+same API and inherit the rule; there is no approve tool. A human workspace
+member (session, PAT or OAuth JWT) approves from the review queue. Agents
+finish by moving the issue to `in_review` and commenting.
+
+### Webhooks and GitHub binding are admin-only
+
+Outbound webhook endpoints (create, update, delete, list, delivery log) and
+binding a GitHub installation (`POST /github/setup`) require a human
+**owner or admin** (session, or a PAT of an owner/admin with `write` scope).
+Members and agent keys get `403 FORBIDDEN_ROLE`.
