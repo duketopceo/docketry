@@ -97,7 +97,7 @@ resolved in order:
 4. **JIT create** — new global user, then:
    - email-bound invite: `user.email` must equal `invites.email`;
    - open invite: token-only, consumed atomically;
-   - single workspace + `AUTH_AUTO_JOIN_SINGLE_WORKSPACE` on: auto-join;
+   - single workspace + `AUTH_AUTO_JOIN_SINGLE_WORKSPACE=1` (off by default): auto-join;
    - multiple/zero workspaces: pending-bootstrap — a 10-minute code
      carries the user to `/bootstrap` to create or join a workspace.
 5. No workspace created → a `pending-bootstrap` code carries the new
@@ -143,8 +143,9 @@ single-use token, default 7-day expiry. Options: `email` binding,
 | `AUTH_DISABLE_PASSWORD=1` | Hides password login + disables the login route. SSO-only installs. Don't set before at least one provider works |
 | `AUTH_ACCOUNT_LINKING` | `auto`/`login`/`disabled` — see resolution rung 3 |
 | `AUTH_ALLOWED_EMAIL_DOMAINS` | JIT domain allowlist; invites bypass |
-| `AUTH_AUTO_JOIN_SINGLE_WORKSPACE` | **Default on.** A new OAuth user lands in the workspace when the instance has exactly one. On internet-facing installs this is open membership — set `0` unless you want it |
-| `TRUSTED_PROXY=1` | Trust `x-forwarded-for` for rate-limit/log IPs. Set only behind a real proxy — spoofable otherwise |
+| `AUTH_AUTO_JOIN_SINGLE_WORKSPACE` | **Default off** (changed from on). `1`: a new OAuth user lands in the workspace when the instance has exactly one. On internet-facing installs this is open membership |
+| `TALLYLINE_ALLOW_WORKSPACE_CREATE` | Default off: `POST /v1/workspaces` needs an instance admin. `1` lets any signed-in human create workspaces |
+| `TRUSTED_PROXY=1` | Trust `CF-Connecting-IP` / last `X-Forwarded-For` hop (rate limits) and `X-Forwarded-Proto` (HSTS, `Secure`). Set only behind Cloudflare or a real proxy — spoofable otherwise |
 | `AUTH_SECRET_KEY` | AES-256-GCM key (`openssl rand -base64 32`) encrypting DB provider secrets. **Rotating or losing it renders stored secrets undecryptable** — re-enter them in `/settings/providers` (no key-versioned envelope in v1) |
 | `AUTH_ADMIN_EMAILS` | Instance-admin emails; unset → bootstrap owner fallback |
 | `AUTH_DISABLE_PASSWORD` note | Password mint routes (`login`, bootstrap) return `PASSWORD_DISABLED`; agent/PAT/JWT auth unaffected |

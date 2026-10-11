@@ -4,6 +4,40 @@ All notable changes to Tallyline (formerly docketry). Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); this project is pre-1.x
 semver until stated otherwise.
 
+## [Unreleased] — go-live security hardening
+
+### Changed (defaults — review before upgrading an internet-facing install)
+
+- **`AUTH_AUTO_JOIN_SINGLE_WORKSPACE` now defaults to off** (was on). Set `1`
+  to keep the old open-membership behaviour.
+- **`POST /v1/workspaces` is instance-admin only** unless
+  `TALLYLINE_ALLOW_WORKSPACE_CREATE=1` (403 `FORBIDDEN_INSTANCE_ADMIN`).
+- **Production refuses weak secrets**: with `NODE_ENV=production` the API
+  will not start if `JWT_SECRET` is unset/empty/<32 chars/a known default, or
+  if `AUTH_SECRET_KEY` (when set) is weak or equals `JWT_SECRET`.
+- **Webhook and agent-dispatch URLs are SSRF-guarded** (private, loopback,
+  link-local, CGNAT, ULA, metadata addresses rejected at save and at
+  delivery; redirects not followed). Existing endpoints pointing at LAN hosts
+  need `TALLYLINE_WEBHOOK_ALLOW_PRIVATE=1`.
+- **Rate limiting counts anonymous traffic** per client IP
+  (`RATE_LIMIT_ANON_PER_MIN`, default 120; `RATE_LIMIT_AUTH_PER_MIN`, default
+  30 for login/bootstrap/invite/OAuth). Behind a proxy set `TRUSTED_PROXY=1`
+  so the real client IP is read from `CF-Connecting-IP` / last
+  `X-Forwarded-For` hop.
+
+### Added
+
+- Security headers on web and API: CSP (nonce + `strict-dynamic` on the web
+  app, `default-src 'none'` on the API), `frame-ancestors 'none'`,
+  `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy:
+  strict-origin-when-cross-origin`, HSTS on https requests; `x-powered-by`
+  removed. The web root layout is now dynamically rendered (needed for nonces).
+- `ops/backup.sh` / `ops/restore.sh`: encrypted (age) offsite Postgres backups
+  to S3-compatible storage, with a documented, tested restore procedure
+  (see docs/deploy.md).
+- `RateStore` seam in the API rate limiter (in-memory default) for a future
+  shared store.
+
 ## [Unreleased] — renamed: docketry → Tallyline
 
 The project is now **Tallyline**. Existing local instances keep working;

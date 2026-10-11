@@ -38,23 +38,27 @@ Set these in `.env` next to the compose file (it reads `.env` automatically):
 |---|---|---|---|
 | `POSTGRES_PASSWORD` | **yes** | — | Password for the internal postgres |
 | `POSTGRES_USER` / `POSTGRES_DB` | no | `postgres` / `tallyline` | Credentials/db name |
-| `JWT_SECRET` | **yes** | — | Signs short-lived access JWTs — `openssl rand -hex 32` |
+| `JWT_SECRET` | **yes** | — | Signs short-lived access JWTs — `openssl rand -hex 32`. With `NODE_ENV=production` the API **refuses to start** if it is unset, empty, under 32 chars, or a known dev default |
 | `API_BASE_URL` | no | `http://localhost:4000` | Public API origin — used in the GitHub App manifest + Slack/CLI callbacks. Set to your real hostname when fronting with a tunnel |
 | `API_PORT` | no | `4000` | Port the API binds *inside* its container — only change together with the compose `environment`/`API_INTERNAL_URL` |
 | `NEXT_PUBLIC_API_URL` | no | `http://localhost:4000` | Fallback API origin baked into the web build; server-side bridges prefer `API_INTERNAL_URL` |
 | `API_INTERNAL_URL` | no | `http://api:4000` (in compose) | Where the web service's bridge routes reach the API — service-name URL inside the compose network; set it in `.env` only for exotic topologies |
 | `API_PUBLISH_PORT` / `WEB_PUBLISH_PORT` | no | `4000` / `3100` | Host ports the services bind |
-| `RATE_LIMIT_PER_MIN` | no | `600` | Requests/minute per token or IP (`0` disables — don't, on public instances) |
+| `RATE_LIMIT_PER_MIN` | no | `600` | Authenticated requests/minute per token/session (`0` disables — don't, on public instances) |
+| `RATE_LIMIT_ANON_PER_MIN` | no | `120` | **New.** Unauthenticated requests (and failed-credential attempts) per client IP, counted before auth. `/health` and signed provider webhooks are exempt. Needs `TRUSTED_PROXY=1` behind a proxy/Cloudflare or every visitor shares one bucket |
+| `RATE_LIMIT_AUTH_PER_MIN` | no | `30` | **New.** Login, bootstrap, invite-accept and OAuth start/callback per client IP |
 | `DATABASE_URL` / `REDIS_URL` | no | compose-internal | Override only for external datastores |
 | `GITHUB_APP_*`, `GITHUB_WEBHOOK_SECRET` | no | — | GitHub App sync — see [github-sync.md](./github-sync.md); all empty = feature off |
 | `WEB_URL` | no | `http://localhost:3100` | Public web origin — OAuth callbacks bounce here after exchange; set to your real web hostname behind a tunnel |
-| `AUTH_SECRET_KEY` | for DB providers | — | AES-256-GCM key (`openssl rand -base64 32`) encrypting provider secrets stored via the UI. Losing/rotating strands them — see [auth.md](./auth.md) |
+| `AUTH_SECRET_KEY` | for DB providers | — | AES-256-GCM key (`openssl rand -base64 32`; in production must be ≥32 chars when set and differ from `JWT_SECRET`) encrypting provider secrets stored via the UI. Losing/rotating strands them — see [auth.md](./auth.md) |
 | `AUTH_ADMIN_EMAILS` | no | bootstrap owner | Comma-separated instance admins (provider CRUD). Unset → the bootstrap workspace owner is the fallback admin |
 | `AUTH_DISABLE_PASSWORD` | no | off | `1` = SSO-only — hides password login, `PASSWORD_DISABLED` on mint routes |
 | `AUTH_ACCOUNT_LINKING` | no | `auto` | `auto`/`login`/`disabled` — verified-email match links silently, requires proof, or never links |
 | `AUTH_ALLOWED_EMAIL_DOMAINS` | no | any | Comma-separated JIT allowlist; invites bypass it |
-| `AUTH_AUTO_JOIN_SINGLE_WORKSPACE` | no | **on** | New OAuth users auto-join when the instance has one workspace. **Set `0` on internet-facing installs — default-on is open membership** |
-| `TRUSTED_PROXY` | no | off | `1` honors `x-forwarded-for` in rate limits/logs — only behind a real reverse proxy |
+| `AUTH_AUTO_JOIN_SINGLE_WORKSPACE` | no | **off** | **Default changed from on.** `1` lets new OAuth users auto-join when the instance has one workspace — open membership, only for private installs |
+| `TALLYLINE_ALLOW_WORKSPACE_CREATE` | no | off | **New.** Off: only instance admins can `POST /v1/workspaces`. `1`: any signed-in human can (self-serve orgs on a shared install) |
+| `TALLYLINE_WEBHOOK_ALLOW_PRIVATE` | no | off | **New.** Off: webhook/agent-dispatch URLs resolving to private, loopback, link-local, CGNAT, ULA or metadata addresses are rejected (at save and at delivery; redirects are not followed). `1` for self-hosters delivering to LAN services |
+| `TRUSTED_PROXY` | no | off | `1` trusts `CF-Connecting-IP`, then the last `X-Forwarded-For` hop, for rate limits, and `X-Forwarded-Proto` for HSTS/`Secure` cookies — only behind Cloudflare or a real reverse proxy that overwrites them |
 | `GITHUB_CLIENT_ID`/`_SECRET` | no | — | "Sign in with GitHub" — the App's OAuth credentials double as the provider's (see [auth.md](./auth.md)) |
 | `GOOGLE_CLIENT_ID`/`_SECRET` | no | — | "Sign in with Google" — callback `{API_BASE_URL}/v1/auth/oauth/google/callback` |
 | `OIDC_ISSUER`/`_CLIENT_ID`/`_CLIENT_SECRET`/`_DISPLAY_NAME`/`_SCOPES` | no | — | Generic OIDC via discovery — `{issuer}/.well-known/openid-configuration` |
@@ -184,17 +188,70 @@ cat backup-YYYY-MM-DD.dump | docker compose -f docker-compose.selfhost.yml \
 docker compose -f docker-compose.selfhost.yml start api web
 ```
 
-For continuous backup, `pg_dump` on a cron into object storage is
-sufficient — no WAL shipping needed at this scale.
+### Automated encrypted offsite backup (`ops/`)
+
+`ops/backup.sh` runs `pg_dump -Fc` → gzip → [age](https://age-encryption.org)
+(public-key, so the private key never sits on the box) → an S3-compatible
+bucket (Cloudflare R2) via the AWS CLI, plus a `.sha256`. `ops/restore.sh`
+reverses it. Both are plain bash; deps: `age`, `gzip`, `aws` (v2), and
+`docker` or the Postgres client tools.
+
+One-time setup:
+
+```bash
+age-keygen -o tallyline-backup.key      # prints the PUBLIC key (age1...)
+# store tallyline-backup.key in your password manager / second machine; NOT on the server
+```
+
+Create an R2 bucket with a **scoped API token** (object read/write on that bucket only)
+and a lifecycle rule (e.g. expire after 35 days; keep monthly copies separately).
+Then nightly (compose stack; container name from `docker ps`):
+
+```cron
+17 3 * * * cd /srv/tallyline && set -a && . ./.backup.env && set +a && ./ops/backup.sh >> /var/log/tallyline-backup.log 2>&1
+```
+
+`.backup.env` (chmod 600) holds `BACKUP_AGE_RECIPIENT`, `BACKUP_PG_CONTAINER`
+(+ `BACKUP_PG_USER`/`BACKUP_PG_DB`), `BACKUP_S3_BUCKET`,
+`BACKUP_S3_ENDPOINT` (`https://<accountid>.r2.cloudflarestorage.com`),
+`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, optionally
+`BACKUP_HEALTHCHECK_URL` (healthchecks.io: pinged on success, `/fail` on error).
+`BACKUP_SKIP_UPLOAD=1` + `BACKUP_OUT_DIR=…` keeps the encrypted file locally.
+
+**Restore procedure** (tested end to end against throwaway Postgres containers —
+dump of a migrated database, encrypted, restored into a fresh database;
+table count and row counts matched; wrong key, tampered file and missing
+target all fail closed):
+
+```bash
+# 1. stop writers on a live box
+docker compose -f docker-compose.selfhost.yml stop api web
+# 2. create an empty target database (never restore over a database you can't lose)
+docker compose -f docker-compose.selfhost.yml exec postgres psql -U postgres -c "CREATE DATABASE docketry_restore;"
+# 3. fetch + verify checksum + decrypt + restore (target is explicit: no default)
+BACKUP_AGE_IDENTITY=./tallyline-backup.key \
+RESTORE_PG_CONTAINER=<postgres-container> RESTORE_PG_DB=docketry_restore \
+BACKUP_S3_BUCKET=... BACKUP_S3_ENDPOINT=... AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... \
+./ops/restore.sh tallyline-YYYYMMDDTHHMMSSZ.dump.gz.age     # or a local file path
+# 4. sanity-check row counts, then point DATABASE_URL/POSTGRES_DB at it and start api/web
+```
+
+**Rehearse it** — restore the latest backup into a scratch database at
+least monthly; an untested backup is not a backup. The database name in the
+compose file is `docketry` (kept so existing volumes work); the older manual
+snippet above says `tallyline` — use whatever `POSTGRES_DB` is on your box.
 
 ## Hardening checklist
 
-- `JWT_SECRET` is set and not the dev default.
+- `JWT_SECRET` is set and not the dev default (enforced: the API won't boot in production otherwise).
 - Postgres/redis are **not** published (the compose file never maps them).
 - `RATE_LIMIT_PER_MIN` > 0 on anything internet-facing.
-- `AUTH_AUTO_JOIN_SINGLE_WORKSPACE=0` on anything internet-facing —
-  default-on means any OAuth-verified stranger lands in your workspace.
-- `TRUSTED_PROXY` unset unless a real proxy fronts the API.
+- `AUTH_AUTO_JOIN_SINGLE_WORKSPACE` left unset (off) on anything internet-facing —
+  turning it on means any OAuth-verified stranger lands in your workspace.
+- `TALLYLINE_ALLOW_WORKSPACE_CREATE` left unset unless you want every member to create orgs.
+- `TALLYLINE_WEBHOOK_ALLOW_PRIVATE` left unset on shared hosts (SSRF guard).
+- `TRUSTED_PROXY=1` **when** a real proxy/Cloudflare fronts the API (required for per-client rate limits and HSTS) — unset otherwise.
+- Security headers (CSP, HSTS on https, nosniff, frame-ancestors none) are set by the app; add a Cloudflare rate-limit rule on `/v1/auth/*` and Turnstile on login as a second layer.
 - Behind TLS before inviting anyone — cookies go `Secure` automatically.
 - Proxy/ingress access logs redact `GET /v1/auth/oauth/*` query params —
   `invite`, `return_to`, `login_nonce`, and `code` are bearer

@@ -68,9 +68,8 @@ workspace memberships, provider sign-in, invites, credential-class gates)
 - `POST /v1/auth/providers/:id/test` + generic-OIDC discovery are SSRF
   dials: instance-admin-only, https-only, private/link-local/metadata
   IPs blocked, TLS verification never disabled.
-- `AUTH_AUTO_JOIN_SINGLE_WORKSPACE` defaults on for the self-host
-  persona — documented as open membership for internet-facing installs
-  (deploy hardening checklist; accepted with flag).
+- `AUTH_AUTO_JOIN_SINGLE_WORKSPACE` now defaults **off** (go-live hardening);
+  opt in with `1` for private installs.
 
 ### `/v1/auth/*` boundary *(new)*
 
@@ -173,9 +172,9 @@ sequential-retry and concurrent-delivery regression tests.
 - **`POST /v1/workspaces` is cookie-open** — any member can spawn a
   workspace and own it; deliberate self-host posture, a gate env is a
   coherent follow-up for shared installs.
-- **`AUTH_AUTO_JOIN_SINGLE_WORKSPACE` default-on** — open membership on
-  internet-facing installs; accepted for the self-host persona with the
-  hardening-checklist warning.
+- **`AUTH_AUTO_JOIN_SINGLE_WORKSPACE`** — was default-on; now default-off.
+  Workspace creation is likewise admin-only unless
+  `TALLYLINE_ALLOW_WORKSPACE_CREATE=1`.
 
 ## Verdict
 

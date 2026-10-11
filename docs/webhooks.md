@@ -17,6 +17,18 @@ GET    /v1/:ws/webhook-endpoints/:id/deliveries   (last 50 attempts)
 `secret` is returned in full **once** at creation (auto-generated `whsec_*`
 if omitted). `events` is an action filter — `["*"]` or a subset of the catalog.
 
+### Allowed destinations (SSRF guard)
+
+Endpoint URLs (and agent dispatch `endpointUrl`s) must be `http`/`https` with no
+embedded credentials and must not point at private, loopback, link-local,
+CGNAT, ULA, multicast or cloud-metadata addresses (`10/8`, `127/8`,
+`169.254/16`, `100.64/10`, `172.16/12`, `192.168/16`, `::1`, `fc00::/7`,
+`fe80::/10`, `localhost`, `*.internal`, `*.local`, …). A rejected URL returns
+`422 UNSAFE_URL`. The check runs at create/update **and again at delivery**:
+the resolved address is validated at connect time (DNS rebinding cannot swap
+it) and redirects are not followed — a 3xx counts as a failed attempt.
+Self-hosters delivering to LAN services set `TALLYLINE_WEBHOOK_ALLOW_PRIVATE=1`.
+
 ## Event catalog
 
 | Action | Fires when |
