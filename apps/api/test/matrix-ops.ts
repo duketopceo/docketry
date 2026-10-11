@@ -327,7 +327,7 @@ export const OPERATIONS: Record<string, Builder> = {
   "POST /v1/workspaces/{ws}/import/github": async (t) => ({
     method: "POST",
     path: `${base(t)}/import/github`,
-    body: { fullName: "matrix/none", token: "ghp_not_a_token" },
+    body: { fullName: "matrix/none", token: "not-a-real-token" },
   }),
   "POST /v1/workspaces/{ws}/import/linear": async (t) => ({
     method: "POST",

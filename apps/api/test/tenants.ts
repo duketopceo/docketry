@@ -38,7 +38,8 @@ import { createUserToken, hashToken } from "../src/services/tokens.js";
 // tenant-scoped entity populated. Tenant A is created first, so its owner is
 // the instance admin (AUTH_ADMIN_EMAILS unset => bootstrap owner).
 
-export const PASSWORD = "matrix-test-password-1";
+// random per run: nothing credential-shaped is checked in
+export const PASSWORD = `pw-${randomBytes(12).toString("hex")}`;
 let passwordHash: string | null = null;
 
 export type Role = "owner" | "admin" | "member";
@@ -239,7 +240,7 @@ export async function mkEndpoint(t: Tenant) {
     .values({
       workspaceId: t.ws.id,
       url: `http://127.0.0.1:9/${t.sentinel}`,
-      secret: `whsec-${t.sentinel}-0123456789`,
+      secret: `hook-secret-${t.sentinel}-0123456789`,
     })
     .returning();
   return row!;
