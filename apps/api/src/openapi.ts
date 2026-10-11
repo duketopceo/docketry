@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { extraPaths } from "./openapi-extra.js";
+
 const wsParam = {
   name: "ws",
   in: "path",
@@ -19,16 +22,7 @@ function jsonBody(schema: Record<string, unknown>) {
   } as const;
 }
 
-export const openApiDoc = {
-  openapi: "3.1.0",
-  info: {
-    title: "tallyline API",
-    version: "0.0.0",
-    description:
-      "Self-hostable, agent-native issue tracker. All resources are workspace-scoped; issue keys are TEAM-n.",
-  },
-  servers: [{ url: "http://localhost:4000" }],
-  paths: {
+const basePaths = {
     "/health": {
       get: {
         summary: "Liveness + dependency check (postgres, redis)",
@@ -898,5 +892,45 @@ export const openApiDoc = {
         responses: { "201": { description: "Label created" } },
       },
     },
-  },
 } as const;
+
+function packageVersion(): string {
+  try {
+    const raw = readFileSync(new URL("../package.json", import.meta.url), "utf8");
+    return (JSON.parse(raw) as { version?: string }).version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
+// merge per path item so a path split across both files (same path, different
+// methods) keeps every operation
+function mergePaths(
+  ...sources: Record<string, Record<string, unknown>>[]
+): Record<string, Record<string, unknown>> {
+  const out: Record<string, Record<string, unknown>> = {};
+  for (const src of sources) {
+    for (const [path, item] of Object.entries(src)) {
+      out[path] = { ...out[path], ...item };
+    }
+  }
+  return out;
+}
+
+export const openApiDoc = {
+  openapi: "3.1.0",
+  info: {
+    title: "Tallyline API",
+    version: packageVersion(),
+    description:
+      "Self-hostable, agent-native issue tracker. All resources are workspace-scoped; issue keys are TEAM-n.",
+  },
+  servers: [
+    { url: "https://api.tallyline.app", description: "Tallyline Cloud" },
+    {
+      url: "/",
+      description: "Self-hosted — same origin that served this document",
+    },
+  ],
+  paths: mergePaths(basePaths, extraPaths),
+};
