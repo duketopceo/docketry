@@ -12,6 +12,7 @@ import {
   workspaces,
 } from "../db/schema.js";
 import { apiError } from "../lib/errors.js";
+import { requestIsHttps } from "../lib/https.js";
 import { config_ } from "../env.js";
 import {
   createSession,
@@ -306,7 +307,7 @@ export function setSessionCookie(c: Parameters<typeof setCookie>[0], token: stri
   setCookie(c, SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "Lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: requestIsHttps(c),
     maxAge: 30 * 24 * 60 * 60,
     path: "/",
   });

@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     return NextResponse.json(data, { status: upstream.status });
   }
 
-  await forwardSessionCookies(upstream);
+  await forwardSessionCookies(upstream, req);
   // the join flow round-trips its invite through return_to — only same-
   // origin-relative paths survive
   const destination = safeReturnTo(body?.return_to);

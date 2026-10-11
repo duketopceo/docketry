@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { Context } from "hono";
+import { requestIsHttps } from "../lib/https.js";
 
 // Pre-auth leg state: state (CSRF) + nonce (id_token binding) + PKCE
 // verifier ride in three hardened HttpOnly cookies. The state cookie's
@@ -18,14 +19,15 @@ export interface StatePayload {
   loginNonce: string | null;
 }
 
-const secure = process.env.NODE_ENV === "production";
-const OPTS = {
+// secure follows the request scheme — plain-http self-host deploys must
+// not emit Secure cookies or the browser drops them (lib/https.ts)
+const cookieOpts = (c: Context) => ({
   httpOnly: true,
   sameSite: "Lax" as const,
-  secure,
+  secure: requestIsHttps(c),
   maxAge: 600,
   path: "/",
-};
+});
 
 export function hashOpaque(value: string): string {
   return createHash("sha256").update(value).digest("hex");
@@ -56,9 +58,9 @@ export function issueOAuthState(
     inviteHash: opts.inviteToken ? hashOpaque(opts.inviteToken) : null,
     loginNonce: opts.loginNonce ?? null,
   };
-  setCookie(c, STATE_COOKIE, Buffer.from(JSON.stringify(payload)).toString("base64url"), OPTS);
-  setCookie(c, NONCE_COOKIE, nonce, OPTS);
-  setCookie(c, VERIFIER_COOKIE, codeVerifier, OPTS);
+  setCookie(c, STATE_COOKIE, Buffer.from(JSON.stringify(payload)).toString("base64url"), cookieOpts(c));
+  setCookie(c, NONCE_COOKIE, nonce, cookieOpts(c));
+  setCookie(c, VERIFIER_COOKIE, codeVerifier, cookieOpts(c));
   return { state, nonce, codeVerifier, codeChallenge };
 }
 

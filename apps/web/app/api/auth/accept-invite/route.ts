@@ -36,6 +36,6 @@ export async function POST(req: Request) {
     return NextResponse.json(data, { status: upstream.status });
   }
   // a successful claim mints a fresh session (new account path)
-  await forwardSessionCookies(upstream);
+  await forwardSessionCookies(upstream, req);
   return NextResponse.json(data, { status: upstream.status });
 }

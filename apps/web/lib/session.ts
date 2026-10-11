@@ -5,10 +5,26 @@ export const WORKSPACE_COOKIE = "dok_ws";
 
 const COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
 
+// `Secure` follows the scheme the request actually arrived over —
+// plain-http self-host deploys (LAN, tailnet) must not emit Secure
+// cookies or the browser drops them and login silently loops.
+export function requestIsHttps(req: Request): boolean {
+  if (process.env.NODE_ENV !== "production") return false;
+  const proto = req.headers.get("x-forwarded-proto");
+  if (proto) return proto === "https";
+  try {
+    return new URL(req.url).protocol === "https:";
+  } catch {
+    return true;
+  }
+}
+
 export async function forwardSessionCookies(
   upstream: Response,
+  req: Request,
   workspaceSlug?: string,
 ): Promise<void> {
+  const secure = requestIsHttps(req);
   const setCookie = upstream.headers.get("set-cookie") ?? "";
   const match = setCookie.match(/dok_session=([^;]+)/);
   const jar = await cookies();
@@ -16,7 +32,7 @@ export async function forwardSessionCookies(
     jar.set(SESSION_COOKIE, match[1]!, {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure,
       path: "/",
       maxAge: COOKIE_MAX_AGE,
     });
@@ -34,19 +50,22 @@ export async function forwardSessionCookies(
     jar.set(WORKSPACE_COOKIE, slug, {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure,
       path: "/",
       maxAge: COOKIE_MAX_AGE,
     });
   }
 }
 
-export async function setWorkspaceCookie(slug: string): Promise<void> {
+export async function setWorkspaceCookie(
+  slug: string,
+  req: Request,
+): Promise<void> {
   const jar = await cookies();
   jar.set(WORKSPACE_COOKIE, slug, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: requestIsHttps(req),
     path: "/",
     maxAge: COOKIE_MAX_AGE,
   });

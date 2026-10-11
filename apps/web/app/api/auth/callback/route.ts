@@ -55,7 +55,7 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL("/login?error=exchange", req.url));
   }
 
-  await forwardSessionCookies(upstream, data.workspaceSlug);
+  await forwardSessionCookies(upstream, req, data.workspaceSlug);
   const destination = safeReturnTo(data.returnTo);
 
   // multi-membership: the session's bound workspace may not match dok_ws —
@@ -91,7 +91,7 @@ export async function POST(req: Request) {
       { status },
     );
   }
-  await forwardSessionCookies(upstream, data.workspaceSlug);
-  if (data.workspaceSlug) await setWorkspaceCookie(data.workspaceSlug);
+  await forwardSessionCookies(upstream, req, data.workspaceSlug);
+  if (data.workspaceSlug) await setWorkspaceCookie(data.workspaceSlug, req);
   return NextResponse.json({ ok: true, returnTo: safeReturnTo(data.returnTo) });
 }

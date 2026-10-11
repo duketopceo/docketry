@@ -29,6 +29,6 @@ export async function POST(req: Request) {
   if (!upstream.ok) {
     return NextResponse.json(data, { status: upstream.status });
   }
-  await setWorkspaceCookie(workspaceSlug);
+  await setWorkspaceCookie(workspaceSlug, req);
   return NextResponse.json({ ok: true });
 }

@@ -19,6 +19,6 @@ export async function POST(req: Request) {
     data && typeof data === "object" && "workspace" in data
       ? (data as { workspace?: { slug?: string } }).workspace?.slug
       : undefined;
-  await forwardSessionCookies(upstream, slug);
+  await forwardSessionCookies(upstream, req, slug);
   return NextResponse.json({ ok: true });
 }
