@@ -132,7 +132,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm turbo run build --filter=@tallyline/web...
+      # the API (started by tools/e2e via tsx) loads the built mcp-server library
+      - run: pnpm turbo run build --filter=@tallyline/web... --filter=@tallyline/mcp-server...
       - run: node scripts/bundle-budget.mjs
         working-directory: tools/e2e
       - run: pnpm exec playwright install --with-deps chromium
