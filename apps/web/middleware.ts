@@ -42,7 +42,12 @@ export function middleware(req: NextRequest) {
     return pass();
   }
   if (!req.cookies.get("dok_session")) {
-    return withSecurityHeaders(req, NextResponse.redirect(new URL("/login", req.url)));
+    // the MCP consent page round-trips through login (same-origin path only)
+    const login = new URL("/login", req.url);
+    if (pathname.startsWith("/oauth/")) {
+      login.searchParams.set("return_to", `${pathname}${req.nextUrl.search}`);
+    }
+    return withSecurityHeaders(req, NextResponse.redirect(login));
   }
   return pass();
 }
