@@ -33,8 +33,8 @@ export interface Insights {
   throughput: { week: string; human: number; agent: number; system: number }[];
 }
 
-const AXIS = { fontSize: 11, fontFamily: "monospace", fill: "var(--sl-ink-subtle)" };
-const TIP = {
+export const AXIS = { fontSize: 11, fontFamily: "monospace", fill: "var(--sl-ink-subtle)" };
+export const TIP = {
   contentStyle: {
     background: "var(--sl-surface-2)",
     border: "1px solid var(--sl-lining)",
@@ -46,7 +46,7 @@ const TIP = {
   labelStyle: { color: "var(--sl-ink-subtle)" },
 } as const;
 
-function Panel({
+export function Panel({
   title,
   hint,
   children,

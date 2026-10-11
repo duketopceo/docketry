@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { failureMessage } from "@/lib/plan-limit";
 import { Sparkle } from "./primitives";
 
 interface QueueRow {
@@ -22,6 +23,7 @@ export function ReviewQueue({ queue }: { queue: QueueRow[] }) {
   const [sendBackKey, setSendBackKey] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const feedbackRef = useRef<HTMLInputElement>(null);
 
   const act = useCallback(
@@ -34,9 +36,17 @@ export function ReviewQueue({ queue }: { queue: QueueRow[] }) {
       });
       setBusy(false);
       if (res.ok) {
+        setError(null);
         setSendBackKey(null);
         setFeedback("");
         router.refresh();
+      } else {
+        setError(
+          await failureMessage(
+            res,
+            action === "approve" ? `could not approve ${key} — refresh and retry` : `could not send ${key} back — refresh and retry`,
+          ),
+        );
       }
     },
     [router],
@@ -81,6 +91,12 @@ export function ReviewQueue({ queue }: { queue: QueueRow[] }) {
   }
 
   return (
+    <>
+    {error && (
+      <p role="alert" className="border-b border-lining-bright px-4 py-2 text-sm text-ink-muted">
+        {error}
+      </p>
+    )}
     <ul className="divide-y divide-lining-faint">
       {rows.map((r, i) => (
         <li
@@ -144,5 +160,6 @@ export function ReviewQueue({ queue }: { queue: QueueRow[] }) {
         </li>
       ))}
     </ul>
+    </>
   );
 }
