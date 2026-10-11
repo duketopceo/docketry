@@ -48,10 +48,13 @@ function unauthorized(c: Context, error?: { code: string; description: string })
       scope: "read write",
     }),
   );
+  // API error envelope; the OAuth error itself rides in WWW-Authenticate
   return c.json(
     {
-      error: error?.code ?? "unauthorized",
-      error_description: error?.description ?? "authorization required",
+      error: {
+        code: "UNAUTHENTICATED",
+        message: error?.description ?? "authorization required",
+      },
     },
     401,
   );

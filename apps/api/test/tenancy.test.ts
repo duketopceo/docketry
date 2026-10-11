@@ -84,6 +84,9 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
     ],
   },
   labels: { ops: ["GET /v1/workspaces/{ws}/labels", "POST /v1/workspaces/{ws}/labels"] },
+  oauth_grants: {
+    ops: ["GET /v1/workspaces/{ws}/oauth/grants", "DELETE /v1/workspaces/{ws}/oauth/grants/{id}"],
+  },
   oauth_codes: {
     ops: [],
     reason:
@@ -150,6 +153,12 @@ const UNSCOPED_TABLES: Record<string, string> = {
   user_id_map: "forensic audit trail of the 0019 duplicate-email merge; no route reads it",
   issue_labels: "join table covered through its parent issue/label (both tenant-scoped); reads go through GET issues/{key}",
   team_members: "join table covered through its parent team (tenant-scoped); no direct route",
+  oauth_clients:
+    "global registry of public MCP OAuth clients (DCR rows and cached client-metadata documents); holds only client name + redirect URIs, never tenant data, and no route lists or reads it",
+  oauth_requests:
+    "short-lived pending MCP authorization requests keyed by an unguessable uuid, bound to the viewing user's session + CSRF token; the workspace is chosen and membership-checked only at the decision, which writes the tenant-scoped oauth_grants row",
+  oauth_tokens:
+    "MCP authorization codes / access / refresh tokens, stored as sha256 hashes and always attached to an oauth_grants row (tenant-scoped, ON DELETE CASCADE); only resolved by hash at /oauth/token and /mcp, never listed",
   github_webhook_events:
     "global GitHub delivery log keyed by X-GitHub-Delivery: HMAC-authenticated inbound only, deduped, never returned by any route; tenant routing happens later via github_installations/github_repos",
 };
@@ -268,7 +277,7 @@ describe("tenancy: static coverage", () => {
     const stale = Object.keys(TABLE_ENDPOINTS).filter((t) => !tenantTables.includes(t));
     expect(missing, "tenant-scoped tables with no entry in TABLE_ENDPOINTS").toEqual([]);
     expect(stale, "TABLE_ENDPOINTS entries for tables that no longer have workspace_id").toEqual([]);
-    expect(tenantTables.length).toBe(27);
+    expect(tenantTables.length).toBe(28);
   });
 
   it("every table either lists swept endpoints or justifies having none", () => {

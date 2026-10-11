@@ -1,4 +1,6 @@
 import { randomBytes } from "node:crypto";
+import { consentView, registerClient } from "../src/services/mcp-oauth.js";
+import { createAuthRequest, RESOURCE } from "../src/services/mcp-oauth.js";
 import {
   mkAgent,
   mkCycle,
@@ -9,6 +11,7 @@ import {
   mkIssue,
   mkMember,
   mkMilestone,
+  mkOauthGrant,
   mkProject,
   mkProvider,
   mkToken,
@@ -51,6 +54,21 @@ export interface Built {
 }
 
 export type Builder = (t: Tenant, who: Caller) => Promise<Built>;
+
+/** a live authorization request, already viewed by `userId` (csrf minted) */
+async function pendingConsent(t: Tenant, userId: string | null) {
+  const client = await registerClient({ redirect_uris: ["https://matrix.example/cb"] });
+  const id = await createAuthRequest({
+    clientId: client.client_id,
+    redirectUri: "https://matrix.example/cb",
+    scopes: ["read"],
+    state: undefined,
+    codeChallenge: "A".repeat(43),
+    resource: RESOURCE,
+  });
+  const view = await consentView(id, userId ?? t.people.owner.id);
+  return { id, csrf: view.csrf };
+}
 
 const u = () => randomBytes(4).toString("hex");
 const base = (t: Tenant) => `/v1/workspaces/${t.ws.slug}`;
@@ -158,6 +176,54 @@ export const OPERATIONS: Record<string, Builder> = {
     rawBody: "{}",
     headers: { "x-slack-request-timestamp": "1", "x-slack-signature": "v0=bad" },
   }),
+
+  // ── MCP remote endpoint + OAuth authorization server (PLAN-010/011) ───────
+  "GET /.well-known/oauth-protected-resource": get(() => "/.well-known/oauth-protected-resource"),
+  "GET /.well-known/oauth-protected-resource/mcp": get(() => "/.well-known/oauth-protected-resource/mcp"),
+  "GET /.well-known/oauth-authorization-server": get(() => "/.well-known/oauth-authorization-server"),
+  "GET /oauth/authorize": async () => ({ method: "GET", path: "/oauth/authorize?client_id=tly_cli_matrix" }),
+  // a registered client, so the endpoint reaches grant handling (400) rather
+  // than answering invalid_client (401, which the matrix reads as a denial)
+  "POST /oauth/token": async () => ({
+    method: "POST",
+    path: "/oauth/token",
+    rawBody: `grant_type=password&client_id=${
+      (await registerClient({ redirect_uris: ["https://matrix.example/cb"] })).client_id
+    }`,
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+  }),
+  "POST /oauth/register": async () => ({
+    method: "POST",
+    path: "/oauth/register",
+    body: { client_name: "Matrix", redirect_uris: ["https://matrix.example/cb"] },
+  }),
+  "POST /oauth/revoke": async () => ({
+    method: "POST",
+    path: "/oauth/revoke",
+    rawBody: "token=tly_ort_unknown",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+  }),
+  "POST /mcp": async () => ({
+    method: "POST",
+    path: "/mcp",
+    body: { jsonrpc: "2.0", id: 1, method: "tools/list", params: {} },
+  }),
+  "GET /mcp": get(() => "/mcp"),
+  "DELETE /mcp": simple("DELETE", () => "/mcp"),
+  "GET /v1/oauth/consent/{id}": async (t, who) => {
+    const id = await pendingConsent(t, who.userId);
+    return { method: "GET", path: `/v1/oauth/consent/${id.id}` };
+  },
+  "POST /v1/oauth/consent/{id}": async (t, who) => {
+    const { id, csrf } = await pendingConsent(t, who.userId);
+    return { method: "POST", path: `/v1/oauth/consent/${id}`, body: { approve: false, csrf } };
+  },
+  "GET /v1/workspaces/{ws}/oauth/grants": get((t) => `${base(t)}/oauth/grants`),
+  "DELETE /v1/workspaces/{ws}/oauth/grants/{id}": async (t) => {
+    // owned by the workspace owner: members are refused, admins may revoke
+    const g = await mkOauthGrant(t, t.people.owner.id);
+    return { method: "DELETE", path: `${base(t)}/oauth/grants/${g.id}` };
+  },
 
   // ── session / identity ─────────────────────────────────────────────────────
   "GET /v1/auth/me": get(() => "/v1/auth/me"),

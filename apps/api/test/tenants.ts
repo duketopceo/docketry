@@ -18,6 +18,7 @@ import {
   issues,
   labels,
   oauthCodes,
+  oauthGrants,
   projectMilestones,
   projects,
   slackLinks,
@@ -29,6 +30,7 @@ import {
   workspaceMembers,
   workspaces,
 } from "../src/db/schema.js";
+import { RESOURCE } from "../src/services/mcp-oauth.js";
 import { createAgentKey } from "../src/services/agents.js";
 import { createSession, hashPassword } from "../src/services/auth.js";
 import { createUserToken, hashToken } from "../src/services/tokens.js";
@@ -324,6 +326,26 @@ export async function mkAgent(t: Tenant) {
   return row!;
 }
 
+export async function mkOauthGrant(t: Tenant, userId: string) {
+  const [agent] = await db
+    .insert(agents)
+    .values({ workspaceId: t.ws.id, name: `connector-${uniq()}`, harness: "mcp-connector" })
+    .returning();
+  const [row] = await db
+    .insert(oauthGrants)
+    .values({
+      userId,
+      workspaceId: t.ws.id,
+      agentId: agent!.id,
+      clientId: `tly_cli_${uniq()}`,
+      clientName: `Connector ${t.sentinel}`,
+      scopes: ["read"],
+      resource: RESOURCE,
+    })
+    .returning();
+  return row!;
+}
+
 export async function mkAgentKey(t: Tenant, agentId: string) {
   return createAgentKey(agentId, t.ws.id, `k-${uniq()}`, ["read"]);
 }
@@ -444,6 +466,7 @@ export interface Entities {
   slackLink: Awaited<ReturnType<typeof mkSlackLink>>;
   velocity: Awaited<ReturnType<typeof mkVelocity>>;
   oauthCode: Awaited<ReturnType<typeof mkOauthCode>>;
+  oauthGrant: Awaited<ReturnType<typeof mkOauthGrant>>;
 }
 
 /** one row in every tenant-scoped table (except sessions: see newSession) */
@@ -483,5 +506,6 @@ export async function seedEntities(t: Tenant): Promise<Entities> {
     slackLink: await mkSlackLink(t, issue.id),
     velocity: await mkVelocity(t, cycle.id),
     oauthCode: await mkOauthCode(t, t.people.owner.id),
+    oauthGrant: await mkOauthGrant(t, t.people.owner.id),
   };
 }
