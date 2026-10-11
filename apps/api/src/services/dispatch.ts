@@ -13,6 +13,7 @@ import {
   queueDispatchDelivery,
 } from "./outbound.js";
 import { clock } from "./clock.js";
+import { withAgentRunSlot } from "./entitlements.js";
 
 // ── Adapter contract ─────────────────────────────────────────────
 // Third-party harnesses implement this shape and register by harness
@@ -232,11 +233,11 @@ export async function createDispatch(input: {
     .where(eq(agents.id, input.agentId))
     .limit(1);
   if (!agent) return null;
-  // Plan limit: every caller runs assertWithinLimit("agent_runs") BEFORE its
-  // own writes (issues.ts: assign, @mention, send-back). Not re-checked here:
-  // a 402 at this point would leave the caller's writes half-applied.
-
-  const [dispatch] = await db
+  // Plan limit: callers pre-check assertWithinLimit("agent_runs") before their
+  // own writes for a clean refusal. This insert is the authoritative,
+  // atomic check (count + insert under an advisory lock); it only throws
+  // when concurrent requests filled the month between pre-check and here.
+  const [dispatch] = await withAgentRunSlot(input.workspaceId, (tx) => tx
     .insert(dispatches)
     .values({
       // the clock, not the DB, so monthly run windows are testable
@@ -247,7 +248,7 @@ export async function createDispatch(input: {
       trigger: input.trigger,
       commentBody: input.commentBody ?? null,
     })
-    .returning();
+    .returning());
 
   await db.insert(events).values({
     workspaceId: input.workspaceId,
