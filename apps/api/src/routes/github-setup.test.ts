@@ -114,3 +114,35 @@ describe("installation binding (PLAN-006)", () => {
     expect(pending.length).toBeGreaterThan(0);
   });
 });
+
+describe("installations list + unlink (web Settings > GitHub)", () => {
+  it("lists the bound installation with configured flags", async () => {
+    const res = await api(cookie, `/v1/workspaces/${A}/github/installations`);
+    expect(res.status).toBe(200);
+    expect(res.body.configured.app).toBe(true);
+    expect(res.body.installations.map((i: { installationId: number }) => i.installationId)).toEqual([501]);
+    // another workspace sees none of A's installations
+    const other = await api(cookie, `/v1/workspaces/${B}/github/installations`);
+    expect(other.body.installations.map((i: { installationId: number }) => i.installationId)).not.toContain(501);
+  });
+
+  it("unlink removes the binding and disables its repos; second unlink is 404", async () => {
+    const del = await api(cookie, `/v1/workspaces/${A}/github/installations/501`, { method: "DELETE" });
+    expect(del.status).toBe(200);
+    const rows = await db.select().from(githubInstallations).where(eq(githubInstallations.installationId, 501));
+    expect(rows).toHaveLength(0);
+    const repos = await db.select().from(githubRepos).where(eq(githubRepos.fullName, "acme/web"));
+    expect(repos.every((r) => r.enabled === false)).toBe(true);
+    const again = await api(cookie, `/v1/workspaces/${A}/github/installations/501`, { method: "DELETE" });
+    expect(again.status).toBe(404);
+    // freed installation can be bound by another workspace
+    expect((await setup(B, 501)).status).toBe(200);
+  });
+
+  it("NEGATIVE: a workspace cannot unlink another workspace's installation", async () => {
+    const res = await api(cookie, `/v1/workspaces/${A}/github/installations/501`, { method: "DELETE" });
+    expect(res.status).toBe(404);
+    const rows = await db.select().from(githubInstallations).where(eq(githubInstallations.installationId, 501));
+    expect(rows).toHaveLength(1);
+  });
+});

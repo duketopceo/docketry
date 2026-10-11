@@ -3,16 +3,30 @@ import {
   GithubRepoPanel,
   type GithubRepoRow,
 } from "@/components/github-repos";
+import { GithubConnect, type GithubNotice } from "@/components/settings/github-connect";
 import { SettingsTabs } from "@/components/settings-tabs";
+import { PageHeader } from "@/components/settings/ui";
 
 interface ReposResponse {
   repos?: GithubRepoRow[];
 }
-interface InstallUrlResponse {
-  installUrl?: string;
+
+function noticeFrom(sp: Record<string, string | string[] | undefined>): GithubNotice {
+  const g = typeof sp.github === "string" ? sp.github : "";
+  if (g === "connected") return { kind: "connected" };
+  if (g === "requested") return { kind: "requested" };
+  if (g === "error") {
+    const code = Number(typeof sp.code === "string" ? sp.code : "");
+    return { kind: "error", code: Number.isInteger(code) ? code : 0 };
+  }
+  return null;
 }
 
-export default async function IntegrationsPage() {
+export default async function IntegrationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const me = await api<Me>("/v1/auth/me");
   if (!me.data)
     return <main className="p-8 text-sm text-ink-subtle">Not signed in.</main>;
@@ -23,45 +37,38 @@ export default async function IntegrationsPage() {
   if (!canAdmin) {
     return (
       <main className="flex min-h-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center border-b border-lining-faint px-4">
-          <h1 className="text-sm font-semibold">Integrations</h1>
-        </header>
+        <PageHeader title="Integrations" />
         <p className="p-4 text-sm text-ink-subtle">Requires admin access.</p>
       </main>
     );
   }
 
-  const [reposRes, installRes] = await Promise.all([
-    api<ReposResponse>(`/v1/workspaces/${me.data.workspaceSlug}/github/repos`),
-    api<InstallUrlResponse>(
-      `/v1/workspaces/${me.data.workspaceSlug}/github/install-url`,
-    ),
-  ]);
+  const reposRes = await api<ReposResponse>(
+    `/v1/workspaces/${me.data.workspaceSlug}/github/repos`,
+  );
   const repos = reposRes.data?.repos ?? [];
   // an installationId on any row proves the App is installed + bound here;
   // rows with installationId === null were registered via the import path
   const installed = repos.some((r) => r.installationId != null);
-  const manageUrl = "https://github.com/settings/installations";
 
   return (
-    <main className="flex min-h-0 flex-1 flex-col">
+    <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <header className="flex h-12 shrink-0 items-center gap-4 border-b border-lining-faint px-4">
-        <h1 className="text-sm font-semibold">Integrations</h1>
+        <h1 className="shrink-0 text-sm font-semibold">Integrations</h1>
         <SettingsTabs />
-        <a
-          href={installed ? manageUrl : (installRes.data?.installUrl ?? manageUrl)}
-          target="_blank"
-          rel="noreferrer"
-          className="ml-auto font-mono text-[11px] text-ink-tertiary hover:text-ink"
-        >
-          {installed ? "manage on GitHub ↗" : "install App ↗"}
-        </a>
+        {installed && (
+          <a
+            href="https://github.com/settings/installations"
+            target="_blank"
+            rel="noreferrer"
+            className="ml-auto shrink-0 font-mono text-[11px] text-ink-tertiary hover:text-ink"
+          >
+            manage on GitHub ↗
+          </a>
+        )}
       </header>
-      <GithubRepoPanel
-        repos={repos}
-        installed={installed}
-        installUrl={installRes.data?.installUrl ?? null}
-      />
+      <GithubConnect canAdmin notice={noticeFrom(await searchParams)} />
+      <GithubRepoPanel repos={repos} installed={installed} />
     </main>
   );
 }

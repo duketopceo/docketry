@@ -52,6 +52,8 @@ export const config_ = {
   githubWebhookSecret: env("GITHUB_WEBHOOK_SECRET", ""),
 
   githubAppId: env("GITHUB_APP_ID", ""),
+  // GitHub REST origin — override only to point tests/e2e at a local fake
+  githubApiUrl: env("GITHUB_API_URL", "https://api.github.com").replace(/\/+$/, ""),
   // PEM may arrive env-encoded with literal \n separators (common for
   // GitHub App keys in .env files / secret stores)
   githubAppPrivateKey: env("GITHUB_APP_PRIVATE_KEY", "").replace(

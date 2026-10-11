@@ -4,7 +4,7 @@
 // force-dynamic. Static headers (nosniff, framing, referrer) apply to every
 // response; HSTS only when the request actually arrived over HTTPS.
 
-export function buildCsp(nonce: string, opts: { dev: boolean; connectSrc?: string[] }): string {
+export function buildCsp(nonce: string, opts: { dev: boolean; connectSrc?: string[]; formAction?: string[] }): string {
   const connect = ["'self'", ...(opts.connectSrc ?? [])].join(" ");
   const directives = [
     "default-src 'self'",
@@ -18,7 +18,7 @@ export function buildCsp(nonce: string, opts: { dev: boolean; connectSrc?: strin
     `connect-src ${connect}`,
     "object-src 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
+    `form-action ${["'self'", ...(opts.formAction ?? [])].join(" ")}`,
     "frame-ancestors 'none'",
   ];
   return directives.join("; ");
@@ -51,4 +51,13 @@ export function isHttpsRequest(
 
 export function newNonce(): string {
   return btoa(crypto.randomUUID());
+}
+
+// The GitHub App manifest flow is a form POST to github.com (their API takes
+// no other entry). form-action is widened to exactly that origin, and only on
+// the Settings > GitHub page.
+export const GITHUB_MANIFEST_FORM_ORIGIN = "https://github.com";
+
+export function formActionFor(pathname: string): string[] {
+  return pathname === "/settings/integrations" ? [GITHUB_MANIFEST_FORM_ORIGIN] : [];
 }

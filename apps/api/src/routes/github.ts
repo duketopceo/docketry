@@ -188,6 +188,59 @@ export const githubRoutes = new Hono()
     return c.json({ ok: true, installationId, workspace: ws.slug });
     },
   )
+  // installations bound to this workspace + whether the App itself is set up
+  // (the Settings UI uses `configured` to pick connect vs operator steps)
+  .get("/workspaces/:ws/github/installations", async (c) => {
+    const ws = await requireWorkspace(c);
+    const rows = await db
+      .select({
+        installationId: githubInstallations.installationId,
+        accountLogin: githubInstallations.accountLogin,
+        createdAt: githubInstallations.createdAt,
+      })
+      .from(githubInstallations)
+      .where(eq(githubInstallations.workspaceId, ws.id));
+    return c.json({
+      configured: {
+        app: githubAppConfigured(),
+        slug: config_.githubAppSlug !== "",
+      },
+      installations: rows,
+    });
+  })
+  // unlink: drops the binding and disables that installation's repos. The
+  // GitHub-side install stays (uninstall happens on GitHub); webhooks for an
+  // unbound installation are dropped.
+  .delete("/workspaces/:ws/github/installations/:installationId", async (c) => {
+    const ws = await requireWorkspace(c);
+    requireRole(c, "admin");
+    const installationId = Number(c.req.param("installationId"));
+    if (!Number.isSafeInteger(installationId) || installationId <= 0) {
+      throw new HttpError(400, "MALFORMED_INSTALLATION", "bad installation id");
+    }
+    const removed = await db
+      .delete(githubInstallations)
+      .where(
+        and(
+          eq(githubInstallations.workspaceId, ws.id),
+          eq(githubInstallations.installationId, installationId),
+        ),
+      )
+      .returning({ id: githubInstallations.id });
+    if (removed.length === 0) {
+      throw new HttpError(404, "NOT_FOUND", `installation ${installationId} not linked`);
+    }
+    await db
+      .update(githubRepos)
+      .set({ enabled: false })
+      .where(
+        and(
+          eq(githubRepos.workspaceId, ws.id),
+          eq(githubRepos.installationId, installationId),
+        ),
+      );
+    return c.json({ ok: true });
+  })
   .get("/workspaces/:ws/github/repos", async (c) => {
     const ws = await requireWorkspace(c);
     const rows = await db

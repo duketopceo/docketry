@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   buildCsp,
+  formActionFor,
   HSTS_VALUE,
   isHttpsRequest,
   newNonce,
@@ -24,6 +25,7 @@ export function middleware(req: NextRequest) {
   const nonce = newNonce();
   const csp = buildCsp(nonce, {
     dev: process.env.NODE_ENV === "development",
+    formAction: formActionFor(pathname),
     connectSrc: process.env.NEXT_PUBLIC_API_URL ? [process.env.NEXT_PUBLIC_API_URL] : [],
   });
   // Next.js reads the nonce from the request's CSP header during SSR

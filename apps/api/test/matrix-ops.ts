@@ -302,6 +302,13 @@ export const OPERATIONS: Record<string, Builder> = {
     const a = await mkAgent(t);
     return { method: "GET", path: `${base(t)}/agents/${a.id}/keys` };
   },
+  "DELETE /v1/workspaces/{ws}/agents/{id}/keys/{keyId}": async (t) => {
+    const a = await mkAgent(t);
+    return {
+      method: "DELETE",
+      path: `${base(t)}/agents/${a.id}/keys/00000000-0000-4000-8000-000000000000`,
+    };
+  },
   "POST /v1/workspaces/{ws}/agents/{id}/keys": async (t) => {
     const a = await mkAgent(t);
     return { method: "POST", path: `${base(t)}/agents/${a.id}/keys`, body: { name: "k", scopes: ["read"] } };
@@ -379,6 +386,11 @@ export const OPERATIONS: Record<string, Builder> = {
   "GET /v1/workspaces/{ws}/github/manifest": get((t) => `${base(t)}/github/manifest`),
   "GET /v1/workspaces/{ws}/github/install-url": get((t) => `${base(t)}/github/install-url`),
   "POST /v1/workspaces/{ws}/github/setup": simple("POST", (t) => `${base(t)}/github/setup`, { installationId: 424242 }),
+  "GET /v1/workspaces/{ws}/github/installations": get((t) => `${base(t)}/github/installations`),
+  "DELETE /v1/workspaces/{ws}/github/installations/{installationId}": async (t) => ({
+    method: "DELETE",
+    path: `${base(t)}/github/installations/424243`,
+  }),
   "GET /v1/workspaces/{ws}/github/repos": get((t) => `${base(t)}/github/repos`),
   "POST /v1/workspaces/{ws}/github/repos/connect": async (t) => ({
     method: "POST",

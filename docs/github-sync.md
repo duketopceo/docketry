@@ -123,3 +123,16 @@ GH PATCH → GH `closed` echo → dropped as bot-sent.
   issue; use `Closes #N` in the PR body for that).
 - Label *removals* never propagate outbound — tallyline has no
   remove-label write path, and the outbound mirror only ever adds.
+
+## Web: Settings > Integrations
+
+`/settings/integrations` shows the operator steps while the API has no App, then
+Connect GitHub, linked installations (Unlink, undoable for 8s) and per-repo
+enable/disable. Set the App's **Setup URL** to
+`https://<web host>/integrations/github/callback` with "Redirect on update":
+the web route forwards `installation_id` to `GET /v1/workspaces/:ws/github/setup`
+server-side and returns to Settings with `?github=connected|requested|error&code=`
+(404 foreign installation, 409 bound elsewhere, 503 not configured).
+`GET /v1/workspaces/:ws/github/installations` and
+`DELETE .../installations/:installationId` back the screen. `GITHUB_API_URL`
+(default `https://api.github.com`) exists so e2e can point at a local fake.

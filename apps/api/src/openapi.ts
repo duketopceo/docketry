@@ -345,6 +345,20 @@ const basePaths = {
         responses: { "201": { description: "Agent registered" } },
       },
     },
+    "/v1/workspaces/{ws}/agents/{id}/keys/{keyId}": {
+      delete: {
+        summary: "Revoke an agent key immediately (admin, human session only)",
+        parameters: [
+          wsParam,
+          { name: "id", in: "path", required: true, schema: { type: "string" } },
+          { name: "keyId", in: "path", required: true, schema: { type: "string" } },
+        ],
+        responses: {
+          "200": { description: "Revoked" },
+          "404": { description: "Key not found" },
+        },
+      },
+    },
     "/v1/workspaces/{ws}/agents/{id}/keys": {
       get: {
         summary: "List an agent's keys, redacted (human session only)",

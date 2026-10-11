@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/settings/members", label: "Members" },
   { href: "/settings/invites", label: "Invites" },
+  { href: "/settings/agents", label: "Agents" },
+  { href: "/settings/tokens", label: "Tokens" },
   { href: "/settings/integrations", label: "Integrations" },
   { href: "/settings/providers", label: "Providers" },
 ];
@@ -13,7 +15,7 @@ const TABS = [
 export function SettingsTabs() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Settings" className="flex items-center gap-1">
+    <nav aria-label="Settings" className="flex min-w-0 items-center gap-1 overflow-x-auto">
       {TABS.map((t) => {
         const active = pathname.startsWith(t.href);
         return (
@@ -21,7 +23,7 @@ export function SettingsTabs() {
             key={t.href}
             href={t.href}
             aria-current={active ? "page" : undefined}
-            className={`flex h-7 items-center rounded-sm px-2 text-[12px] ${
+            className={`flex h-7 shrink-0 items-center rounded-sm px-2 text-[12px] ${
               active
                 ? "bg-surface-2 text-ink"
                 : "text-ink-subtle hover:bg-surface-2 hover:text-ink"

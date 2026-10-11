@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { request } from "@playwright/test";
+import { startFakeGithub } from "./support/fake-github";
 
 const WEB = `http://localhost:${process.env.E2E_WEB_PORT ?? "3110"}`;
 const API = `http://localhost:${process.env.E2E_API_PORT ?? "4100"}`;
@@ -11,6 +12,7 @@ const PASSWORD = process.env.E2E_PASSWORD ?? "e2e-test-password-42";
 // user joins through the real invite flow: E2E_ADMIN_* creds log in as an
 // existing admin, create a bound invite, and accept-invite claims it.
 export default async function globalSetup() {
+  const fakeGithub = await startFakeGithub();
   const ctx = await request.newContext();
   const boot = await ctx.post(`${API}/v1/auth/bootstrap`, {
     data: {
@@ -89,4 +91,7 @@ export default async function globalSetup() {
   mkdirSync(dir, { recursive: true });
   await browser.storageState({ path: path.join(dir, "session.json") });
   await browser.dispose();
+  return async () => {
+    await new Promise((r) => fakeGithub.close(() => r(undefined)));
+  };
 }

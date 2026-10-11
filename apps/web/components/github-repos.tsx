@@ -13,11 +13,9 @@ export interface GithubRepoRow {
 export function GithubRepoPanel({
   repos,
   installed,
-  installUrl,
 }: {
   repos: GithubRepoRow[];
   installed: boolean;
-  installUrl: string | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -59,17 +57,10 @@ export function GithubRepoPanel({
   }
 
   if (!installed && repos.length === 0) {
+    // connecting (install button, operator steps) lives in GithubConnect above
     return (
       <div className="p-4 text-sm text-ink-subtle">
-        <p>GitHub is not connected.</p>
-        {installUrl && (
-          <p className="mt-2">
-            <a href={installUrl} className="text-accent hover:text-accent-hover">
-              Install the GitHub App ↗
-            </a>{" "}
-            to link repositories for two-way issue sync.
-          </p>
-        )}
+        No repositories yet. Connect GitHub above and they appear here.
       </div>
     );
   }
@@ -99,7 +90,7 @@ export function GithubRepoPanel({
       </div>
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-lining-faint text-left font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+          <tr className="border-b border-lining-faint text-left font-mono text-[11px] uppercase tracking-wider text-ink-tertiary">
             <th className="pb-2 font-normal">Repository</th>
             <th className="pb-2 font-normal">Sync</th>
             <th className="pb-2 font-normal" />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCsp, isHttpsRequest, newNonce } from "./security-headers";
+import { buildCsp, formActionFor, isHttpsRequest, newNonce } from "./security-headers";
 
 describe("buildCsp", () => {
   it("is nonce + strict-dynamic for scripts, no unsafe-eval in production", () => {
@@ -17,6 +17,20 @@ describe("buildCsp", () => {
   it("adds extra connect-src origins", () => {
     expect(buildCsp("n", { dev: false, connectSrc: ["https://api.example.com"] })).toContain(
       "connect-src 'self' https://api.example.com",
+    );
+  });
+});
+
+describe("form-action", () => {
+  it("is self-only by default", () => {
+    expect(buildCsp("n", { dev: false })).toContain("form-action 'self';");
+  });
+  it("adds github.com only on /settings/integrations", () => {
+    expect(formActionFor("/settings/integrations")).toEqual(["https://github.com"]);
+    expect(formActionFor("/settings/members")).toEqual([]);
+    expect(formActionFor("/settings/integrations/x")).toEqual([]);
+    expect(buildCsp("n", { dev: false, formAction: formActionFor("/settings/integrations") })).toContain(
+      "form-action 'self' https://github.com;",
     );
   });
 });

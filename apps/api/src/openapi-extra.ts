@@ -323,6 +323,28 @@ export const extraPaths: Record<string, PathItem> = {
       },
     },
   },
+  "/v1/workspaces/{ws}/github/installations": {
+    get: {
+      summary:
+        "Installations bound to this workspace, plus whether the GitHub App itself is configured on this API",
+      parameters: [wsParam],
+      responses: { "200": { description: "configured{app,slug} + installations" } },
+    },
+  },
+  "/v1/workspaces/{ws}/github/installations/{installationId}": {
+    delete: {
+      summary:
+        "Unlink an installation from this workspace and disable its repos (admin). The GitHub-side install is untouched.",
+      parameters: [
+        wsParam,
+        { name: "installationId", in: "path", required: true, schema: { type: "integer" } },
+      ],
+      responses: {
+        "200": { description: "Unlinked" },
+        "404": { description: "Installation not linked to this workspace" },
+      },
+    },
+  },
   "/v1/workspaces/{ws}/github/repos": {
     get: {
       summary: "Linked GitHub repos",

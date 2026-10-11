@@ -63,7 +63,7 @@ export function resetGithubSync(): void {
 
 // ── GitHub App auth ────────────────────────────────────────────────
 
-const GH_API = "https://api.github.com";
+const GH_API = config_.githubApiUrl;
 // refresh a cached token once it is inside this window of expiry
 const TOKEN_REFRESH_BUFFER_MS = 60_000;
 const tokenCache = new Map<number, { token: string; expiresAt: number }>();

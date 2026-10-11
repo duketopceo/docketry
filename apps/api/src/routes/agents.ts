@@ -137,4 +137,27 @@ export const agentRoutes = new Hono()
         ),
       );
     return c.json({ keys: rows });
+  })
+  // revoke = delete the key row; the hash lookup then fails immediately
+  .delete("/workspaces/:ws/agents/:id/keys/:keyId", async (c) => {
+    if (!isCookieSession(c)) {
+      return apiError(c, 403, "FORBIDDEN", "key revocation requires a human session");
+    }
+    const ws = await requireWorkspace(c);
+    requireRole(c, "admin");
+    if (!z.uuid().safeParse(c.req.param("keyId")).success || !z.uuid().safeParse(c.req.param("id")).success) {
+      return apiError(c, 404, "NOT_FOUND", "key not found");
+    }
+    const removed = await db
+      .delete(agentKeys)
+      .where(
+        and(
+          eq(agentKeys.id, c.req.param("keyId")),
+          eq(agentKeys.agentId, c.req.param("id")),
+          eq(agentKeys.workspaceId, ws.id),
+        ),
+      )
+      .returning({ id: agentKeys.id });
+    if (removed.length === 0) return apiError(c, 404, "NOT_FOUND", "key not found");
+    return c.json({ ok: true });
   });
