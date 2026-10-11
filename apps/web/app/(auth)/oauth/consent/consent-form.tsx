@@ -11,6 +11,8 @@ export interface ConsentView {
   loopbackOnly: boolean;
   scopes: ("read" | "write")[];
   workspaces: { slug: string; name: string; role: string }[];
+  emailVerified?: boolean;
+  unavailableReason?: string | null;
 }
 
 // only http(s) URLs are ever navigated to; the API already pinned this to the
@@ -32,6 +34,11 @@ export function ConsentForm({ view }: { view: ConsentView }) {
   const [access, setAccess] = useState<"read" | "write">(canWrite ? "write" : "read");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // the API refuses approval until the email is confirmed; say why up front
+  const blockedReason =
+    view.emailVerified === false
+      ? (view.unavailableReason ?? "Confirm your email before connecting an app.")
+      : null;
 
   async function decide(approve: boolean) {
     setPending(true);
@@ -58,7 +65,7 @@ export function ConsentForm({ view }: { view: ConsentView }) {
   if (view.workspaces.length === 0) {
     return (
       <>
-        <h1 className="mt-2 text-lg font-semibold">No workspace to connect</h1>
+        <h1 className="mt-2 text-[17px] font-semibold">No workspace to connect</h1>
         <p className="mt-2 text-sm text-ink-subtle">
           Your account is not a member of any workspace.
         </p>
@@ -68,7 +75,7 @@ export function ConsentForm({ view }: { view: ConsentView }) {
 
   return (
     <>
-      <h1 className="mt-2 text-lg font-semibold">
+      <h1 className="mt-2 text-[17px] font-semibold">
         Connect {view.client.name} to Tallyline
       </h1>
       <p className="mt-2 text-sm text-ink-subtle">
@@ -119,6 +126,11 @@ export function ConsentForm({ view }: { view: ConsentView }) {
           </label>
         )}
       </fieldset>
+      {blockedReason && (
+        <p role="alert" className="mt-3 rounded-sm border border-lining p-2 text-sm text-ink-subtle">
+          {blockedReason}
+        </p>
+      )}
       {error && (
         <p role="alert" className="mt-3 text-sm text-urgent">
           {error}
@@ -127,7 +139,7 @@ export function ConsentForm({ view }: { view: ConsentView }) {
       <div className="mt-5 flex gap-2">
         <button
           type="button"
-          disabled={pending || !workspace}
+          disabled={pending || !workspace || blockedReason !== null}
           onClick={() => void decide(true)}
           className="flex-1 rounded-sm bg-accent px-3 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-60"
         >
