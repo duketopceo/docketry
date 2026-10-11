@@ -58,7 +58,7 @@ export function ConsentForm({ view }: { view: ConsentView }) {
   if (view.workspaces.length === 0) {
     return (
       <>
-        <h1 className="mt-2 text-lg font-semibold">No workspace to connect</h1>
+        <h1 className="mt-2 text-[17px] font-semibold">No workspace to connect</h1>
         <p className="mt-2 text-sm text-ink-subtle">
           Your account is not a member of any workspace.
         </p>
@@ -68,7 +68,7 @@ export function ConsentForm({ view }: { view: ConsentView }) {
 
   return (
     <>
-      <h1 className="mt-2 text-lg font-semibold">
+      <h1 className="mt-2 text-[17px] font-semibold">
         Connect {view.client.name} to Tallyline
       </h1>
       <p className="mt-2 text-sm text-ink-subtle">
