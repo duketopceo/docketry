@@ -1,7 +1,7 @@
 ---
 version: alpha
-name: docketry-design-system
-description: "An operator-first dark console for an agent-native issue tracker. The canvas is near-black (#0a0c10) with a cool silver cast; a four-step surface ladder carries elevation; and every card, row, and panel wears a 1px metallic hairline — the 'silver lining' that gives the product its name-pun identity. The single chromatic accent is signal azure (#3ea1f7), reserved for primary actions, links, focus, and the four-point glint glyph that marks agent provenance. Status is a fixed 4-color system (red / amber / green / neutral); blue is never a status color. Typography is Inter for UI and JetBrains Mono for issue IDs and code, tuned to 13px body density with 32–40px rows. Depth comes from hairlines, not shadows. The lining is functional decoration: it is literally brightest where things go wrong, and a lit lining always ships with a recommended action."
+name: tallyline-design-system
+description: "An operator-first dark console for an agent-native issue tracker. The canvas is near-black (#0a0c10) with a cool silver cast; a four-step surface ladder carries elevation; and every card, row, and panel wears a 1px metallic hairline — the 'silver lining' that carries the product's signature edge. The single chromatic accent is signal azure (#3ea1f7), reserved for primary actions, links, focus, and the four-point glint glyph that marks agent provenance. Status is a fixed 4-color system (red / amber / green / neutral); blue is never a status color. Typography is Inter for UI and JetBrains Mono for issue IDs and code, tuned to 13px body density with 32–40px rows. Depth comes from hairlines, not shadows. The lining is functional decoration: it is literally brightest where things go wrong, and a lit lining always ships with a recommended action."
 
 colors:
   # --- Dark theme (default) ---
@@ -313,7 +313,7 @@ components:
 
 ## Overview
 
-docketry is a self-hostable, agent-native issue tracker — humans and AI agents work the same board. The name is the system: a **docket** is the court's pending list, and the brand concept is **the silver lining** — every card, row, and panel wears a 1px metallic hairline (`{colors.lining}` family), and that lining literally brightens (`{colors.lining-bright}`) wherever the system needs attention: a blocked issue, a failed agent run, a stale sync. Functional decoration — the lining is brightest where things go wrong.
+tallyline is a self-hostable, agent-native issue tracker — humans and AI agents work the same board. The mark is four tally strokes struck through by a signal-azure line — work counted, lined off. The interface concept is **the silver lining** — every card, row, and panel wears a 1px metallic hairline (`{colors.lining}` family), and that lining literally brightens (`{colors.lining-bright}`) wherever the system needs attention: a blocked issue, a failed agent run, a stale sync. Functional decoration — the lining is brightest where things go wrong.
 
 The default surface is a near-black operator console (`{colors.canvas}` #0a0c10, faint cool-silver cast) built for density: 13px body, 36px rows, 8–12px in-row padding, one level of elevation maximum. The single chromatic accent is **signal azure** `{colors.accent}` (#3ea1f7) — electric blue-azure at ~208° hue, deliberately a full cyan-step away from the indigo-lavender family common to this product category; it reads as "action," never as "status." Status is the fixed four-color system (`{colors.status-*}`), and blue is never a status color.
 
@@ -621,7 +621,7 @@ Terse, technical, declarative. The UI is written by an engineer for an operator.
 
 ## Component Signatures
 
-The seven load-bearing components — the minimum vocabulary an agent needs to ship a screen that looks like docketry.
+The seven load-bearing components — the minimum vocabulary an agent needs to ship a screen that looks like tallyline.
 
 | Component | Signature |
 |---|---|

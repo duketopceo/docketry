@@ -24,7 +24,7 @@ import {
 	num,
 	str,
 	workspaceUrl,
-	type DocketryCredentialShape,
+	type TallylineCredentialShape,
 } from "../../lib/transport";
 
 type RequestContext =
@@ -34,11 +34,11 @@ type RequestContext =
 
 async function getCredentials(
 	ctx: RequestContext,
-): Promise<DocketryCredentialShape> {
-	return ctx.getCredentials<DocketryCredentialShape>("docketryApi");
+): Promise<TallylineCredentialShape> {
+	return ctx.getCredentials<TallylineCredentialShape>("tallylineApi");
 }
 
-/** Authenticated workspace-scoped request against the docketry API. */
+/** Authenticated workspace-scoped request against the tallyline API. */
 async function apiRequest(
 	ctx: RequestContext,
 	options: {
@@ -58,7 +58,7 @@ async function apiRequest(
 	if (options.body !== undefined) requestOptions.body = options.body;
 	return ctx.helpers.httpRequestWithAuthentication.call(
 		ctx as IAllExecuteFunctions,
-		"docketryApi",
+		"tallylineApi",
 		requestOptions,
 	);
 }
@@ -87,21 +87,21 @@ const ASSIGNEE_TYPE_OPTIONS: INodePropertyOptions[] = [
 	{ name: "Agent", value: "agent" },
 ];
 
-export class Docketry implements INodeType {
+export class Tallyline implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: "docketry",
-		name: "docketry",
-		icon: "file:docketry.svg",
+		displayName: "tallyline",
+		name: "tallyline",
+		icon: "file:tallyline.svg",
 		group: ["transform"],
 		version: 1,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
 		description:
-			"Create, update, triage and comment on docketry issues, and list workspace resources",
-		defaults: { name: "docketry" },
+			"Create, update, triage and comment on tallyline issues, and list workspace resources",
+		defaults: { name: "tallyline" },
 		usableAsTool: true,
 		inputs: [NodeConnectionTypes.Main],
 		outputs: [NodeConnectionTypes.Main],
-		credentials: [{ name: "docketryApi", required: true }],
+		credentials: [{ name: "tallylineApi", required: true }],
 		properties: [
 			{
 				displayName: "Resource",

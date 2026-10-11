@@ -27,12 +27,8 @@ export function Sidebar({
   return (
     <aside className="flex w-52 shrink-0 flex-col border-r border-lining bg-surface-1">
       <div className="flex h-12 items-center gap-2 border-b border-lining-faint px-4">
-        <svg width="16" height="16" viewBox="0 0 32 32" aria-hidden>
-          <rect x="4" y="7" width="24" height="19" rx="3" fill="#10141b" stroke="#4b5360" strokeWidth="1.5" />
-          <path d="M8.5 7h15" stroke="#c9cdd4" strokeWidth="1.6" strokeLinecap="round" />
-          <path d="M26 0.5L27.5 4.5L31.5 6L27.5 7.5L26 11.5L24.5 7.5L20.5 6L24.5 4.5Z" fill="#3ea1f7" />
-        </svg>
-        <span className="text-sm font-semibold tracking-tight">docketry</span>
+        <img src="/brand/mark-small-dark.svg" width={16} height={16} alt="" />
+        <span className="text-sm font-semibold tracking-tight">tallyline</span>
         <span className="ml-auto font-mono text-[10px] text-ink-tertiary">
           {workspace}
         </span>

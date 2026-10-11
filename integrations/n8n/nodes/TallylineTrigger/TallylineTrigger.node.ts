@@ -7,13 +7,13 @@ import type {
 	IWebhookResponseData,
 } from "n8n-workflow";
 import { NodeConnectionTypes } from "n8n-workflow";
-import { DOCKETRY_EVENTS, normalizeEventSelection } from "../../lib/events";
-import { verifyDocketrySignature } from "../../lib/signature";
+import { TALLYLINE_EVENTS, normalizeEventSelection } from "../../lib/events";
+import { deliveryHeader, verifyTallylineSignature } from "../../lib/signature";
 import {
 	extractList,
 	str,
 	workspaceUrl,
-	type DocketryCredentialShape,
+	type TallylineCredentialShape,
 } from "../../lib/transport";
 
 interface EndpointRow {
@@ -26,27 +26,27 @@ interface EndpointRow {
 /**
  * Outbound-webhook trigger: on activation the node registers a
  * `webhook_endpoints` row pointed at n8n's webhook URL with its own signing
- * secret, so every delivery arrives HMAC-signed (X-Docketry-Signature).
+ * secret, so every delivery arrives HMAC-signed (X-Tallyline-Signature).
  */
-export class DocketryTrigger implements INodeType {
+export class TallylineTrigger implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: "docketry Trigger",
-		name: "docketryTrigger",
-		icon: "file:docketry.svg",
+		displayName: "tallyline Trigger",
+		name: "tallylineTrigger",
+		icon: "file:tallyline.svg",
 		group: ["trigger"],
 		version: 1,
 		description:
-			"Starts the workflow when a docketry outbound webhook event fires (issue created, state changed, dispatched, …)",
-		defaults: { name: "docketry Trigger" },
+			"Starts the workflow when a tallyline outbound webhook event fires (issue created, state changed, dispatched, …)",
+		defaults: { name: "tallyline Trigger" },
 		inputs: [],
 		outputs: [NodeConnectionTypes.Main],
-		credentials: [{ name: "docketryApi", required: true }],
+		credentials: [{ name: "tallylineApi", required: true }],
 		webhooks: [
 			{
 				name: "default",
 				httpMethod: "POST",
 				responseMode: "onReceived",
-				path: "docketry",
+				path: "tallyline",
 			},
 		],
 		properties: [
@@ -57,10 +57,10 @@ export class DocketryTrigger implements INodeType {
 				required: true,
 				default: ["*"],
 				description:
-					"Which docketry actions fire this trigger. Selecting “All events” subscribes the endpoint to `*`.",
+					"Which tallyline actions fire this trigger. Selecting “All events” subscribes the endpoint to `*`.",
 				options: [
 					{ name: "All Events", value: "*" },
-					...DOCKETRY_EVENTS.map((e) => ({ name: e.name, value: e.value })),
+					...TALLYLINE_EVENTS.map((e) => ({ name: e.name, value: e.value })),
 				],
 			},
 		],
@@ -72,10 +72,10 @@ export class DocketryTrigger implements INodeType {
 			async checkExists(this: IHookFunctions): Promise<boolean> {
 				const webhookUrl = this.getNodeWebhookUrl("default")!;
 				const credentials =
-					await this.getCredentials<DocketryCredentialShape>("docketryApi");
+					await this.getCredentials<TallylineCredentialShape>("tallylineApi");
 				const res = await this.helpers.httpRequestWithAuthentication.call(
 					this,
-					"docketryApi",
+					"tallylineApi",
 					{
 						method: "GET",
 						url: workspaceUrl(credentials, "/webhook-endpoints"),
@@ -93,15 +93,15 @@ export class DocketryTrigger implements INodeType {
 			async create(this: IHookFunctions): Promise<boolean> {
 				const webhookUrl = this.getNodeWebhookUrl("default")!;
 				const credentials =
-					await this.getCredentials<DocketryCredentialShape>("docketryApi");
+					await this.getCredentials<TallylineCredentialShape>("tallylineApi");
 				const events = normalizeEventSelection(
 					this.getNodeParameter("events", ["*"]) as string[],
 				);
 				// generated per activation — the API echoes it back once at creation
-				const secret = `dok_wh_${randomBytes(24).toString("hex")}`;
+				const secret = `tly_wh_${randomBytes(24).toString("hex")}`;
 				const res = (await this.helpers.httpRequestWithAuthentication.call(
 					this,
-					"docketryApi",
+					"tallylineApi",
 					{
 						method: "POST",
 						url: workspaceUrl(credentials, "/webhook-endpoints"),
@@ -122,11 +122,11 @@ export class DocketryTrigger implements INodeType {
 				const endpointId = staticData.endpointId as string | undefined;
 				if (!endpointId) return true;
 				const credentials =
-					await this.getCredentials<DocketryCredentialShape>("docketryApi");
+					await this.getCredentials<TallylineCredentialShape>("tallylineApi");
 				try {
 					await this.helpers.httpRequestWithAuthentication.call(
 						this,
-						"docketryApi",
+						"tallylineApi",
 						{
 							method: "DELETE",
 							url: workspaceUrl(
@@ -151,15 +151,12 @@ export class DocketryTrigger implements INodeType {
 			| string
 			| undefined;
 		const headers = this.getHeaderData();
-		const signature =
-			typeof headers["x-docketry-signature"] === "string"
-				? headers["x-docketry-signature"]
-				: undefined;
+		const signature = deliveryHeader(headers, "x-tallyline-signature");
 		// The API signs JSON.stringify(payload); re-stringifying the parsed body
 		// reproduces the same bytes (insertion order is preserved), and the
 		// check fails closed on any mismatch.
 		const raw = JSON.stringify(this.getBodyData());
-		if (!verifyDocketrySignature(raw, signature, secret)) {
+		if (!verifyTallylineSignature(raw, signature, secret)) {
 			return {}; // unsigned/forged deliveries die silently — no workflow run
 		}
 		const body = this.getBodyData() as Record<string, unknown>;
@@ -169,7 +166,7 @@ export class DocketryTrigger implements INodeType {
 				[
 					{
 						json: {
-							deliveryId: headers["x-docketry-delivery"] ?? str(body, "id"),
+							deliveryId: deliveryHeader(headers, "x-tallyline-delivery") ?? str(body, "id"),
 							action,
 							...body,
 						},
