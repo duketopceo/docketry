@@ -271,6 +271,27 @@ export const extraPaths: Record<string, PathItem> = {
       responses: { "200": { description: "App manifest JSON" } },
     },
   },
+  "/github/manifest/callback/{state}": {
+    get: {
+      summary:
+        "Public redirect target of the GitHub App manifest flow (the manifest's redirect_url). Exchanges ?code for the new App's credentials and shows them once; nothing is stored. Send Accept: application/json for JSON.",
+      parameters: [
+        {
+          name: "state",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Signed, 10-minute workspace-bound token from the manifest",
+        },
+        { name: "code", in: "query", required: true, schema: { type: "string" } },
+      ],
+      responses: {
+        "200": { description: "Credentials page (HTML) or JSON; Cache-Control: no-store" },
+        "400": { description: "Invalid/expired state or code" },
+        "502": { description: "GitHub rejected the conversion" },
+      },
+    },
+  },
   "/v1/workspaces/{ws}/github/install-url": {
     get: {
       summary: "URL to install the configured GitHub App",

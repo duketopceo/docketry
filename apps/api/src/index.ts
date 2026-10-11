@@ -16,7 +16,7 @@ import { authRoutes, requireSession } from "./routes/auth.js";
 import { assistRoutes } from "./routes/assist.js";
 import { dispatchRoutes } from "./routes/dispatches.js";
 import { eventRoutes } from "./routes/events.js";
-import { githubRoutes } from "./routes/github.js";
+import { githubPublicRoutes, githubRoutes } from "./routes/github.js";
 import { importRoutes } from "./routes/import.js";
 import { inviteAcceptRoutes, inviteRoutes } from "./routes/invites.js";
 import { issueRoutes } from "./routes/issues.js";
@@ -52,6 +52,7 @@ export const app = new Hono()
   .get("/openapi.json", (c) => c.json(openApiDoc))
   .route("/webhooks", webhookRoutes)
   .route("/webhooks", slackRoutes)
+  .route("/github", githubPublicRoutes)
   .route("/v1/auth", authRoutes)
   .route("/v1/auth", oauthRoutes)
   .route("/v1/auth", inviteAcceptRoutes)

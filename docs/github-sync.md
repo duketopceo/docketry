@@ -9,7 +9,19 @@ import time).
 
 The sync runs on the same GitHub App as the rest of the integration —
 create it with the manifest flow (`GET /v1/workspaces/:ws/github/manifest`)
-or by hand.
+or by hand. The manifest's `redirect_url` is
+`${API_BASE_URL}/github/manifest/callback/<signed state>`: after you approve
+the App on GitHub, that public route exchanges the one-time `code` for the
+App's credentials and shows them **once** (nothing is stored). Copy them into
+the env vars below, restart the API, then install the App.
+
+Binding an installation (`GET /v1/workspaces/:ws/github/setup?installation_id=`)
+first asks GitHub (`GET /app/installations/{id}`, App JWT) whether the
+installation belongs to this App: unknown id is `404`, an installation already
+bound to another workspace is `409`, App credentials missing is `503`.
+Webhook deliveries route by installation: the installation selects the
+workspace, and the repo is looked up inside it. A delivery for an unbound
+installation is dropped and logged.
 
 App permissions: `issues: write`, `pull_requests: read`,
 `contents: read`, `metadata: read`. Events: `issues`, `issue_comment`,

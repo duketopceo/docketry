@@ -11,8 +11,18 @@ import {
 } from "../db/schema.js";
 import { config_ } from "../env.js";
 import { HttpError } from "../lib/errors.js";
-import { requireWorkspace } from "./workspaces.js";
 import { clock } from "../services/clock.js";
+import {
+  convertManifestCode,
+  fetchAppInstallation,
+  githubAppConfigured,
+  type ManifestConversion,
+} from "../services/github-sync.js";
+import {
+  signManifestState,
+  verifyManifestState,
+} from "../services/github-manifest.js";
+import { requireWorkspace } from "./workspaces.js";
 
 const repoBodySchema = z.object({
   fullName: z
@@ -28,7 +38,7 @@ export const githubRoutes = new Hono()
   // manifest flow: self-hosters POST this to github.com/apps/new to create
   // their own GitHub App with the right permissions/URLs preconfigured
   .get("/workspaces/:ws/github/manifest", async (c) => {
-    await requireWorkspace(c);
+    const ws = await requireWorkspace(c);
     const base = config_.apiBaseUrl;
     return c.json({
       name: "tallyline",
@@ -37,7 +47,9 @@ export const githubRoutes = new Hono()
         url: `${base}/webhooks/github`,
         active: true,
       },
-      redirect_url: `${base}/v1/github/setup`,
+      // real public route (GET /github/manifest/callback/:state) — the
+      // signed state binds the flow to this workspace; GitHub appends ?code=
+      redirect_url: `${base}/github/manifest/callback/${signManifestState(ws.id)}`,
       public: false,
       default_permissions: {
         issues: "write",
@@ -74,15 +86,52 @@ export const githubRoutes = new Hono()
     if (!Number.isSafeInteger(installationId) || installationId <= 0) {
       throw new HttpError(400, "MALFORMED_SETUP", "missing installation_id");
     }
-    const accountLogin = c.req.query("account_login") ?? "unknown";
+    // anyone can put any installation_id in this URL — prove the installation
+    // belongs to THIS GitHub App before binding it (PLAN-006)
+    if (!githubAppConfigured()) {
+      throw new HttpError(
+        503,
+        "GITHUB_APP_NOT_CONFIGURED",
+        "GITHUB_APP_ID / GITHUB_APP_PRIVATE_KEY not set — cannot verify the installation",
+      );
+    }
+    let verified: { id: number; accountLogin: string } | null;
+    try {
+      verified = await fetchAppInstallation(installationId);
+    } catch (err) {
+      console.error("github setup: installation lookup failed", err);
+      throw new HttpError(502, "GITHUB_ERROR", "could not verify installation with GitHub");
+    }
+    if (!verified) {
+      throw new HttpError(
+        404,
+        "NOT_FOUND",
+        `installation ${installationId} does not belong to this GitHub App`,
+      );
+    }
+    const accountLogin = verified.accountLogin;
 
+    // first writer wins; another workspace cannot take over a bound installation
     await db
       .insert(githubInstallations)
       .values({ workspaceId: ws.id, installationId, accountLogin })
-      .onConflictDoUpdate({
-        target: githubInstallations.installationId,
-        set: { workspaceId: ws.id, accountLogin },
-      });
+      .onConflictDoNothing({ target: githubInstallations.installationId });
+    const [bound] = await db
+      .select()
+      .from(githubInstallations)
+      .where(eq(githubInstallations.installationId, installationId))
+      .limit(1);
+    if (!bound || bound.workspaceId !== ws.id) {
+      throw new HttpError(
+        409,
+        "INSTALLATION_BOUND",
+        `installation ${installationId} is already bound to another workspace`,
+      );
+    }
+    await db
+      .update(githubInstallations)
+      .set({ accountLogin })
+      .where(eq(githubInstallations.id, bound.id));
 
     // backfill repos captured in the delivery log before binding
     const deliveries = await db
@@ -180,3 +229,72 @@ export const githubRoutes = new Hono()
       return c.json(row);
     },
   );
+
+const esc = (v: string) =>
+  v.replace(/[&<>"']/g, (ch) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!,
+  );
+
+function credentialsPage(app: ManifestConversion): string {
+  const row = (label: string, value: string) =>
+    `<h3>${esc(label)}</h3><pre>${esc(value)}</pre>`;
+  const env = [
+    `GITHUB_APP_ID=${app.id}`,
+    `GITHUB_APP_SLUG=${app.slug}`,
+    `GITHUB_WEBHOOK_SECRET=${app.webhookSecret}`,
+    `GITHUB_APP_PRIVATE_KEY="${app.pem.trim().replace(/\n/g, "\\n")}"`,
+  ].join("\n");
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GitHub App created</title>
+<style>body{font:15px/1.5 system-ui,sans-serif;max-width:46rem;margin:2rem auto;padding:0 1rem}pre{background:#f4f4f5;padding:.75rem;overflow:auto;white-space:pre-wrap;word-break:break-all}.warn{border-left:4px solid #b45309;padding:.25rem .75rem;background:#fffbeb}</style>
+</head><body>
+<h1>GitHub App &ldquo;${esc(app.name)}&rdquo; created</h1>
+<p class="warn"><strong>Copy these now.</strong> Tallyline stores none of them and this page cannot be shown again. Put them in your API environment, restart the API, then install the App.</p>
+${row("Environment", env)}
+${row("App ID", String(app.id))}
+${row("Webhook secret", app.webhookSecret)}
+${row("Client ID", app.clientId)}
+${row("Client secret", app.clientSecret)}
+${row("Private key (PEM)", app.pem)}
+<p><a href="${esc(app.htmlUrl)}" rel="noreferrer">Open the App on GitHub</a></p>
+</body></html>`;
+}
+
+// Public (no session) — GitHub redirects the operator's browser here after
+// they approve the manifest. The signed `state` path segment authorises it;
+// the single-use `code` is exchanged for the App credentials, which are
+// shown once and never stored.
+export const githubPublicRoutes = new Hono().get(
+  "/manifest/callback/:state",
+  async (c) => {
+    const wantsJson = (c.req.header("accept") ?? "").includes("application/json");
+    const fail = (status: 400 | 502, code: string, message: string) =>
+      wantsJson
+        ? c.json({ error: { code, message } }, status)
+        : c.html(
+            `<!doctype html><title>GitHub App setup failed</title><p>${esc(message)}</p>`,
+            status,
+          );
+
+    if (!verifyManifestState(c.req.param("state"))) {
+      return fail(400, "INVALID_STATE", "setup link is invalid or expired — start again from Settings");
+    }
+    const code = c.req.query("code");
+    if (!code) return fail(400, "MALFORMED_CALLBACK", "missing code");
+
+    let app: ManifestConversion | null;
+    try {
+      app = await convertManifestCode(code);
+    } catch (err) {
+      console.error("github manifest: conversion failed", err);
+      return fail(502, "GITHUB_ERROR", "GitHub did not accept the manifest code");
+    }
+    if (!app) return fail(400, "INVALID_CODE", "manifest code is invalid, expired or already used");
+
+    c.header("cache-control", "no-store");
+    c.header("referrer-policy", "no-referrer");
+    c.header("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'");
+    return wantsJson ? c.json(app) : c.html(credentialsPage(app));
+  },
+);

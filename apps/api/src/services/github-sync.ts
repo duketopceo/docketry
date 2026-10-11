@@ -115,6 +115,76 @@ async function installationToken(installationId: number): Promise<string> {
   return body.token;
 }
 
+export const githubAppConfigured = (): boolean =>
+  appId !== "" && appPrivateKey !== "";
+
+// GET /app/installations/{id} with the App JWT — proves the installation
+// belongs to THIS GitHub App. null = GitHub says it does not (404).
+export async function fetchAppInstallation(
+  installationId: number,
+): Promise<{ id: number; accountLogin: string } | null> {
+  const res = await ghFetcher(`${GH_API}/app/installations/${installationId}`, {
+    method: "GET",
+    headers: {
+      authorization: `Bearer ${appJwt()}`,
+      accept: "application/vnd.github+json",
+      "x-github-api-version": "2022-11-28",
+    },
+    signal: AbortSignal.timeout(8000),
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`installation lookup returned ${res.status}`);
+  }
+  const body = (await res.json()) as {
+    id: number;
+    account?: { login?: string } | null;
+  };
+  return { id: body.id, accountLogin: body.account?.login ?? "unknown" };
+}
+
+export interface ManifestConversion {
+  id: number;
+  slug: string;
+  name: string;
+  clientId: string;
+  clientSecret: string;
+  webhookSecret: string;
+  pem: string;
+  htmlUrl: string;
+}
+
+// POST /app-manifests/{code}/conversions — unauthenticated, code is single
+// use. Returns the new App's credentials; callers must not persist them.
+export async function convertManifestCode(
+  code: string,
+): Promise<ManifestConversion | null> {
+  const res = await ghFetcher(
+    `${GH_API}/app-manifests/${encodeURIComponent(code)}/conversions`,
+    {
+      method: "POST",
+      headers: {
+        accept: "application/vnd.github+json",
+        "x-github-api-version": "2022-11-28",
+      },
+      signal: AbortSignal.timeout(8000),
+    },
+  );
+  if (res.status === 404 || res.status === 422) return null;
+  if (!res.ok) throw new Error(`manifest conversion returned ${res.status}`);
+  const b = (await res.json()) as Record<string, unknown>;
+  return {
+    id: Number(b.id),
+    slug: String(b.slug ?? ""),
+    name: String(b.name ?? ""),
+    clientId: String(b.client_id ?? ""),
+    clientSecret: String(b.client_secret ?? ""),
+    webhookSecret: String(b.webhook_secret ?? ""),
+    pem: String(b.pem ?? ""),
+    htmlUrl: String(b.html_url ?? ""),
+  };
+}
+
 const syncEnabled = () => appId !== "" && appPrivateKey !== "";
 
 interface GhRepoAuth {

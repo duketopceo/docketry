@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, or } from "drizzle-orm";
 import {
   findPath,
   type IssueState,
@@ -28,6 +28,7 @@ const SYSTEM: Actor = { type: "system", id: null };
 const KEY_PREFIX = /^([A-Z][A-Z0-9]*-\d+)/;
 
 interface GhRepoRef {
+  id?: number;
   full_name: string;
 }
 
@@ -56,16 +57,66 @@ interface GhPullRequest {
 
 type Payload = Record<string, unknown>;
 
-// find the enabled repo link for a delivery; null → repo not tracked
+// find the enabled repo link for a delivery; null → not tracked / dropped.
+// Scoped by the delivery's installation (PLAN-007): the installation is bound
+// to exactly one workspace, and the repo is looked up inside that workspace by
+// repo id (falling back to full name for manually-connected rows). A delivery
+// for an unbound installation is dropped and logged — it must never route to
+// another tenant's row of the same repo name.
 async function repoFor(payload: Payload) {
   const repo = payload.repository as GhRepoRef | undefined;
   if (!repo?.full_name) return null;
-  const [row] = await db
+  const installationId = (payload.installation as { id?: number } | undefined)
+    ?.id;
+
+  if (installationId) {
+    const [inst] = await db
+      .select()
+      .from(githubInstallations)
+      .where(eq(githubInstallations.installationId, installationId))
+      .limit(1);
+    if (!inst) {
+      console.warn(
+        `github webhook: installation ${installationId} is not bound to a workspace — dropped ${repo.full_name}`,
+      );
+      return null;
+    }
+    const candidates = await db
+      .select()
+      .from(githubRepos)
+      .where(
+        and(
+          eq(githubRepos.workspaceId, inst.workspaceId),
+          repo.id !== undefined
+            ? or(
+                eq(githubRepos.repoId, repo.id),
+                eq(githubRepos.fullName, repo.full_name),
+              )
+            : eq(githubRepos.fullName, repo.full_name),
+        ),
+      );
+    const row =
+      candidates.find((r) => repo.id !== undefined && r.repoId === repo.id) ??
+      candidates.find((r) => r.fullName === repo.full_name);
+    return row?.enabled ? row : null;
+  }
+
+  // no installation on the payload (manually-connected / legacy delivery):
+  // only unambiguous full-name matches route; two workspaces claiming the same
+  // repo without an installation to tell them apart is dropped, not guessed.
+  const rows = await db
     .select()
     .from(githubRepos)
-    .where(eq(githubRepos.fullName, repo.full_name))
-    .limit(1);
-  return row?.enabled ? row : null;
+    .where(
+      and(eq(githubRepos.fullName, repo.full_name), eq(githubRepos.enabled, true)),
+    );
+  if (rows.length > 1) {
+    console.warn(
+      `github webhook: ${repo.full_name} is enabled in ${rows.length} workspaces and the delivery has no installation — dropped`,
+    );
+    return null;
+  }
+  return rows[0] ?? null;
 }
 
 // issue key from a branch name like `GH-4-fix-the-thing`

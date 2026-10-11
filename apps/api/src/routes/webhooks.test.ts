@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { app } from "../index.js";
 import { closeDb, db } from "../db/client.js";
 import { runMigrations } from "../db/migrate.js";
+import { mockGithub, resetGithubSync } from "../../test/github.js";
 import {
   agentKeys,
   agents,
@@ -223,6 +224,11 @@ describe("github webhook receiver", () => {
 });
 
 describe("installation binding + repo connect", () => {
+  beforeAll(() => {
+    mockGithub({ installations: { 777: "duketopceo" } });
+  });
+  afterAll(() => resetGithubSync());
+
   it("receives installation.created before binding", async () => {
     const body = installationPayload(777);
     const res = await webhook(body, {
