@@ -456,6 +456,7 @@ export async function seedEntities(t: Tenant): Promise<Entities> {
   await mkIssueLabel(issue.id, label.id);
   const endpoint = await mkEndpoint(t);
   const dispatch = await mkDispatch(t, issue.id);
+  await newSession(t, "owner"); // sessions row
   return {
     issue,
     triageIssue,
