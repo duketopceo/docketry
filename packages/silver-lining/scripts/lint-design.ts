@@ -1,14 +1,16 @@
 // pnpm lint:design - token-only styling gate (docs/design/silver-lining.md section 13).
-//   1. stylelint over apps/web CSS (raw colours, off-scale font-size)
+//   1. postcss scan of apps/web CSS (raw colours, off-scale font-size). Stylelint was
+//      dropped: it pulls braces@3.0.3 (GHSA-vfj7-8cjw-p6xm, no patched release), which
+//      fails the dependency-review gate.
 //   2. ESLint rules silver-lining/no-raw-color + no-offscale-font over apps/web component code
 // ESLint violations are counted per file against apps/web/lint-design-allowlist.json.
 // The allowlist is a ratchet: a file may never exceed its count, and when a file
 // drops below it the allowlist must be lowered in the same change.
-import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
+import postcss from "postcss";
 
 const here = (p: string) => fileURLToPath(new URL(`../${p}`, import.meta.url));
 const repoRoot = resolve(here("."), "../..");
@@ -26,13 +28,40 @@ interface Allowlist {
 
 let failed = false;
 
-// 1. stylelint
-const style = spawnSync("pnpm", ["exec", "stylelint", "apps/web/**/*.css", "--allow-empty-input"], {
-  cwd: repoRoot,
-  stdio: "inherit",
-});
-console.log(`stylelint exit code: ${style.status}`);
-if (style.status !== 0) failed = true;
+// 1. CSS: raw colours and off-scale font-size (postcss; zero tolerance, no allowlist)
+const FONT_SCALE = [11, 12, 13, 14, 15, 17, 24];
+const cssFiles: string[] = [];
+const walk = (dir: string) => {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    if (e.name === "node_modules" || e.name === ".next") continue;
+    const full = resolve(dir, e.name);
+    if (e.isDirectory()) walk(full);
+    else if (e.name.endsWith(".css")) cssFiles.push(full);
+  }
+};
+walk(resolve(repoRoot, "apps/web"));
+let cssViolations = 0;
+for (const file of cssFiles) {
+  const root = postcss.parse(readFileSync(file, "utf8"), { from: file });
+  root.walkDecls((decl) => {
+    const value = decl.value.replace(/url\([^)]*\)/g, "");
+    const rel = relative(repoRoot, file);
+    const report = (msg: string) => {
+      cssViolations++;
+      console.error(`${rel}:${decl.source?.start?.line ?? 0}  ${msg} (${decl.prop}: ${decl.value})`);
+    };
+    if (/#[0-9a-fA-F]{3,8}\b/.test(value) || /\b(?:rgba?|hsla?)\(/.test(value)) {
+      report("raw colour: use a Silver Lining token (var(--sl-*))");
+    }
+    if (decl.prop === "font-size") {
+      const m = /^(\d+(?:\.\d+)?)px$/.exec(value.trim());
+      if (m && !FONT_SCALE.includes(Number(m[1]))) report("font-size off the type scale");
+      else if (/^[\d.]+(rem|em|pt)$/.test(value.trim())) report("font-size must be a scale px or var()");
+    }
+  });
+}
+console.log(`css lint: ${cssFiles.length} files, ${cssViolations} violations`);
+if (cssViolations > 0) failed = true;
 
 // 2. ESLint design rules
 const eslint = new ESLint({
