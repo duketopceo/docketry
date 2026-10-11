@@ -10,7 +10,6 @@ import {
   type ListIssue,
 } from "@/components/issue-list-client";
 import { api } from "@/lib/api";
-import { getActorDirectory } from "@/lib/actors";
 import { TallyMark } from "@/components/tally-mark";
 
 interface Me {
@@ -100,7 +99,6 @@ export default async function CyclePage({
       )
     : null;
   const rows = issuesRes?.data?.issues ?? [];
-  const actors = await getActorDirectory(slug);
 
   const groups: IssueGroup[] = STATE_ORDER.map((state) => ({
     key: state,
@@ -136,7 +134,7 @@ export default async function CyclePage({
               {fmt(selected.startsAt)} → {fmt(selected.endsAt)}
             </span>
             {selected.isActive && (
-              <span className="rounded-full bg-healthy/15 px-2 py-0.5 font-mono text-[10px] text-healthy">
+              <span className="rounded-full bg-healthy/15 px-2 py-0.5 font-mono text-[11px] text-healthy">
                 active
               </span>
             )}
@@ -146,7 +144,7 @@ export default async function CyclePage({
           </>
         )}
         {active.length > 1 && !cycleParam && (
-          <span className="ml-auto font-mono text-[10px] text-ink-tertiary">
+          <span className="ml-auto font-mono text-[11px] text-ink-tertiary">
             also active:{" "}
             {active
               .slice(1)
@@ -171,7 +169,7 @@ export default async function CyclePage({
           No issues in this cycle — assign from an issue&apos;s detail page.
         </p>
       ) : (
-        <IssueListClient groups={groups} actors={actors} />
+        <IssueListClient issues={groups.flatMap((g) => g.issues)} groups={groups} />
       )}
 
       <CycleManager
