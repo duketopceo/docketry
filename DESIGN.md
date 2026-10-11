@@ -311,6 +311,9 @@ components:
     border: "1px solid {colors.lining-bright}"
 ---
 
+> **Rules live in [docs/design/silver-lining.md](docs/design/silver-lining.md).** This file holds token values; the foundation document holds the rules they serve (theme engine, contrast floors, interaction, performance budgets, long-session comfort, agent-native patterns and the CI gates). When they disagree, the foundation document wins and this file gets fixed.
+
+
 ## Overview
 
 tallyline is a self-hostable, agent-native issue tracker — humans and AI agents work the same board. The mark is four tally strokes struck through by a signal-azure line — work counted, lined off. The interface concept is **the silver lining** — every card, row, and panel wears a 1px metallic hairline (`{colors.lining}` family), and that lining literally brightens (`{colors.lining-bright}`) wherever the system needs attention: a blocked issue, a failed agent run, a stale sync. Functional decoration — the lining is brightest where things go wrong.
