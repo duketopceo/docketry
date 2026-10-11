@@ -53,9 +53,10 @@ test(": opens command mode — :comment executes a real mutation", async ({
   const key = (await row.textContent())?.match(/[A-Z0-9]+-\d+/)?.[0];
   expect(key).toBeTruthy();
 
-  // `:` opens the palette straight into command mode. Wait for hydration so
-  // the key handler exists (a cold dev server compiles /triage lazily).
-  await page.waitForSelector("[data-qc-ready]", { timeout: 15_000 });
+  // `:` opens the palette straight into command mode. A keypress before the
+  // palette's document listener is attached is silently dropped (the cold
+  // dev server hydrates /triage late), so wait for the palette's own signal.
+  await page.waitForSelector("[data-palette-ready]", { timeout: 15_000 });
   await page.keyboard.press(":");
   const palette = page.getByPlaceholder(
     "Search issues, jump to a view, or run an action…",

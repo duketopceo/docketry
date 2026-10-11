@@ -43,7 +43,13 @@ export function CommandPalette({ workspace }: CommandPaletteProps) {
       }
     }
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    // e2e hydration signal tied to THIS listener (not a sibling's): a `:` or
+    // ctrl+k pressed before it exists is silently lost
+    document.documentElement.dataset.paletteReady = "1";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      delete document.documentElement.dataset.paletteReady;
+    };
   }, []);
 
   useEffect(() => {
