@@ -17,7 +17,7 @@ beforeAll(async () => {
   await runMigrations();
   const [ws] = await db
     .insert(workspaces)
-    .values({ slug: `test-${Date.now()}`, name: "Test WS" })
+    .values({ slug: "test", name: "Test WS" })
     .returning();
   workspaceId = ws!.id;
   const [team] = await db

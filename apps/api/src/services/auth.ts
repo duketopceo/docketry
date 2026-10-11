@@ -7,6 +7,7 @@ import {
 import { and, eq, gt } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { sessions, users, workspaces } from "../db/schema.js";
+import { clock } from "./clock.js";
 
 export const SESSION_COOKIE = "dok_session";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -35,7 +36,7 @@ export async function createSession(userId: string, workspaceId: string) {
     userId,
     workspaceId,
     tokenHash,
-    expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+    expiresAt: new Date(clock.ms() + SESSION_TTL_MS),
   });
   return token;
 }
@@ -57,7 +58,7 @@ export async function sessionFromToken(token: string) {
     .where(
       and(
         eq(sessions.tokenHash, tokenHash),
-        gt(sessions.expiresAt, new Date()),
+        gt(sessions.expiresAt, clock.now()),
       ),
     );
   return row ?? null;

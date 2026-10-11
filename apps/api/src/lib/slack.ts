@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { config_ } from "../env.js";
 import type { FetchLike } from "../services/llm.js";
+import { clock } from "../services/clock.js";
 
 export type { FetchLike } from "../services/llm.js";
 
@@ -17,7 +18,7 @@ export function verifySlackSignature(
   if (!timestamp || !signature?.startsWith("v0=")) return false;
   const ts = Number(timestamp);
   if (!Number.isFinite(ts)) return false;
-  if (Math.abs(Date.now() / 1000 - ts) > MAX_SKEW_S) return false;
+  if (Math.abs(clock.ms() / 1000 - ts) > MAX_SKEW_S) return false;
   const expected =
     "v0=" +
     createHmac("sha256", secret)

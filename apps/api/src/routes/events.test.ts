@@ -24,7 +24,7 @@ import {
   workspaces,
 } from "../db/schema.js";
 
-const SLUG = `events-test-${Date.now()}`;
+const SLUG = "events-test";
 const SLUG2 = `${SLUG}-other`;
 
 interface TestBody {

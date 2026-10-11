@@ -9,6 +9,7 @@ import {
   teams,
 } from "../db/schema.js";
 import { HttpError } from "../lib/errors.js";
+import { clock } from "./clock.js";
 
 export interface CycleCompletion {
   cycle: typeof cycles.$inferSelect;
@@ -105,14 +106,14 @@ export async function completeCycle(
       if (destination === "next_cycle") {
         await tx
           .update(issues)
-          .set({ cycleId: next!.id, updatedAt: new Date() })
+          .set({ cycleId: next!.id, updatedAt: clock.now() })
           .where(inArray(issues.id, ids));
       } else {
         await tx
           .update(issues)
           .set({
             cycleId: null,
-            updatedAt: new Date(),
+            updatedAt: clock.now(),
             // "backlog" rollover literally returns work to the backlog;
             // "unscheduled" just drops the cycle pointer
             ...(destination === "backlog"
@@ -194,7 +195,7 @@ export async function completeCycle(
 
 // Sweeper: completes active cycles whose window has closed. Runs on the API
 // interval alongside the webhook sweeper — idempotent by completeCycle.
-export async function sweepExpiredCycles(now = new Date()): Promise<number> {
+export async function sweepExpiredCycles(now = clock.now()): Promise<number> {
   const expired = await db
     .select({ id: cycles.id, workspaceId: cycles.workspaceId })
     .from(cycles)

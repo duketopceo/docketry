@@ -11,6 +11,7 @@ import {
 } from "../db/schema.js";
 import { config_ } from "../env.js";
 import { queueDeliveries } from "./outbound.js";
+import { clock } from "./clock.js";
 
 // ── Bidirectional GitHub issue sync — outbound half (#60) ─────────
 //
@@ -73,7 +74,7 @@ function base64url(input: string | Buffer): string {
 
 // App JWT — RS256, <=10min lifetime, iss = app id (docs.github.com/apps)
 function appJwt(): string {
-  const now = Math.floor(Date.now() / 1000);
+  const now = Math.floor(clock.ms() / 1000);
   const unsigned = `${base64url(
     JSON.stringify({ alg: "RS256", typ: "JWT" }),
   )}.${base64url(
@@ -88,7 +89,7 @@ function appJwt(): string {
 
 async function installationToken(installationId: number): Promise<string> {
   const cached = tokenCache.get(installationId);
-  if (cached && cached.expiresAt - TOKEN_REFRESH_BUFFER_MS > Date.now()) {
+  if (cached && cached.expiresAt - TOKEN_REFRESH_BUFFER_MS > clock.ms()) {
     return cached.token;
   }
   const res = await ghFetcher(

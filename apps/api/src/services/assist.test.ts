@@ -31,7 +31,7 @@ import {
 import { createAssist } from "./assist.js";
 import { requireLLM } from "./llm.js";
 
-const SLUG = `ast-${Date.now()}`;
+const SLUG = "ast";
 let cookie = "";
 let issueKey = "";
 

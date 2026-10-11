@@ -33,6 +33,9 @@ import {
 import { verifySlackSignature } from "../lib/slack.js";
 import { createSlack } from "./slack.js";
 import type { FetchLike } from "./llm.js";
+import { NOW, useFrozenClock } from "../../test/clock.js";
+
+useFrozenClock();
 
 const SLUG = "slack-test";
 const SECRET = "test-slack-secret";
@@ -90,7 +93,7 @@ const fakeSlack: FetchLike = async (url, init) => {
 };
 
 function slackReq(body: string, contentType: string) {
-  const ts = `${Math.floor(Date.now() / 1000)}`;
+  const ts = `${Math.floor(NOW / 1000)}`;
   const sig =
     "v0=" +
     createHmac("sha256", SECRET)
@@ -140,7 +143,7 @@ afterAll(async () => {
 describe("verifySlackSignature", () => {
   it("accepts a fresh valid signature, rejects stale/tampered", () => {
     const body = "type=event_callback";
-    const ts = `${Math.floor(Date.now() / 1000)}`;
+    const ts = `${Math.floor(NOW / 1000)}`;
     const good =
       "v0=" +
       createHmac("sha256", SECRET).update(`v0:${ts}:${body}`).digest("hex");

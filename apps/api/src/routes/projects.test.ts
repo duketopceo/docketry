@@ -28,8 +28,11 @@ import {
   workspaceMembers,
   workspaces,
 } from "../db/schema.js";
+import { NOW, useFrozenClock } from "../../test/clock.js";
 
-const SLUG = `projects-test-${Date.now()}`;
+useFrozenClock();
+
+const SLUG = "projects-test";
 
 interface TestBody {
   error?: { code: string; message: string };
@@ -80,7 +83,7 @@ async function req(
 }
 
 const day = 86_400_000;
-const iso = (offsetMs: number) => new Date(Date.now() + offsetMs).toISOString();
+const iso = (offsetMs: number) => new Date(NOW + offsetMs).toISOString();
 
 async function createProject(
   over: Record<string, unknown> = {},

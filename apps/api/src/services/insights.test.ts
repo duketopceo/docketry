@@ -28,8 +28,11 @@ import {
   webhookEndpoints,
   workspaces,
 } from "../db/schema.js";
+import { NOW, useFrozenClock } from "../../test/clock.js";
 
-const SLUG = `ins-${Date.now()}`;
+useFrozenClock();
+
+const SLUG = "ins";
 let cookie = "";
 let agentToken = "";
 
@@ -169,8 +172,8 @@ describe("GET /v1/:ws/insights", () => {
       method: "POST",
       body: JSON.stringify({
         teamKey: "IN",
-        startsAt: new Date(Date.now() - 14 * 86_400_000).toISOString(),
-        endsAt: new Date(Date.now() - 86_400_000).toISOString(),
+        startsAt: new Date(NOW - 14 * 86_400_000).toISOString(),
+        endsAt: new Date(NOW - 86_400_000).toISOString(),
         isActive: true,
       }),
     });

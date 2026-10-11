@@ -10,6 +10,7 @@ import {
   webhookDeliveries,
   webhookEndpoints,
 } from "../db/schema.js";
+import { clock } from "./clock.js";
 
 const MAX_ATTEMPTS = 5;
 const BASE_BACKOFF_MS = 30_000;
@@ -155,7 +156,7 @@ async function dispatchWriteback(
   const lastError = reason ?? row.lastError;
   await db
     .update(dispatches)
-    .set({ status, ...(status === "dispatch_failed" ? { reason: lastError } : {}), updatedAt: new Date() })
+    .set({ status, ...(status === "dispatch_failed" ? { reason: lastError } : {}), updatedAt: clock.now() })
     .where(eq(dispatches.id, dispatch.id));
   const action =
     outcome === "delivered" ? "dispatch_delivered" : "dispatch_failed";
@@ -219,7 +220,7 @@ async function deliver(
       .set({
         status: "delivered",
         attempts: row.attempts + 1,
-        deliveredAt: new Date(),
+        deliveredAt: clock.now(),
       })
       .where(eq(webhookDeliveries.id, row.id));
   } catch (err) {
@@ -232,7 +233,7 @@ async function deliver(
         attempts,
         lastError: err instanceof Error ? err.message : String(err),
         nextAttemptAt: new Date(
-          Date.now() + BASE_BACKOFF_MS * 2 ** (attempts - 1),
+          clock.ms() + BASE_BACKOFF_MS * 2 ** (attempts - 1),
         ),
       })
       .where(eq(webhookDeliveries.id, row.id));
@@ -240,7 +241,7 @@ async function deliver(
 }
 
 // sweeper: retries due pending deliveries — runs on an interval at boot
-export async function sweepDeliveries(now = new Date()): Promise<number> {
+export async function sweepDeliveries(now = clock.now()): Promise<number> {
   const due = await db
     .select()
     .from(webhookDeliveries)

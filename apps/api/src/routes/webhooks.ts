@@ -6,6 +6,7 @@ import { config_ } from "../env.js";
 import { HttpError } from "../lib/errors.js";
 import { verifyGitHubSignature } from "../lib/github.js";
 import { processGithubEvent } from "../services/github-automation.js";
+import { clock } from "../services/clock.js";
 
 export const webhookRoutes = new Hono().post("/github", async (c) => {
   if (!config_.githubWebhookSecret) {
@@ -47,7 +48,7 @@ export const webhookRoutes = new Hono().post("/github", async (c) => {
     if (consumed) {
       await db
         .update(githubWebhookEvents)
-        .set({ processedAt: new Date() })
+        .set({ processedAt: clock.now() })
         .where(eq(githubWebhookEvents.deliveryId, deliveryId));
     }
   } catch (err) {

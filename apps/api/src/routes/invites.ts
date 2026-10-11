@@ -28,6 +28,7 @@ import { requireRole } from "../services/members.js";
 import { userFromToken } from "../services/tokens.js";
 import { setSessionCookie } from "./auth.js";
 import { requireWorkspace } from "./workspaces.js";
+import { clock } from "../services/clock.js";
 
 
 const createSchema = z.object({
@@ -78,7 +79,7 @@ export const inviteRoutes = new Hono()
         role: body.role,
         teamId: body.teamId ?? null,
         createdBy: session.userId,
-        expiresAt: new Date(Date.now() + body.expiresInDays * 86_400_000),
+        expiresAt: new Date(clock.ms() + body.expiresInDays * 86_400_000),
       });
       await emit(ws.id, session.userId, "invite_created", invite!.id);
       return c.json(
@@ -181,7 +182,7 @@ async function acceptForUser(
   // atomic claim — a concurrent accept yields exactly one member row
   const [claimed] = await db
     .update(invites)
-    .set({ acceptedAt: new Date(), acceptedBy: userId })
+    .set({ acceptedAt: clock.now(), acceptedBy: userId })
     .where(and(eq(invites.id, invite.id), isNull(invites.acceptedAt)))
     .returning();
   if (!claimed) {

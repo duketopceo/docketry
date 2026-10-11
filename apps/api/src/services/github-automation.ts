@@ -22,6 +22,7 @@ import {
 } from "./github-sync.js";
 import { createIssue, transitionIssue, type Actor } from "./issues.js";
 import { queueDeliveries } from "./outbound.js";
+import { clock } from "./clock.js";
 
 const SYSTEM: Actor = { type: "system", id: null };
 const KEY_PREFIX = /^([A-Z][A-Z0-9]*-\d+)/;
@@ -337,7 +338,7 @@ async function syncEdited(
   const before = { title: issue.title, description: issue.description };
   await db
     .update(issues)
-    .set({ ...fields, updatedAt: new Date() })
+    .set({ ...fields, updatedAt: clock.now() })
     .where(eq(issues.id, issue.id));
   const after = {
     ...fields,

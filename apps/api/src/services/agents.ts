@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { and, eq, gt, isNull, or } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { agentKeys, agents } from "../db/schema.js";
+import { clock } from "./clock.js";
 
 export interface AgentAuth {
   agentId: string;
@@ -51,7 +52,7 @@ export async function agentFromKey(
         eq(agentKeys.tokenHash, hashKey(key)),
         or(
           isNull(agentKeys.expiresAt),
-          gt(agentKeys.expiresAt, new Date()),
+          gt(agentKeys.expiresAt, clock.now()),
         ),
       ),
     );
@@ -59,7 +60,7 @@ export async function agentFromKey(
   // fire-and-forget usage stamp
   void db
     .update(agentKeys)
-    .set({ lastUsedAt: new Date() })
+    .set({ lastUsedAt: clock.now() })
     .where(eq(agentKeys.id, row.keyId))
     .catch(() => undefined);
   return row;

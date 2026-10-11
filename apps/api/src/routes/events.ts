@@ -9,6 +9,7 @@ import { agents, events, issues, users } from "../db/schema.js";
 import { apiError } from "../lib/errors.js";
 import { decodeCursor, encodeCursor } from "../lib/pagination.js";
 import { requireWorkspace } from "./workspaces.js";
+import { clock } from "../services/clock.js";
 
 // v0.2 realtime: poll-based SSE. `pg_notify`/Redis pub-sub is a later work
 // order — 1s polling already meets the "~1s cross-client" acceptance bar and
@@ -175,7 +176,7 @@ export const eventRoutes = new Hono()
       else reqSignal.addEventListener("abort", stop, { once: true });
       const done = stopper.signal;
 
-      let lastBeat = Date.now();
+      let lastBeat = clock.ms();
       while (!done.aborted) {
         try {
           const rows = await feedEventsQuery(
@@ -193,7 +194,7 @@ export const eventRoutes = new Hono()
         } catch {
           // transient poll failure — keep the stream alive, retry next tick
         }
-        const now = Date.now();
+        const now = clock.ms();
         if (now - lastBeat >= HEARTBEAT_MS) {
           // SSE comment — keeps proxies/NATs from reaping an idle connection
           await stream.write(`: hb\n\n`);

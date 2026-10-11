@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { invites } from "../db/schema.js";
+import { clock } from "../services/clock.js";
 
 // Invite tokens are bearer credentials — only the sha256 is stored (R19).
 // Shared by the U4 JIT rung and U5's mint/revoke/accept routes.
@@ -23,7 +24,7 @@ export async function inviteFromHash(hash: string) {
       and(
         eq(invites.tokenHash, hash),
         isNull(invites.acceptedAt),
-        gt(invites.expiresAt, new Date()),
+        gt(invites.expiresAt, clock.now()),
       ),
     );
   return row ?? null;

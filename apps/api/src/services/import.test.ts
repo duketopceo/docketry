@@ -39,7 +39,7 @@ import {
 } from "../db/schema.js";
 import { importGithubIssues, importLinearCsv } from "./import.js";
 
-const SLUG = `imp-test-${Date.now()}`;
+const SLUG = "imp-test";
 let sessionCookie = "";
 let wsId = "";
 let teamId = "";

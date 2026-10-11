@@ -15,6 +15,7 @@ import {
 import { HttpError } from "../lib/errors.js";
 import { queueDeliveries } from "../services/outbound.js";
 import { requireWorkspace } from "./workspaces.js";
+import { clock } from "../services/clock.js";
 
 const reportSchema = z.object({
   outcome: z.enum(["completed", "failed"]),
@@ -156,7 +157,7 @@ export const dispatchRoutes = new Hono()
         .set({
           status,
           reason: body.reason ?? null,
-          updatedAt: new Date(),
+          updatedAt: clock.now(),
         })
         .where(eq(dispatches.id, dispatch.id));
 

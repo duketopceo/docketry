@@ -2,6 +2,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { invites } from "../db/schema.js";
 import { mintInviteToken } from "../auth/invite-token.js";
+import { clock } from "./clock.js";
 
 // Link invites (R19): opaque bearer token, sha256 at rest, single-use,
 // expiring. The plaintext rides the join URL exactly once at mint.
@@ -23,7 +24,7 @@ export async function createInvite(opts: {
       role: opts.role,
       teamId: opts.teamId ?? null,
       createdBy: opts.createdBy,
-      expiresAt: opts.expiresAt ?? new Date(Date.now() + 7 * 86_400_000),
+      expiresAt: opts.expiresAt ?? new Date(clock.ms() + 7 * 86_400_000),
     })
     .returning();
   return { invite: row!, token };

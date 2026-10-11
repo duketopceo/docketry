@@ -43,9 +43,13 @@ import {
   resetGithubSync,
   setGithubApiFetcher,
 } from "../services/github-sync.js";
+import { settleBackground } from "../services/background.js";
+import { NOW, useFrozenClock } from "../../test/clock.js";
+
+useFrozenClock();
 
 const SECRET = "test-webhook-secret";
-const SLUG = `gs-${Date.now()}`;
+const SLUG = "gs";
 const REPO = { full_name: "duketopceo/docketry" };
 const INSTALLATION_ID = 4242;
 const APP_ID = "99999";
@@ -92,7 +96,7 @@ const mockGhFetcher = async (
   });
   if (url.includes("/access_tokens")) {
     return json(
-      { token: "test-installation-token", expires_at: new Date(Date.now() + 3_600_000).toISOString() },
+      { token: "test-installation-token", expires_at: new Date(NOW + 3_600_000).toISOString() },
       201,
     );
   }
@@ -138,7 +142,6 @@ async function req(path: string, init?: RequestInit) {
   return { status: res.status, body: (await res.json()) as Record<string, unknown> };
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const apiCalls = () => ghCalls.filter((c) => !c.url.includes("access_tokens"));
 const tokenCalls = () => ghCalls.filter((c) => c.url.includes("access_tokens"));
 
@@ -322,7 +325,7 @@ describe("inbound: issues events on linked issues", () => {
     expect(last.via).toBe("github");
 
     // loop prevention: the inbound close must not fire a GH API call
-    await sleep(150);
+    await settleBackground();
     expect(apiCalls()).toHaveLength(0);
   });
 
@@ -334,7 +337,7 @@ describe("inbound: issues events on linked issues", () => {
       sender: { login: "octocat" },
     });
     expect((await getIssue(issue.id)).state).toBe("canceled");
-    await sleep(150);
+    await settleBackground();
     expect(apiCalls()).toHaveLength(0);
   });
 
@@ -491,7 +494,7 @@ describe("inbound: issue_comment events", () => {
     expect(rows[0]!.body).toBe("**@octocat** via GitHub:\n\nlooking into this");
     expect(rows[0]!.via).toBe("github");
     // inbound comments never echo back out
-    await sleep(150);
+    await settleBackground();
     expect(apiCalls()).toHaveLength(0);
   });
 
@@ -593,7 +596,7 @@ describe("outbound: tallyline → github mirror", () => {
       body: JSON.stringify({ state: "backlog" }),
     });
     expect(move.status).toBe(200);
-    await sleep(200);
+    await settleBackground();
     expect(ghCalls).toHaveLength(0);
   });
 
@@ -644,7 +647,7 @@ describe("outbound: tallyline → github mirror", () => {
       { method: "POST", body: JSON.stringify({ body: "internal note" }) },
     );
     expect(res.status).toBe(201);
-    await sleep(200);
+    await settleBackground();
     expect(ghCalls).toHaveLength(0);
   });
 
@@ -692,7 +695,7 @@ describe("outbound: tallyline → github mirror", () => {
       method: "PATCH",
       body: JSON.stringify({ state: "canceled" }),
     });
-    await sleep(200);
+    await settleBackground();
     expect(ghCalls).toHaveLength(0);
   });
 });

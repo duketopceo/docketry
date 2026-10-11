@@ -38,8 +38,11 @@ import {
   workspaces,
 } from "../db/schema.js";
 import { signDelivery, sweepDeliveries, verifyDeliverySignature } from "./outbound.js";
+import { NOW, useFrozenClock } from "../../test/clock.js";
 
-const SLUG = `wh-test-${Date.now()}`;
+useFrozenClock();
+
+const SLUG = "wh-test";
 let sessionCookie = "";
 let listener: Server;
 const hits: { headers: Record<string, string | string[] | undefined>; body: string }[] = [];
@@ -242,7 +245,7 @@ describe("outbound webhooks (#30)", () => {
     expect(d).toBeDefined();
     expect(d!.attempts).toBe(1);
     expect(d!.lastError).toBeTruthy();
-    expect(d!.nextAttemptAt.getTime()).toBeGreaterThan(Date.now());
+    expect(d!.nextAttemptAt.getTime()).toBeGreaterThan(NOW);
 
     // point the endpoint at the live listener and force the sweep
     const port = (listener.address() as { port: number }).port;

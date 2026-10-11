@@ -10,6 +10,8 @@ import { db } from "../db/client.js";
 import { events, issues, teams } from "../db/schema.js";
 import { mirrorIssueState } from "./github-sync.js";
 import { queueDeliveries } from "./outbound.js";
+import { track } from "./background.js";
+import { clock } from "./clock.js";
 
 export interface Actor {
   type: ActorType;
@@ -118,7 +120,7 @@ export async function transitionIssue(
 
     const [updated] = await tx
       .update(issues)
-      .set({ state: to, updatedAt: new Date() })
+      .set({ state: to, updatedAt: clock.now() })
       .where(eq(issues.id, issue.id))
       .returning();
 
@@ -148,10 +150,12 @@ export async function transitionIssue(
   });
   // best-effort GitHub mirror after commit — never blocks, never throws;
   // inbound-originated transitions (via=github) skip inside (#60)
-  void mirrorIssueState({
-    issueId: updated.id,
-    to,
-    via: typeof extra?.via === "string" ? extra.via : undefined,
-  });
+  track(
+    mirrorIssueState({
+      issueId: updated.id,
+      to,
+      via: typeof extra?.via === "string" ? extra.via : undefined,
+    }),
+  );
   return updated;
 }

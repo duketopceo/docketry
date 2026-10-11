@@ -31,6 +31,7 @@ import {
 import { resolveIdentity } from "../services/identity.js";
 import { membershipsFor } from "../services/members.js";
 import { setSessionCookie } from "./auth.js";
+import { clock } from "../services/clock.js";
 
 // auth-scoped limiter (R16a): the global middleware skips /v1/auth/*, so
 // the tight ceilings live inside the routers that serve it
@@ -63,7 +64,7 @@ async function mintCode(opts: {
     userId: opts.userId ?? null,
     workspaceId: opts.workspaceId ?? null,
     context: opts.context,
-    expiresAt: new Date(Date.now() + ttl),
+    expiresAt: new Date(clock.ms() + ttl),
   });
   return code;
 }
@@ -73,7 +74,7 @@ async function mintCode(opts: {
 async function claimCode(codeHash: string) {
   const [row] = await db
     .update(oauthCodes)
-    .set({ usedAt: new Date() })
+    .set({ usedAt: clock.now() })
     .where(
       sql`${oauthCodes.codeHash} = ${codeHash}
           AND ${oauthCodes.usedAt} IS NULL
@@ -219,7 +220,7 @@ export const oauthRoutes = new Hono()
         .select()
         .from(oauthCodes)
         .where(eq(oauthCodes.codeHash, codeHash));
-      if (!row || row.usedAt || row.expiresAt < new Date()) {
+      if (!row || row.usedAt || row.expiresAt < clock.now()) {
         return apiError(c, 410, "CODE_GONE", "code expired or already used");
       }
       const ctx = (row.context ?? {}) as Record<string, unknown>;
@@ -357,7 +358,7 @@ export const oauthRoutes = new Hono()
         .select()
         .from(oauthCodes)
         .where(eq(oauthCodes.codeHash, codeHash));
-      if (!row || row.purpose !== "pending-link" || row.usedAt || row.expiresAt < new Date()) {
+      if (!row || row.purpose !== "pending-link" || row.usedAt || row.expiresAt < clock.now()) {
         return apiError(c, 410, "CODE_GONE", "code expired or already used");
       }
       const ctx = (row.context ?? {}) as Record<string, unknown>;

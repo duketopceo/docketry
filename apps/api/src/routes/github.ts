@@ -12,6 +12,7 @@ import {
 import { config_ } from "../env.js";
 import { HttpError } from "../lib/errors.js";
 import { requireWorkspace } from "./workspaces.js";
+import { clock } from "../services/clock.js";
 
 const repoBodySchema = z.object({
   fullName: z
@@ -114,7 +115,7 @@ export const githubRoutes = new Hono()
       }
       await db
         .update(githubWebhookEvents)
-        .set({ processedAt: new Date() })
+        .set({ processedAt: clock.now() })
         .where(eq(githubWebhookEvents.id, d.id));
     }
 

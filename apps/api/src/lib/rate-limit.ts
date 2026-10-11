@@ -3,6 +3,7 @@ import type { Context, Next } from "hono";
 import { getCookie } from "hono/cookie";
 import { config_ } from "../env.js";
 import { apiError } from "./errors.js";
+import { clock } from "../services/clock.js";
 
 export interface Bucket {
   count: number;
@@ -108,7 +109,7 @@ export function createRateLimiter(
   const prefix = opts.prefix ?? "id";
   const mw = async (c: Context, next: Next) => {
     if (limitPerMin <= 0) return next();
-    const now = Date.now();
+    const now = clock.ms();
     const bucket = await store.hit(`${prefix}:${identityKey(c)}`, WINDOW_MS, now);
     setHeaders(c, limitPerMin, bucket, now);
     if (bucket.count > limitPerMin) return limited(c, bucket, now);
@@ -142,7 +143,7 @@ export function createAnonymousLimiter(
   const mw = async (c: Context, next: Next) => {
     if (limitPerMin <= 0 || opts.skip?.(c.req.path)) return next();
     const key = `${prefix}:${clientIp(c)}`;
-    const now = Date.now();
+    const now = clock.ms();
     if (!hasCredential(c, sessionCookie)) {
       const bucket = await store.hit(key, WINDOW_MS, now);
       setHeaders(c, limitPerMin, bucket, now);
@@ -153,7 +154,7 @@ export function createAnonymousLimiter(
     const live = await store.peek(key, now);
     if (live && live.count > limitPerMin) return limited(c, live, now);
     await next();
-    if (c.res.status === 401) await store.hit(key, WINDOW_MS, Date.now());
+    if (c.res.status === 401) await store.hit(key, WINDOW_MS, clock.ms());
   };
   mw.store = store;
   return mw;

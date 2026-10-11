@@ -10,6 +10,7 @@ import { createAgentKey } from "../services/agents.js";
 import { requireRole } from "../services/members.js";
 import { isCookieSession } from "./auth.js";
 import { requireWorkspace } from "./workspaces.js";
+import { clock } from "../services/clock.js";
 
 const AGENT_SCOPES = ["read", "write"] as const;
 
@@ -107,7 +108,7 @@ export const agentRoutes = new Hono()
         body.name,
         body.scopes,
         body.expiresInDays
-          ? new Date(Date.now() + body.expiresInDays * 86_400_000)
+          ? new Date(clock.ms() + body.expiresInDays * 86_400_000)
           : undefined,
       );
       // plaintext shown once — only the hash is stored

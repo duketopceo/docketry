@@ -16,6 +16,7 @@ import { apiError, HttpError } from "../lib/errors.js";
 import { completeCycle } from "../services/cycles.js";
 import { computeInsights } from "../services/insights.js";
 import { requireWorkspace } from "./workspaces.js";
+import { clock } from "../services/clock.js";
 
 const PROJECT_STATUSES = [
   "backlog",
@@ -288,7 +289,7 @@ export const resourceRoutes = new Hono()
       // project_milestones cascade with the project row
       await tx
         .update(issues)
-        .set({ projectId: null, updatedAt: new Date() })
+        .set({ projectId: null, updatedAt: clock.now() })
         .where(eq(issues.projectId, project.id));
       await tx.delete(projects).where(eq(projects.id, project.id));
     });
@@ -510,7 +511,7 @@ export const resourceRoutes = new Hono()
       // issues.cycle_id has no ON DELETE rule — unassign before delete
       await tx
         .update(issues)
-        .set({ cycleId: null, updatedAt: new Date() })
+        .set({ cycleId: null, updatedAt: clock.now() })
         .where(eq(issues.cycleId, cycle.id));
       await tx.delete(cycles).where(eq(cycles.id, cycle.id));
     });

@@ -36,7 +36,7 @@ import {
 } from "../db/schema.js";
 
 const SECRET = "test-webhook-secret";
-const SLUG = `gh-test-${Date.now()}`;
+const SLUG = "gh-test";
 let sessionCookie = "";
 
 function sign(body: string): string {

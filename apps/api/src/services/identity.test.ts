@@ -19,6 +19,9 @@ import { mintInviteToken } from "../auth/invite-token.js";
 import type { IdentityResult } from "../auth/providers/types.js";
 import { resolveIdentity } from "./identity.js";
 import { membershipsFor } from "./members.js";
+import { NOW, useFrozenClock } from "../../test/clock.js";
+
+useFrozenClock();
 
 const WIPE = [
   events, sessions, oauthCodes, invites, authIdentities,
@@ -93,7 +96,7 @@ describe("resolveIdentity", () => {
     const { token, hash } = mintInviteToken();
     await db.insert(invites).values({
       workspaceId: ws2!.id, email: "u@corp.io", tokenHash: hash,
-      role: "admin", expiresAt: new Date(Date.now() + 86_400_000),
+      role: "admin", expiresAt: new Date(NOW + 86_400_000),
     });
     const r = await resolveIdentity(ident({ subject: "sub-1" }), {
       providerKey: "stub", inviteHash: hash,
@@ -167,7 +170,7 @@ describe("resolveIdentity", () => {
     const { hash: openHash } = mintInviteToken();
     await db.insert(invites).values({
       workspaceId: ws.id, email: null, tokenHash: openHash,
-      role: "member", expiresAt: new Date(Date.now() + 86_400_000),
+      role: "member", expiresAt: new Date(NOW + 86_400_000),
     });
     const viaOpen = await resolveIdentity(
       ident({ subject: "x3", email: "anyone@random.net", emailVerified: false }),
@@ -178,7 +181,7 @@ describe("resolveIdentity", () => {
     const { hash: boundHash } = mintInviteToken();
     await db.insert(invites).values({
       workspaceId: ws.id, email: "expected@corp.io", tokenHash: boundHash,
-      role: "member", expiresAt: new Date(Date.now() + 86_400_000),
+      role: "member", expiresAt: new Date(NOW + 86_400_000),
     });
     const mismatch = await resolveIdentity(
       ident({ subject: "x4", email: "other@corp.io" }),

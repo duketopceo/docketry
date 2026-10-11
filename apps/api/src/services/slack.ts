@@ -14,6 +14,7 @@ import { config_ } from "../env.js";
 import { slackApi, type FetchLike } from "../lib/slack.js";
 import { HttpError } from "../lib/errors.js";
 import { createIssue, type Actor } from "./issues.js";
+import { clock } from "./clock.js";
 
 const SYSTEM: Actor = { type: "system", id: null };
 // Provenance marker on comments mirrored FROM Slack — the outbound mirror
@@ -148,7 +149,7 @@ export function createSlack(fetchImpl?: FetchLike) {
     const issue = await createFromSlack({
       title: text.slice(0, 200),
       channel: p.channel_id ?? "",
-      threadTs: `${Date.now() / 1000}`,
+      threadTs: `${clock.ms() / 1000}`,
       reporterSlackId: p.user_id,
       reporterName: p.user_name,
     });
@@ -192,7 +193,7 @@ export function createSlack(fetchImpl?: FetchLike) {
       .filter(Boolean)
       .join("\n\n");
     const channel = p.view?.private_metadata ?? "";
-    const threadTs = `${Date.now() / 1000}`;
+    const threadTs = `${clock.ms() / 1000}`;
     const issue = await createFromSlack({
       title: title.slice(0, 200),
       ...(description ? { description } : {}),

@@ -4,6 +4,7 @@ import { sign, verify } from "hono/jwt";
 import { config_ } from "../env.js";
 import { db } from "../db/client.js";
 import { userTokens, users, workspaces } from "../db/schema.js";
+import { clock } from "./clock.js";
 
 export const ACCESS_TOKEN_TTL_S = 15 * 60;
 const ALG = "HS256";
@@ -20,7 +21,7 @@ export async function signAccessToken(claims: {
   sub: string;
   ws: string;
 }): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
+  const now = Math.floor(clock.ms() / 1000);
   return sign(
     {
       sub: claims.sub,
@@ -111,14 +112,14 @@ export async function userFromToken(token: string): Promise<PatAuth | null> {
         eq(userTokens.tokenHash, hashToken(token)),
         or(
           isNull(userTokens.expiresAt),
-          gt(userTokens.expiresAt, new Date()),
+          gt(userTokens.expiresAt, clock.now()),
         ),
       ),
     );
   if (!row) return null;
   void db
     .update(userTokens)
-    .set({ lastUsedAt: new Date() })
+    .set({ lastUsedAt: clock.now() })
     .where(eq(userTokens.id, row.keyId))
     .catch(() => undefined);
   return row;

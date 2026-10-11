@@ -13,6 +13,7 @@ import { config_ } from "../env.js";
 import { inviteFromHash } from "../auth/invite-token.js";
 import type { IdentityResult } from "../auth/providers/types.js";
 import { membershipsFor } from "./members.js";
+import { clock } from "./clock.js";
 
 // Identity resolution (U4): a provider IdentityResult becomes a user +
 // membership, a pending state, or a denial — per the plan's flowchart.
@@ -49,7 +50,7 @@ async function acceptInvite(
   }
   await db
     .update(invites)
-    .set({ acceptedAt: new Date(), acceptedBy: userId })
+    .set({ acceptedAt: clock.now(), acceptedBy: userId })
     .where(eq(invites.id, invite.id));
   await db.insert(events).values({
     workspaceId: invite.workspaceId,

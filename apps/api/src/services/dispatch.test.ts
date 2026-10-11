@@ -37,8 +37,11 @@ import {
   workspaceMembers,
   workspaces,
 } from "../db/schema.js";
+import { NOW, useFrozenClock } from "../../test/clock.js";
 
-const SLUG = `disp-test-${Date.now()}`;
+useFrozenClock();
+
+const SLUG = "disp-test";
 let sessionCookie = "";
 let issueId = "";
 let agentId = "";
@@ -379,7 +382,7 @@ describe("dispatch router (#23)", () => {
     // force the clock: simulate prior retries, then one final sweep attempt
     await db
       .update(webhookDeliveries)
-      .set({ attempts: 4, nextAttemptAt: new Date(Date.now() - 1000) })
+      .set({ attempts: 4, nextAttemptAt: new Date(NOW - 1000) })
       .where(eq(webhookDeliveries.id, delivery!.id));
     const { sweepDeliveries } = await import("./outbound.js");
     await sweepDeliveries();

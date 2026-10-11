@@ -30,8 +30,11 @@ import {
   workspaces,
 } from "../db/schema.js";
 import { sweepExpiredCycles } from "../services/cycles.js";
+import { NOW, useFrozenClock } from "../../test/clock.js";
 
-const SLUG = `cycles-test-${Date.now()}`;
+useFrozenClock();
+
+const SLUG = "cycles-test";
 
 interface TestBody {
   error?: { code: string; message: string };
@@ -75,7 +78,7 @@ async function req(
 }
 
 const day = 86_400_000;
-const iso = (offsetMs: number) => new Date(Date.now() + offsetMs).toISOString();
+const iso = (offsetMs: number) => new Date(NOW + offsetMs).toISOString();
 
 async function createCycle(
   teamKey: string,
@@ -478,7 +481,7 @@ describe("cycles engine (real postgres)", () => {
       endsAt: iso(2 * day),
     });
 
-    const swept = await sweepExpiredCycles(new Date());
+    const swept = await sweepExpiredCycles(new Date(NOW));
     expect(swept).toBe(1);
 
     const openAfter = await req(
@@ -514,7 +517,7 @@ describe("cycles engine (real postgres)", () => {
     expect(vel!.estimateTotal).toBe(8);
 
     // re-run is a no-op — no duplicate events, no error
-    expect(await sweepExpiredCycles(new Date())).toBe(0);
+    expect(await sweepExpiredCycles(new Date(NOW))).toBe(0);
     const manualRetry = await req(
       `/v1/workspaces/${SLUG}/cycles/${expired.id}/complete`,
       { method: "POST" },

@@ -47,6 +47,8 @@ import { createIssue, transitionIssue, type Actor } from "../services/issues.js"
 import { queueDeliveries } from "../services/outbound.js";
 import { createSlack } from "../services/slack.js";
 import { requireWorkspace } from "./workspaces.js";
+import { track } from "../services/background.js";
+import { clock } from "../services/clock.js";
 
 const assist = createAssist();
 const slack = createSlack();
@@ -440,7 +442,7 @@ export const issueRoutes = new Hono()
 
       let issue;
       if (Object.keys(fields).length > 0) {
-        fields.updatedAt = new Date();
+        fields.updatedAt = clock.now();
         [issue] = await db
           .update(issues)
           .set(fields)
@@ -504,11 +506,13 @@ export const issueRoutes = new Hono()
       });
       // best-effort GitHub mirror — never blocks; via=github comments
       // (inbound-synced) skip inside (#60)
-      void mirrorIssueComment({
-        issueId: issue.id,
-        body: comment!.body,
-        via: comment!.via,
-      });
+      track(
+        mirrorIssueComment({
+          issueId: issue.id,
+          body: comment!.body,
+          via: comment!.via,
+        }),
+      );
 
       // @agent mentions → dispatch intents (one per agent per comment)
       const mentioned = new Set(
@@ -729,5 +733,5 @@ async function setIssueLabels(
     .insert(issueLabels)
     .values(valid.map((l) => ({ issueId, labelId: l.id })));
   // best-effort GitHub mirror — no-ops for unlinked issues (#60)
-  if (valid.length > 0) void mirrorIssueLabels(issueId);
+  if (valid.length > 0) track(mirrorIssueLabels(issueId));
 }

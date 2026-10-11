@@ -1,6 +1,7 @@
 import { and, asc, count, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { cycleVelocity, cycles, events, teams } from "../db/schema.js";
+import { clock } from "./clock.js";
 
 // Insights are computed from the append-only event log — never from mutable
 // issue rows — so the charts are auditable against what actually happened.
@@ -54,7 +55,7 @@ function pct(sorted: number[], p: number): number {
 }
 
 export async function computeInsights(workspaceId: string): Promise<Insights> {
-  const windowStart = new Date(Date.now() - WINDOW_WEEKS * 7 * DAY);
+  const windowStart = new Date(clock.ms() - WINDOW_WEEKS * 7 * DAY);
   const scope = [
     eq(events.workspaceId, workspaceId),
     eq(events.entityType, "issue"),

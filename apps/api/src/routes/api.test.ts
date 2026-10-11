@@ -31,8 +31,11 @@ import {
   workspaceMembers,
   workspaces,
 } from "../db/schema.js";
+import { NOW, useFrozenClock } from "../../test/clock.js";
 
-const SLUG = `api-test-${Date.now()}`;
+useFrozenClock();
+
+const SLUG = "api-test";
 const SLUGS = [SLUG, `${SLUG}-2`];
 
 interface TestBody {
@@ -612,8 +615,8 @@ describe("api routes (real postgres)", () => {
       method: "POST",
       body: JSON.stringify({
         teamKey: "ENG",
-        startsAt: new Date(Date.now() - 86400_000).toISOString(),
-        endsAt: new Date(Date.now() + 86400_000).toISOString(),
+        startsAt: new Date(NOW - 86400_000).toISOString(),
+        endsAt: new Date(NOW + 86400_000).toISOString(),
       }),
     });
     expect(cycle.status).toBe(201);

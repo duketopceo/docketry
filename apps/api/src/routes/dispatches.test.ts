@@ -26,7 +26,7 @@ import {
   workspaces,
 } from "../db/schema.js";
 
-const SLUG = `disp-test-${Date.now()}`;
+const SLUG = "disp-test";
 
 interface TestBody {
   error?: { code: string; message: string };

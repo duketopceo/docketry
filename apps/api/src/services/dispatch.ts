@@ -12,6 +12,7 @@ import {
   queueDeliveries,
   queueDispatchDelivery,
 } from "./outbound.js";
+import { clock } from "./clock.js";
 
 // ── Adapter contract ─────────────────────────────────────────────
 // Third-party harnesses implement this shape and register by harness
@@ -113,7 +114,7 @@ async function fail(
 ) {
   await db
     .update(dispatches)
-    .set({ status: "dispatch_failed", reason, updatedAt: new Date() })
+    .set({ status: "dispatch_failed", reason, updatedAt: clock.now() })
     .where(eq(dispatches.id, dispatch.id));
   await db.insert(events).values({
     workspaceId: dispatch.workspaceId,
@@ -167,7 +168,7 @@ async function processDispatch(dispatchId: string): Promise<void> {
   if (!adapter) {
     await db
       .update(dispatches)
-      .set({ adapter: agent.harness, updatedAt: new Date() })
+      .set({ adapter: agent.harness, updatedAt: clock.now() })
       .where(eq(dispatches.id, dispatch.id));
     await fail(dispatch, `no adapter registered for harness '${agent.harness}'`);
     return;
@@ -195,12 +196,12 @@ async function processDispatch(dispatchId: string): Promise<void> {
     });
     await db
       .update(dispatches)
-      .set({ adapter: adapter.name, updatedAt: new Date() })
+      .set({ adapter: adapter.name, updatedAt: clock.now() })
       .where(eq(dispatches.id, dispatch.id));
     if (!result?.handoff) {
       await db
         .update(dispatches)
-        .set({ status: "claimed", updatedAt: new Date() })
+        .set({ status: "claimed", updatedAt: clock.now() })
         .where(eq(dispatches.id, dispatch.id));
       await systemComment(
         dispatch.workspaceId,
@@ -212,7 +213,7 @@ async function processDispatch(dispatchId: string): Promise<void> {
     const reason = err instanceof Error ? err.message : String(err);
     await db
       .update(dispatches)
-      .set({ adapter: adapter.name, updatedAt: new Date() })
+      .set({ adapter: adapter.name, updatedAt: clock.now() })
       .where(eq(dispatches.id, dispatch.id));
     await fail(dispatch, reason);
   }
