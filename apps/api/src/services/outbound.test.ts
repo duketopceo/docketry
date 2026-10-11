@@ -288,3 +288,72 @@ describe("outbound webhooks (#30)", () => {
     expect(verifyDeliverySignature('{"a":1}', "bad", "s3cret")).toBe(false);
   });
 });
+
+describe("outbound webhook SSRF guard", () => {
+  const prev = process.env.TALLYLINE_WEBHOOK_ALLOW_PRIVATE;
+  beforeAll(() => {
+    process.env.TALLYLINE_WEBHOOK_ALLOW_PRIVATE = "";
+  });
+  afterAll(() => {
+    if (prev === undefined) delete process.env.TALLYLINE_WEBHOOK_ALLOW_PRIVATE;
+    else process.env.TALLYLINE_WEBHOOK_ALLOW_PRIVATE = prev;
+  });
+
+  it("rejects private, loopback, link-local and metadata URLs at create (422)", async () => {
+    for (const url of [
+      "http://127.0.0.1:9/hook",
+      "http://169.254.169.254/latest/meta-data/",
+      "http://[::1]/hook",
+      "https://10.0.0.5/hook",
+      "http://localhost/hook",
+    ]) {
+      const res = await req(`/v1/workspaces/${SLUG}/webhook-endpoints`, {
+        method: "POST",
+        body: JSON.stringify({ url }),
+      });
+      expect(res.status, url).toBe(422);
+      expect((res.body as { error: { code: string } }).error.code).toBe("UNSAFE_URL");
+    }
+  });
+
+  it("rejects a private URL on update (422) and accepts a public one", async () => {
+    const ok = await req(`/v1/workspaces/${SLUG}/webhook-endpoints`, {
+      method: "POST",
+      body: JSON.stringify({ url: "https://8.8.8.8/hook" }),
+    });
+    expect(ok.status).toBe(201);
+    const id = (ok.body as { id: string }).id;
+    const bad = await req(`/v1/workspaces/${SLUG}/webhook-endpoints/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ url: "http://192.168.0.1/" }),
+    });
+    expect(bad.status).toBe(422);
+  });
+
+  it("re-checks at delivery time: a stored private URL is never dialled", async () => {
+    const port = (listener.address() as { port: number }).port;
+    const [ws] = await db.select().from(workspaces).where(eq(workspaces.slug, SLUG));
+    // simulates DNS that changed (or a legacy row) after the create-time check
+    const [ep] = await db
+      .insert(webhookEndpoints)
+      .values({
+        workspaceId: ws!.id,
+        url: `http://127.0.0.1:${port}/rebind`,
+        secret: "whsec_test_secret_for_ssrf_check",
+        events: ["*"],
+      })
+      .returning();
+    hits.length = 0;
+    await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({ title: "ssrf delivery check" }),
+    });
+    expect(hits.filter((h) => h.body.includes("ssrf delivery check"))).toHaveLength(0);
+    const [d] = await db
+      .select()
+      .from(webhookDeliveries)
+      .where(eq(webhookDeliveries.endpointId, ep!.id));
+    expect(d?.status).toBe("pending");
+    expect(d?.lastError).toMatch(/blocked/);
+  });
+});

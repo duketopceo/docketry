@@ -8,6 +8,8 @@ export default defineConfig({
       SLACK_BOT_TOKEN: "xoxb-test-token",
       SLACK_SIGNING_SECRET: "test-slack-secret",
       SLACK_WORKSPACE_SLUG: "slack-test",
+      // existing tests deliver to 127.0.0.1 listeners; net-guard tests flip it off
+      TALLYLINE_WEBHOOK_ALLOW_PRIVATE: "1",
     },
   },
 });

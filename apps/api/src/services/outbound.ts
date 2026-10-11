@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { and, asc, eq, lte } from "drizzle-orm";
 import { db } from "../db/client.js";
+import { safePost } from "../lib/net-guard.js";
 import {
   agents,
   comments,
@@ -199,8 +200,8 @@ async function deliver(
     ...(row.payload as Record<string, unknown>),
   });
   try {
-    const res = await fetch(target.url, {
-      method: "POST",
+    // SSRF guard: address validated at connect time, redirects not followed
+    const status = await safePost(target.url, {
       headers: {
         "content-type": "application/json",
         "x-tallyline-event": row.action,
@@ -208,9 +209,11 @@ async function deliver(
         "x-tallyline-signature": signDelivery(body, target.secret),
       },
       body,
-      signal: AbortSignal.timeout(8000),
+      timeoutMs: 8000,
     });
-    if (!res.ok) throw new Error(`endpoint returned ${res.status}`);
+    if (status < 200 || status >= 300) {
+      throw new Error(`endpoint returned ${status}`);
+    }
     await db
       .update(webhookDeliveries)
       .set({

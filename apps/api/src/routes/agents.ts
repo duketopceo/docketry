@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "../db/client.js";
 import { agentKeys, agents } from "../db/schema.js";
 import { apiError, HttpError } from "../lib/errors.js";
+import { assertSafeOutboundUrl } from "../lib/net-guard.js";
 import { createAgentKey } from "../services/agents.js";
 import { requireRole } from "../services/members.js";
 import { isCookieSession } from "./auth.js";
@@ -41,6 +42,17 @@ export const agentRoutes = new Hono()
       const ws = await requireWorkspace(c);
       requireRole(c, "admin");
       const body = c.req.valid("json");
+      if (body.endpointUrl) {
+        try {
+          await assertSafeOutboundUrl(body.endpointUrl);
+        } catch (err) {
+          throw new HttpError(
+            422,
+            "UNSAFE_URL",
+            err instanceof Error ? err.message : "endpoint URL rejected",
+          );
+        }
+      }
       const dup = await db
         .select({ id: agents.id })
         .from(agents)

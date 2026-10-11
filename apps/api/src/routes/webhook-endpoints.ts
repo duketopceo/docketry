@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "../db/client.js";
 import { webhookDeliveries, webhookEndpoints } from "../db/schema.js";
 import { HttpError } from "../lib/errors.js";
+import { assertSafeOutboundUrl } from "../lib/net-guard.js";
 import { generateEndpointSecret } from "../services/outbound.js";
 import { requireWorkspace } from "./workspaces.js";
 
@@ -19,6 +20,18 @@ const patchSchema = z.object({
   events: z.array(z.string().min(1).max(80)).min(1).optional(),
   enabled: z.boolean().optional(),
 });
+
+async function checkUrl(url: string): Promise<void> {
+  try {
+    await assertSafeOutboundUrl(url);
+  } catch (err) {
+    throw new HttpError(
+      422,
+      "UNSAFE_URL",
+      err instanceof Error ? err.message : "endpoint URL rejected",
+    );
+  }
+}
 
 function mask(row: typeof webhookEndpoints.$inferSelect) {
   const { secret, ...rest } = row;
@@ -40,6 +53,7 @@ export const webhookEndpointRoutes = new Hono()
     async (c) => {
       const ws = await requireWorkspace(c);
       const body = c.req.valid("json");
+      await checkUrl(body.url);
       const secret = body.secret ?? generateEndpointSecret();
       const [row] = await db
         .insert(webhookEndpoints)
@@ -60,6 +74,7 @@ export const webhookEndpointRoutes = new Hono()
     async (c) => {
       const ws = await requireWorkspace(c);
       const body = c.req.valid("json");
+      if (body.url) await checkUrl(body.url);
       const [row] = await db
         .update(webhookEndpoints)
         .set(body)

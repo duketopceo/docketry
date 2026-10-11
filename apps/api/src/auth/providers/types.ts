@@ -1,3 +1,5 @@
+import { assertResolvesPublic } from "../../lib/net-guard.js";
+
 // Shared provider contract (KTD7). IdentityResult is the only thing the
 // resolver consumes — provider access/refresh tokens are fetched, used,
 // and discarded (Scope Boundaries).
@@ -68,7 +70,8 @@ export function __setProviderFetchForTests(f: FetchLike | null) {
 }
 
 // SSRF guard for provider-facing egress (KTD10): https-only, and DNS must
-// not resolve to loopback/private/link-local/metadata space. The validated
+// not resolve to loopback/private/link-local/metadata space (shared policy
+// in lib/net-guard.ts, also used for webhook + dispatch endpoints). The validated
 // origin is what we dial — no check/connect race.
 const PRIVATE_HOSTS = new Set(["localhost", "metadata.google.internal"]);
 export async function assertPublicUrl(raw: string): Promise<void> {
@@ -83,19 +86,5 @@ export async function assertPublicUrl(raw: string): Promise<void> {
   if (/^\d+\.\d+\.\d+\.\d+$/.test(host) || host.includes(":")) {
     throw new Error(`provider endpoint must use a hostname, not an IP: ${host}`);
   }
-  const { resolve4 } = await import("node:dns/promises");
-  const addrs = await resolve4(host).catch(() => [] as string[]);
-  for (const ip of addrs) {
-    const [a = 0, b = 0] = ip.split(".").map(Number);
-    const private_ =
-      a === 0 || a === 10 || a === 127 ||
-      (a === 169 && b === 254) ||
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168) ||
-      (a === 100 && b >= 64 && b <= 127) ||
-      a >= 224;
-    if (private_) {
-      throw new Error(`provider endpoint resolves to a non-public address: ${host}`);
-    }
-  }
+  await assertResolvesPublic(host, "provider endpoint");
 }
