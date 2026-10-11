@@ -2,8 +2,8 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { request } from "@playwright/test";
 
-const WEB = `http://localhost:${process.env.E2E_WEB_PORT ?? "3100"}`;
-const API = `http://localhost:${process.env.E2E_API_PORT ?? "4000"}`;
+const WEB = `http://localhost:${process.env.E2E_WEB_PORT ?? "3110"}`;
+const API = `http://localhost:${process.env.E2E_API_PORT ?? "4100"}`;
 const EMAIL = process.env.E2E_EMAIL ?? "e2e@tallyline.test";
 const PASSWORD = process.env.E2E_PASSWORD ?? "e2e-test-password-42";
 

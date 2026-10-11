@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    globalSetup: ["./test/global-setup.ts"],
+    globalSetup: ["./test/require-safe-db.ts", "./test/global-setup.ts"],
     setupFiles: ["./test/setup-file.ts"],
     env: {
       GITHUB_WEBHOOK_SECRET: "test-webhook-secret",

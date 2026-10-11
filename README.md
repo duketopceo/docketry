@@ -72,6 +72,8 @@ pnpm dev               # web on :3100, API on :4000
 
 Open `http://localhost:3100`, bootstrap the first workspace, and you have a board.
 
+Running tests? Do not point them at this dev stack — see [CONTRIBUTING.md](./CONTRIBUTING.md#testing-against-real-postgres); the test harnesses refuse to start against it.
+
 ## Self-host
 
 From clone to a working board in under 10 minutes:

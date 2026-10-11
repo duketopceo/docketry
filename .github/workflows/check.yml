@@ -72,6 +72,9 @@ jobs:
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 5s --health-retries 10
+    # test harnesses refuse to run unless DATABASE_URL/REDIS_URL are explicit and
+    # not the default dev stack (apps/api/test/db-guard.ts); the db names below
+    # are deliberately not `docketry`
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tallyline_test
       REDIS_URL: redis://localhost:6379

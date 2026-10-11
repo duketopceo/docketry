@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import pg from "pg";
+import { assertSafeTestEnv } from "../../../apps/api/test/db-guard.js";
 
 // R10 web-vitals gate (#37): LCP < 1.5s, INP < 200ms, CLS < 0.05, measured
 // against a real browser on the seeded 10k-issue workspace. Run against a
@@ -18,9 +19,9 @@ import pg from "pg";
 // work. LCP is the paint time of the largest element; an element can only be
 // painted once data has arrived, so settled >= LCP — passing it passes LCP.
 
-const DB =
-  process.env.DATABASE_URL ??
-  "postgresql://postgres:postgres@localhost:5432/docketry";
+assertSafeTestEnv();
+// no default: DATABASE_URL must be set explicitly (and not the dev stack)
+const DB = process.env.DATABASE_URL!;
 
 const BUDGETS = { lcp: 1500, inp: 200, cls: 0.05 };
 const PAGES = ["/issues", "/board", "/insights", "/roadmap"] as const;

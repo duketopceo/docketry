@@ -7,7 +7,8 @@
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "cd ../.. && docker compose up -d && cd tools/e2e && node scripts/bundle-budget.mjs && playwright test"
+    "test": "node --experimental-strip-types scripts/run-e2e.mjs",
+    "stack:down": "docker compose -p tallyline-e2e -f docker-compose.e2e.yml down -v"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",

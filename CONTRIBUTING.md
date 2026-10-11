@@ -19,17 +19,35 @@ Fill in `.env` values as needed for the integrations you are touching — the co
 
 ## The check gate
 
-There is no GitHub Actions CI on this repo — the quality gate is local. Before opening or updating a PR, run:
+CI (`.github/workflows/check.yml`: static, unit, e2e, security) runs on every PR. Run the same gate locally first:
 
 ```bash
-pnpm check   # turbo run typecheck lint test
+pnpm turbo run typecheck lint
+pnpm turbo run test --filter='!@tallyline/e2e' --concurrency=1   # needs a throwaway DB, see below
 ```
-
-All three must pass. If your change needs a database, `docker compose up -d` first.
 
 ## Testing against real Postgres
 
-Tests run against a real Postgres database — do not mock the database layer. Use the Postgres instance from `docker-compose.yml` (or an equivalent test database) and write tests that exercise actual queries and migrations.
+Tests run against a real Postgres database — do not mock the database layer. But **never point tests at the dev stack** from `docker-compose.yml` (Postgres `:5432`, db `docketry`; Redis `:6380`): several suites run migrations and wipe tables.
+
+Every harness that touches the database (api, mcp-server, cli, e2e) runs a guard (`apps/api/test/db-guard.ts`) and refuses to start unless `DATABASE_URL` **and** `REDIS_URL` are explicitly set and are not the default dev stack. Use a throwaway stack on non-default ports:
+
+```bash
+docker run -d --rm --name tly-test-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=tallyline_test -p 127.0.0.1:55432:5432 postgres:17-alpine
+docker run -d --rm --name tly-test-redis -p 127.0.0.1:56380:6379 redis:7-alpine
+export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/tallyline_test
+export REDIS_URL=redis://127.0.0.1:56380
+export JWT_SECRET=local-test-secret-0123456789abcdef
+pnpm turbo run test --filter='!@tallyline/e2e' --concurrency=1
+```
+
+(`TALLYLINE_TEST_ALLOW_DEFAULT_DB=1` overrides the guard. Don't, unless the database really is disposable.)
+
+The api suites clone a migrated template database per test file, so they never write to the database named in `DATABASE_URL` itself.
+
+### e2e
+
+`pnpm --filter @tallyline/e2e test` starts its own compose project (`tallyline-e2e`, `tools/e2e/docker-compose.e2e.yml`) with Postgres on `:55432` and Redis on `:56380` (override with `E2E_PG_PORT` / `E2E_REDIS_PORT`), serves the API on `:4100` and web on `:3110` (`E2E_API_PORT` / `E2E_WEB_PORT`), and never reuses an already-running dev server. If `DATABASE_URL`/`REDIS_URL` are already set (as in CI) it uses those and starts nothing. Tear down with `pnpm --filter @tallyline/e2e stack:down`.
 
 ## Conventions
 

@@ -8,8 +8,6 @@ import pg from "pg";
 // file, so files can run in parallel without sharing rows or racing on
 // migrations/wipes. Everything created here is dropped on teardown.
 
-const DEFAULT_URL = "postgresql://postgres:postgres@localhost:5432/docketry";
-
 function withDb(url: string, db: string): string {
   const u = new URL(url);
   u.pathname = `/${db}`;
@@ -17,7 +15,10 @@ function withDb(url: string, db: string): string {
 }
 
 export default async function setup(): Promise<() => Promise<void>> {
-  const baseUrl = process.env.DATABASE_URL ?? DEFAULT_URL;
+  // require-safe-db.ts (the globalSetup before this one) already refused an
+  // unset or default-dev DATABASE_URL; never fall back to a default here.
+  const baseUrl = process.env.DATABASE_URL;
+  if (!baseUrl) throw new Error("DATABASE_URL is not set");
   const runId = `${process.pid}_${randomBytes(3).toString("hex")}`;
   const template = `tly_tpl_${runId}`;
   const prefix = `tly_t_${runId}_`;
