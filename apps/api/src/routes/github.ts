@@ -22,6 +22,7 @@ import {
   signManifestState,
   verifyManifestState,
 } from "../services/github-manifest.js";
+import { requireRole } from "../services/members.js";
 import { requireWorkspace } from "./workspaces.js";
 
 const repoBodySchema = z.object({
@@ -77,15 +78,31 @@ export const githubRoutes = new Hono()
       installUrl: `https://github.com/apps/${config_.githubAppSlug}/installations/new`,
     });
   })
-  // setup callback: GitHub redirects here after install; binds the
-  // installation to this workspace and backfills repos from the stored
-  // installation.created delivery (which arrives unbound)
-  .get("/workspaces/:ws/github/setup", async (c) => {
+  // bind an installation. GitHub's Setup URL lands on a WEB page (it cannot
+  // carry our credentials); that page POSTs here with the user's session.
+  // Binds the installation to this workspace and backfills repos from the
+  // stored installation.created delivery (which arrives unbound). State
+  // changing, so POST-only, owner/admin only, JSON body only (a cross-site
+  // form cannot send it; session cookies are SameSite=Lax).
+  .post(
+    "/workspaces/:ws/github/setup",
+    zValidator(
+      "json",
+      z.object({ installationId: z.number().int().positive() }),
+      (result) => {
+        if (!result.success) {
+          throw new HttpError(
+            400,
+            "MALFORMED_SETUP",
+            "body must be {installationId: <positive integer>}",
+          );
+        }
+      },
+    ),
+    async (c) => {
     const ws = await requireWorkspace(c);
-    const installationId = Number(c.req.query("installation_id"));
-    if (!Number.isSafeInteger(installationId) || installationId <= 0) {
-      throw new HttpError(400, "MALFORMED_SETUP", "missing installation_id");
-    }
+    requireRole(c, "admin");
+    const { installationId } = c.req.valid("json");
     // anyone can put any installation_id in this URL — prove the installation
     // belongs to THIS GitHub App before binding it (PLAN-006)
     if (!githubAppConfigured()) {
@@ -169,7 +186,8 @@ export const githubRoutes = new Hono()
     }
 
     return c.json({ ok: true, installationId, workspace: ws.slug });
-  })
+    },
+  )
   .get("/workspaces/:ws/github/repos", async (c) => {
     const ws = await requireWorkspace(c);
     const rows = await db

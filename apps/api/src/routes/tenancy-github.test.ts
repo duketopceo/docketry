@@ -50,8 +50,8 @@ beforeAll(async () => {
   expect([200, 201]).toContain(team.status);
 
   mockGithub({ installations: { 601: "org-a", 602: "org-b" } });
-  expect((await api(cookie, `/v1/workspaces/${A}/github/setup?installation_id=601`)).status).toBe(200);
-  expect((await api(cookie, `/v1/workspaces/${B}/github/setup?installation_id=602`)).status).toBe(200);
+  expect((await api(cookie, `/v1/workspaces/${A}/github/setup`, { method: "POST", body: JSON.stringify({ installationId: 601 }) })).status).toBe(200);
+  expect((await api(cookie, `/v1/workspaces/${B}/github/setup`, { method: "POST", body: JSON.stringify({ installationId: 602 }) })).status).toBe(200);
   // both workspaces connect the SAME repo name, each via its own installation
   for (const [slug, inst] of [[A, 601], [B, 602]] as const) {
     await db.insert(githubRepos).values({
