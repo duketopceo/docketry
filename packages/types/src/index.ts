@@ -51,3 +51,4 @@ export {
   legalTransitions,
   InvalidTransitionError,
 } from "./state-machine.js";
+export * from "./compat.js";
