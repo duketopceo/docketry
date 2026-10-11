@@ -2,9 +2,9 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 /**
  * Mirrors the signing scheme in apps/api/src/services/outbound.ts:
- * `X-Docketry-Signature: sha256=<hex HMAC-SHA256 of the raw JSON body>`.
+ * `X-Tallyline-Signature: sha256=<hex HMAC-SHA256 of the raw JSON body>`.
  */
-export function signDocketryBody(
+export function signTallylineBody(
 	rawBody: string | Buffer,
 	secret: string,
 ): string {
@@ -15,7 +15,7 @@ export function signDocketryBody(
  * Constant-time verification of a delivery signature. Fails closed on a
  * missing/malformed header or missing secret/raw body.
  */
-export function verifyDocketrySignature(
+export function verifyTallylineSignature(
 	rawBody: string | Buffer | undefined,
 	signatureHeader: string | undefined,
 	secret: string | undefined,
@@ -24,10 +24,24 @@ export function verifyDocketrySignature(
 		return false;
 	}
 	if (!signatureHeader.startsWith("sha256=")) return false;
-	const expected = signDocketryBody(rawBody, secret);
+	const expected = signTallylineBody(rawBody, secret);
 	if (expected.length !== signatureHeader.length) return false;
 	return timingSafeEqual(
 		Buffer.from(signatureHeader),
 		Buffer.from(expected),
 	);
+}
+
+/**
+ * Reads a delivery header by its `x-tallyline-*` name, falling back to the
+ * legacy `x-docketry-*` name. (This package is published standalone, so it
+ * cannot import the shared helper from @tallyline/types.)
+ */
+export function deliveryHeader(
+	headers: Record<string, unknown>,
+	name: string,
+): string | undefined {
+	const v =
+		headers[name] ?? headers[name.replace(/^x-tallyline-/, "x-docketry-")];
+	return typeof v === "string" ? v : undefined;
 }

@@ -1,4 +1,4 @@
-import type { IssueState } from "@docketry/types";
+import type { IssueState } from "@tallyline/types";
 import type { ReactNode } from "react";
 
 // DESIGN.md signature primitives — the "silver lining" system.

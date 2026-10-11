@@ -6,7 +6,7 @@ import {
 	buildIssueUpdateBody,
 	rlcValue,
 } from "../lib/params";
-import { signDocketryBody, verifyDocketrySignature } from "../lib/signature";
+import { signTallylineBody, verifyTallylineSignature } from "../lib/signature";
 import {
 	extractList,
 	normalizeBaseUrl,
@@ -15,34 +15,34 @@ import {
 	workspaceUrl,
 } from "../lib/transport";
 
-const SECRET = "dok_wh_testsecret123";
+const SECRET = "tly_wh_testsecret123";
 
 describe("signature", () => {
 	it("round-trips a body the API would sign", () => {
 		const body = JSON.stringify({ id: "d1", action: "issue.created", n: 1 });
-		const sig = signDocketryBody(body, SECRET);
+		const sig = signTallylineBody(body, SECRET);
 		expect(sig.startsWith("sha256=")).toBe(true);
-		expect(verifyDocketrySignature(body, sig, SECRET)).toBe(true);
+		expect(verifyTallylineSignature(body, sig, SECRET)).toBe(true);
 	});
 
 	it("rejects tampered bodies, wrong secrets, and malformed headers", () => {
 		const body = JSON.stringify({ id: "d1", action: "issue.created" });
-		const sig = signDocketryBody(body, SECRET);
+		const sig = signTallylineBody(body, SECRET);
 		expect(
-			verifyDocketrySignature(body.replace("d1", "d2"), sig, SECRET),
+			verifyTallylineSignature(body.replace("d1", "d2"), sig, SECRET),
 		).toBe(false);
-		expect(verifyDocketrySignature(body, sig, "other-secret")).toBe(false);
-		expect(verifyDocketrySignature(body, "sha1=abc", SECRET)).toBe(false);
-		expect(verifyDocketrySignature(body, undefined, SECRET)).toBe(false);
-		expect(verifyDocketrySignature(undefined, sig, SECRET)).toBe(false);
-		expect(verifyDocketrySignature(body, sig, undefined)).toBe(false);
+		expect(verifyTallylineSignature(body, sig, "other-secret")).toBe(false);
+		expect(verifyTallylineSignature(body, "sha1=abc", SECRET)).toBe(false);
+		expect(verifyTallylineSignature(body, undefined, SECRET)).toBe(false);
+		expect(verifyTallylineSignature(undefined, sig, SECRET)).toBe(false);
+		expect(verifyTallylineSignature(body, sig, undefined)).toBe(false);
 	});
 
 	it("verifies against a re-stringified parsed body (n8n webhook path)", () => {
 		const body = JSON.stringify({ id: "d1", action: "issue.created", x: [1, 2] });
-		const sig = signDocketryBody(body, SECRET);
+		const sig = signTallylineBody(body, SECRET);
 		const reparsed = JSON.stringify(JSON.parse(body));
-		expect(verifyDocketrySignature(reparsed, sig, SECRET)).toBe(true);
+		expect(verifyTallylineSignature(reparsed, sig, SECRET)).toBe(true);
 	});
 });
 
@@ -123,5 +123,14 @@ describe("params", () => {
 		expect(
 			buildIssueListQuery({ state: "backlog", search: "", priority: "high" }, 50),
 		).toEqual({ state: "backlog", priority: "high", limit: 50 });
+	});
+});
+
+describe("legacy x-docketry-* delivery headers", () => {
+	it("deliveryHeader reads new names, falling back to the legacy ones", async () => {
+		const { deliveryHeader } = await import("../lib/signature");
+		expect(deliveryHeader({ "x-tallyline-signature": "n" }, "x-tallyline-signature")).toBe("n");
+		expect(deliveryHeader({ "x-docketry-signature": "o" }, "x-tallyline-signature")).toBe("o");
+		expect(deliveryHeader({}, "x-tallyline-delivery")).toBeUndefined();
 	});
 });

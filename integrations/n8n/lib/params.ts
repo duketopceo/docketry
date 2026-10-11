@@ -1,5 +1,5 @@
 /**
- * Pure mapping between n8n parameter values and docketry API payloads.
+ * Pure mapping between n8n parameter values and tallyline API payloads.
  * Kept free of n8n imports so it can be unit-tested without the runtime.
  */
 

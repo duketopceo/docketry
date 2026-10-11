@@ -1,14 +1,14 @@
 {
-  "name": "n8n-nodes-docketry",
+  "name": "n8n-nodes-tallyline",
   "version": "0.1.0",
-  "description": "n8n community nodes for docketry — issue ops plus a signed outbound-webhook trigger",
+  "description": "n8n community nodes for tallyline — issue ops plus a signed outbound-webhook trigger",
   "license": "MIT",
   "homepage": "https://github.com/duketopceo/docketry",
   "author": "duketopceo",
   "keywords": [
     "n8n-community-node-package",
     "n8n",
-    "docketry",
+    "tallyline",
     "issue-tracker"
   ],
   "repository": {
@@ -30,11 +30,11 @@
     "n8nNodesApiVersion": 1,
     "strict": true,
     "credentials": [
-      "dist/credentials/DocketryApi.credentials.js"
+      "dist/credentials/TallylineApi.credentials.js"
     ],
     "nodes": [
-      "dist/nodes/Docketry/Docketry.node.js",
-      "dist/nodes/DocketryTrigger/DocketryTrigger.node.js"
+      "dist/nodes/Tallyline/Tallyline.node.js",
+      "dist/nodes/TallylineTrigger/TallylineTrigger.node.js"
     ]
   },
   "peerDependencies": {

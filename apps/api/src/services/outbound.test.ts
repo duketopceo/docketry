@@ -182,13 +182,13 @@ describe("outbound webhooks (#30)", () => {
     });
     expect(hits).toHaveLength(1);
     const hit = hits[0]!;
-    expect(hit.headers["x-docketry-event"]).toBe("issue.created");
+    expect(hit.headers["x-tallyline-event"]).toBe("issue.created");
 
     const [ep] = await db.select().from(webhookEndpoints);
     expect(
       verifyDeliverySignature(
         hit.body,
-        hit.headers["x-docketry-signature"] as string,
+        hit.headers["x-tallyline-signature"] as string,
         ep!.secret,
       ),
     ).toBe(true);

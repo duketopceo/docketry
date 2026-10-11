@@ -17,7 +17,7 @@ import {
   ISSUE_STATES,
   PRIORITIES,
   type IssueState,
-} from "@docketry/types";
+} from "@tallyline/types";
 import { db } from "../db/client.js";
 import {
   agents,

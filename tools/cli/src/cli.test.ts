@@ -91,11 +91,11 @@ async function cli(
     out: (l) => out.push(l),
     err: (l) => err.push(l),
     env: {
-      HOME: tmpHome, // keep real ~/.config/docketry out of the tests
-      DOCKETRY_API_URL: "http://cli.test",
-      DOCKETRY_TOKEN: agentToken,
-      DOCKETRY_WORKSPACE: SLUG,
-      DOCKETRY_AGENT_ID: agentId,
+      HOME: tmpHome, // keep real ~/.config/tallyline out of the tests
+      TALLYLINE_API_URL: "http://cli.test",
+      TALLYLINE_TOKEN: agentToken,
+      TALLYLINE_WORKSPACE: SLUG,
+      TALLYLINE_AGENT_ID: agentId,
       ...overrides.env,
     },
     cwd: overrides.cwd ?? tmpCwd,
@@ -154,8 +154,8 @@ const ALL_TABLES = [
 ] as const;
 
 beforeAll(async () => {
-  tmpHome = await mkdtemp(join(tmpdir(), "dok-cli-home-"));
-  tmpCwd = await mkdtemp(join(tmpdir(), "dok-cli-cwd-"));
+  tmpHome = await mkdtemp(join(tmpdir(), "tly-cli-home-"));
+  tmpCwd = await mkdtemp(join(tmpdir(), "tly-cli-cwd-"));
 
   await runMigrations();
   // mirror apps/api/src/routes/api.test.ts — wipe in FK-safe order so the
@@ -201,7 +201,7 @@ beforeAll(async () => {
     body: JSON.stringify({ name: "rw", scopes: ["read", "write"] }),
   });
   agentToken = mint.body.key as string;
-  expect(agentToken).toMatch(/^dok_agt_/);
+  expect(agentToken).toMatch(/^tly_agt_/);
 
   const pat = await api(`/v1/workspaces/${SLUG}/tokens`, {
     method: "POST",
@@ -221,7 +221,7 @@ afterAll(async () => {
   await rm(tmpCwd, { recursive: true, force: true });
 });
 
-describe("docketry cli (in-process api)", () => {
+describe("tallyline cli (in-process api)", () => {
   it("create mints a key and reports slim json", async () => {
     const issue = await createIssue("First CLI issue", [
       "--priority",
@@ -284,7 +284,7 @@ describe("docketry cli (in-process api)", () => {
     const issue = await createIssue("lifecycle");
     expect(await setState(issue.key, "todo")).toBe(0);
 
-    // claim as the configured agent identity (DOCKETRY_AGENT_ID)
+    // claim as the configured agent identity (TALLYLINE_AGENT_ID)
     const claimed = await cli(["claim", issue.key, "--json"]);
     expect(claimed.code).toBe(0);
     const claimedIssue = claimed.json() as SlimIssue;
@@ -367,13 +367,13 @@ describe("docketry cli (in-process api)", () => {
     expect(res.code).toBe(0);
     expect(res.out[0]).toContain(`agent ${otherAgentId}`);
 
-    // a human PAT + DOCKETRY_USER_ID claims as the bootstrap user
+    // a human PAT + TALLYLINE_USER_ID claims as the bootstrap user
     const human = await createIssue("human claim");
     const resHuman = await cli(["claim", human.key, "--json"], {
       env: {
-        DOCKETRY_TOKEN: patToken,
-        DOCKETRY_AGENT_ID: undefined,
-        DOCKETRY_USER_ID: userId,
+        TALLYLINE_TOKEN: patToken,
+        TALLYLINE_AGENT_ID: undefined,
+        TALLYLINE_USER_ID: userId,
       },
     });
     expect(resHuman.code).toBe(0);
@@ -423,7 +423,7 @@ describe("docketry cli (in-process api)", () => {
     expect(missing.err[0]).toContain("NOT_FOUND");
 
     const unauthorized = await cli(["ready"], {
-      env: { DOCKETRY_TOKEN: "dok_agt_bogus" },
+      env: { TALLYLINE_TOKEN: "tly_agt_bogus" },
     });
     expect(unauthorized.code).toBe(3);
     expect(unauthorized.err[0]).toContain("UNAUTHENTICATED");
@@ -441,16 +441,16 @@ describe("docketry cli (in-process api)", () => {
     expect(badFlag.code).toBe(2);
 
     const noToken = await cli(["ready"], {
-      env: { DOCKETRY_TOKEN: undefined },
+      env: { TALLYLINE_TOKEN: undefined },
     });
     expect(noToken.code).toBe(2);
-    expect(noToken.err[0]).toContain("DOCKETRY_TOKEN");
+    expect(noToken.err[0]).toContain("TALLYLINE_TOKEN");
 
     const noWorkspace = await cli(["ready"], {
-      env: { DOCKETRY_WORKSPACE: undefined },
+      env: { TALLYLINE_WORKSPACE: undefined },
     });
     expect(noWorkspace.code).toBe(2);
-    expect(noWorkspace.err[0]).toContain("DOCKETRY_WORKSPACE");
+    expect(noWorkspace.err[0]).toContain("TALLYLINE_WORKSPACE");
   });
 
   it("work --dry-run plans the session; --cmd runs and reports it", async () => {
@@ -476,7 +476,7 @@ describe("docketry cli (in-process api)", () => {
     expect(
       detail.comments.some((c) => c.body.includes("session completed")),
     ).toBe(true);
-    expect(existsSync(join(tmpCwd, ".docketry-context.md"))).toBe(true);
+    expect(existsSync(join(tmpCwd, ".tallyline-context.md"))).toBe(true);
   });
 
   it("session posts a timeline event onto the dispatch", async () => {
@@ -508,14 +508,14 @@ describe("docketry cli (in-process api)", () => {
     });
 
     const noDispatch = await cli(["session", "note", "hi"], {
-      env: { DOCKETRY_DISPATCH_ID: undefined },
+      env: { TALLYLINE_DISPATCH_ID: undefined },
     });
     expect(noDispatch.code).toBe(2);
   });
 
   it("work in a git repo isolates the session in a worktree + reports the branch", async () => {
     const { execFileSync } = await import("node:child_process");
-    const repo = await mkdtemp(join(tmpdir(), "dok-repo-"));
+    const repo = await mkdtemp(join(tmpdir(), "tly-repo-"));
     const git = (args: string[]) =>
       execFileSync(
         "git",
@@ -534,8 +534,8 @@ describe("docketry cli (in-process api)", () => {
     expect(ran.out.join("\n")).toContain(branch);
 
     // isolated worktree exists on its own branch
-    const worktreeDir = join(repo, ".docketry", issue.key);
-    expect(existsSync(join(worktreeDir, ".docketry-context.md"))).toBe(true);
+    const worktreeDir = join(repo, ".tallyline", issue.key);
+    expect(existsSync(join(worktreeDir, ".tallyline-context.md"))).toBe(true);
     const head = execFileSync("git", ["branch", "--show-current"], {
       cwd: worktreeDir,
     })
@@ -552,13 +552,13 @@ describe("docketry cli (in-process api)", () => {
     await rm(repo, { recursive: true, force: true });
   });
 
-  it("init writes .docketry config + agent context file", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "dok-init-"));
+  it("init writes .tallyline config + agent context file", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "tly-init-"));
     const res = await cli(["init", "--workspace", "acme"], { cwd: dir });
     expect(res.code).toBe(0);
 
-    const configPath = join(dir, ".docketry", "config.json");
-    const agentPath = join(dir, ".docketry", "agent.md");
+    const configPath = join(dir, ".tallyline", "config.json");
+    const agentPath = join(dir, ".tallyline", "agent.md");
     expect(existsSync(configPath)).toBe(true);
     expect(existsSync(agentPath)).toBe(true);
     const cfg = JSON.parse(await readFile(configPath, "utf8")) as {
@@ -574,10 +574,10 @@ describe("docketry cli (in-process api)", () => {
     expect(again.code).toBe(1);
     expect(again.err[0]).toContain("--force");
 
-    // config file is picked up from ./.docketry/config.json
+    // config file is picked up from ./.tallyline/config.json
     const listed = await cli(["ready", "--json"], {
       cwd: dir,
-      env: { DOCKETRY_WORKSPACE: undefined, DOCKETRY_AGENT_ID: undefined },
+      env: { TALLYLINE_WORKSPACE: undefined, TALLYLINE_AGENT_ID: undefined },
     });
     // workspace came from the file — but 'acme' doesn't exist -> 404 -> exit 4
     expect(listed.code).toBe(4);
@@ -586,7 +586,7 @@ describe("docketry cli (in-process api)", () => {
 
   it("help and version work without config", async () => {
     const help = await cli(["help"], {
-      env: { DOCKETRY_TOKEN: undefined, DOCKETRY_WORKSPACE: undefined },
+      env: { TALLYLINE_TOKEN: undefined, TALLYLINE_WORKSPACE: undefined },
     });
     expect(help.code).toBe(0);
     expect(help.out.join("\n")).toContain("ready");
@@ -594,6 +594,6 @@ describe("docketry cli (in-process api)", () => {
 
     const version = await cli(["--version"]);
     expect(version.code).toBe(0);
-    expect(version.out[0]).toContain("docketry");
+    expect(version.out[0]).toContain("tallyline");
   });
 });

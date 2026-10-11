@@ -4,7 +4,7 @@ import { request } from "@playwright/test";
 
 const WEB = `http://localhost:${process.env.E2E_WEB_PORT ?? "3100"}`;
 const API = `http://localhost:${process.env.E2E_API_PORT ?? "4000"}`;
-const EMAIL = process.env.E2E_EMAIL ?? "e2e@docketry.test";
+const EMAIL = process.env.E2E_EMAIL ?? "e2e@tallyline.test";
 const PASSWORD = process.env.E2E_PASSWORD ?? "e2e-test-password-42";
 
 // Bootstrap once per deployment. If a workspace already exists, the e2e

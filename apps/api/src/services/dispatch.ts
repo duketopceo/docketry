@@ -48,7 +48,7 @@ export interface DispatchAdapter {
 
 const localAdapter: DispatchAdapter = {
   name: "local",
-  // claimed immediately — a human runs `docketry claim` / MCP on this box
+  // claimed immediately — a human runs `tallyline claim` / MCP on this box
   async launch() {
     return {};
   },

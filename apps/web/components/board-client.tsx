@@ -16,7 +16,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { ACTIVE_STATES, findPath, type IssueState } from "@docketry/types";
+import { ACTIVE_STATES, findPath, type IssueState } from "@tallyline/types";
 import { useRouter } from "next/navigation";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import type { ListIssue } from "@/components/issue-list-client";

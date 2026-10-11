@@ -1,4 +1,4 @@
-import { findPath, type IssueState } from "@docketry/types";
+import { findPath, type IssueState } from "@tallyline/types";
 import { ApiError, type ApiClient, type Issue } from "./client.js";
 
 export { findPath };

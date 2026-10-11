@@ -3,6 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { eq, sql } from "drizzle-orm";
 import { Hono, type Context, type Next } from "hono";
 import { z } from "zod";
+import { hasApiTokenPrefix, isAgentToken, isPatToken } from "@tallyline/types";
 import { db } from "../db/client.js";
 import {
   sessions,
@@ -90,7 +91,7 @@ export const authRoutes = new Hono()
       // second concurrent bootstrap sees the row instead of racing past it
       const boot = await db.transaction(async (tx) => {
         await tx.execute(
-          sql`SELECT pg_advisory_xact_lock(hashtext('docketry-bootstrap')::bigint)`,
+          sql`SELECT pg_advisory_xact_lock(hashtext('tallyline-bootstrap')::bigint)`,
         );
         const again = await tx.select({ id: workspaces.id }).from(workspaces);
         if (again.length > 0) return null;
@@ -101,7 +102,7 @@ export const authRoutes = new Hono()
         await tx.insert(teams).values({
           workspaceId: ws!.id,
           key: body.teamKey,
-          name: "Docketry",
+          name: "Tallyline",
         });
         const [user] = await tx
           .insert(users)
@@ -194,7 +195,7 @@ export const authRoutes = new Hono()
     // this to learn which agent/user a token belongs to.
     const bearer = c.req.header("authorization");
     const bearerToken = bearer?.startsWith("Bearer ") ? bearer.slice(7) : null;
-    if (bearerToken?.startsWith("dok_agt_")) {
+    if (isAgentToken(bearerToken)) {
       const agent = await agentFromKey(bearerToken);
       if (!agent) return apiError(c, 401, "UNAUTHENTICATED", "bad key");
       return c.json({
@@ -205,7 +206,7 @@ export const authRoutes = new Hono()
         scopes: agent.scopes,
       });
     }
-    if (bearerToken?.startsWith("dok_pat_")) {
+    if (isPatToken(bearerToken)) {
       const pat = await userFromToken(bearerToken);
       if (!pat) return apiError(c, 401, "UNAUTHENTICATED", "bad token");
       return c.json({
@@ -217,7 +218,7 @@ export const authRoutes = new Hono()
         scopes: pat.scopes,
       });
     }
-    if (bearerToken && !bearerToken.startsWith("dok_")) {
+    if (bearerToken && !hasApiTokenPrefix(bearerToken)) {
       const claims = await verifyAccessToken(bearerToken);
       if (!claims) return apiError(c, 401, "UNAUTHENTICATED", "bad jwt");
       const [ws] = await db
@@ -286,7 +287,7 @@ export const authRoutes = new Hono()
     },
   )
   // Exchange a session cookie for a short-lived access JWT — the
-  // programmatic-auth path for human users (agents mint dok_agt_ keys instead).
+  // programmatic-auth path for human users (agents mint tly_agt_ keys instead).
   .post("/token", async (c) => {
     const token = getCookie(c, SESSION_COOKIE);
     if (!token) return apiError(c, 401, "UNAUTHENTICATED", "no session");
@@ -378,7 +379,7 @@ export async function requireSession(c: Context, next: Next) {
   }
   const bearer = c.req.header("authorization");
   const bearerToken = bearer?.startsWith("Bearer ") ? bearer.slice(7) : null;
-  if (bearerToken?.startsWith("dok_agt_")) {
+  if (isAgentToken(bearerToken)) {
     const agent = await agentFromKey(bearerToken);
     if (agent) {
       const denied = scopeGuard(c, agent.scopes);
@@ -390,7 +391,7 @@ export async function requireSession(c: Context, next: Next) {
       return;
     }
   }
-  if (bearerToken?.startsWith("dok_pat_")) {
+  if (isPatToken(bearerToken)) {
     const pat = await userFromToken(bearerToken);
     if (pat) {
       const denied = scopeGuard(c, pat.scopes);
@@ -408,7 +409,7 @@ export async function requireSession(c: Context, next: Next) {
       return;
     }
   }
-  if (bearerToken && !bearerToken.startsWith("dok_")) {
+  if (bearerToken && !hasApiTokenPrefix(bearerToken)) {
     const claims = await verifyAccessToken(bearerToken);
     if (claims) {
       const denied = scopeGuard(c, claims.scopes);

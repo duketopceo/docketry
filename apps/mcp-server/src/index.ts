@@ -2,7 +2,7 @@
 import { createServer } from "node:http";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { DocketryClient } from "./client.js";
+import { TallylineClient } from "./client.js";
 import {
   MissingEnvError,
   PassthroughAuthError,
@@ -33,16 +33,16 @@ if (port === null) {
     config = loadConfig();
   } catch (err) {
     if (err instanceof MissingEnvError) {
-      process.stderr.write(`docketry-mcp: ${err.message}\n`);
+      process.stderr.write(`tallyline-mcp: ${err.message}\n`);
       process.exit(1);
     }
     throw err;
   }
-  const client = new DocketryClient(config);
+  const client = new TallylineClient(config);
   const server = createMcpServer(client);
   await server.connect(new StdioServerTransport());
   process.stderr.write(
-    `docketry-mcp: ${toolDefs.length} tools on stdio — ${config.apiUrl} ws=${config.workspace}\n`,
+    `tallyline-mcp: ${toolDefs.length} tools on stdio — ${config.apiUrl} ws=${config.workspace}\n`,
   );
 } else {
   let auth: ReturnType<typeof httpAuthMode>;
@@ -50,13 +50,13 @@ if (port === null) {
     auth = httpAuthMode(process.env);
   } catch (err) {
     if (err instanceof MissingEnvError) {
-      process.stderr.write(`docketry-mcp: ${err.message}\n`);
+      process.stderr.write(`tallyline-mcp: ${err.message}\n`);
       process.exit(1);
     }
     throw err;
   }
   const envClient =
-    auth.mode === "env" ? new DocketryClient(auth.config) : null;
+    auth.mode === "env" ? new TallylineClient(auth.config) : null;
 
   const http = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -74,7 +74,7 @@ if (port === null) {
           return;
         }
         try {
-          client = new DocketryClient(configFromHeaders(req.headers, auth));
+          client = new TallylineClient(configFromHeaders(req.headers, auth));
         } catch (err) {
           if (err instanceof PassthroughAuthError) {
             res.writeHead(401, { "content-type": "application/json" });
@@ -109,7 +109,7 @@ if (port === null) {
             auth.allowApiUrlOverride ? " (api-url override on)" : ""
           }`;
     process.stderr.write(
-      `docketry-mcp: ${toolDefs.length} tools on http://localhost:${port}/mcp — ${mode}\n`,
+      `tallyline-mcp: ${toolDefs.length} tools on http://localhost:${port}/mcp — ${mode}\n`,
     );
   });
 }

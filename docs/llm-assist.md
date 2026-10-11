@@ -1,19 +1,19 @@
 # LLM assist
 
-Opt-in model-backed helpers. Off by default — no `DOCKETRY_LLM_API_KEY`, no
+Opt-in model-backed helpers. Off by default — no `TALLYLINE_LLM_API_KEY`, no
 LLM calls, and every assist surface returns `503 LLM_DISABLED`.
 
 ## Config
 
 ```bash
-DOCKETRY_LLM_API_KEY=sk-or-…            # OpenRouter (or compatible) key
-DOCKETRY_LLM_BASE_URL=https://openrouter.ai/api/v1
-DOCKETRY_LLM_MODEL=google/gemini-2.5-flash-lite
+TALLYLINE_LLM_API_KEY=sk-or-…            # OpenRouter (or compatible) key
+TALLYLINE_LLM_BASE_URL=https://openrouter.ai/api/v1
+TALLYLINE_LLM_MODEL=google/gemini-2.5-flash-lite
 ```
 
 The provider speaks OpenAI-style `POST /chat/completions`, so any compatible
 endpoint works (OpenRouter, a local llama.cpp server, a proxy). Default model
-is deliberately cheap; set `DOCKETRY_LLM_MODEL` to whatever fits your budget.
+is deliberately cheap; set `TALLYLINE_LLM_MODEL` to whatever fits your budget.
 
 ## Surfaces
 

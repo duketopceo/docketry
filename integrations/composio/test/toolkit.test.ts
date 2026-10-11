@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ApiError, DocketryClient, type FetchLike } from "../src/client.js";
-import { createDocketryToolkit } from "../src/toolkit.js";
+import { ApiError, TallylineClient, type FetchLike } from "../src/client.js";
+import { createTallylineToolkit } from "../src/toolkit.js";
 
 interface Call {
   url: string;
@@ -32,21 +32,21 @@ function fakeFetch(handler: (call: Call) => unknown): {
 }
 
 const CONFIG = {
-  baseUrl: "https://docketry.example.com/",
+  baseUrl: "https://tallyline.example.com/",
   workspace: "acme",
-  apiKey: "dok_agt_test",
+  apiKey: "tly_agt_test",
 };
 
-describe("DocketryClient", () => {
+describe("TallylineClient", () => {
   it("sends bearer auth against the workspace base", async () => {
     const { fetch, calls } = fakeFetch(() => ({ issues: [] }));
-    const client = new DocketryClient({ ...CONFIG, fetch });
+    const client = new TallylineClient({ ...CONFIG, fetch });
     await client.apiGet("/issues", { state: "todo", limit: 5 });
     const [c] = calls;
     expect(c!.url).toBe(
-      "https://docketry.example.com/v1/workspaces/acme/issues?state=todo&limit=5",
+      "https://tallyline.example.com/v1/workspaces/acme/issues?state=todo&limit=5",
     );
-    expect(c!.headers.authorization).toBe("Bearer dok_agt_test");
+    expect(c!.headers.authorization).toBe("Bearer tly_agt_test");
   });
 
   it("surfaces API error envelopes as ApiError", async () => {
@@ -55,7 +55,7 @@ describe("DocketryClient", () => {
         JSON.stringify({ error: { code: "CONFLICT", message: "illegal transition" } }),
         { status: 409, headers: { "content-type": "application/json" } },
       );
-    const client = new DocketryClient({ ...CONFIG, fetch: failing });
+    const client = new TallylineClient({ ...CONFIG, fetch: failing });
     await expect(client.apiGet("/issues")).rejects.toMatchObject({
       name: "ApiError",
       status: 409,
@@ -64,24 +64,24 @@ describe("DocketryClient", () => {
   });
 });
 
-describe("createDocketryToolkit", () => {
-  it("registers DOCKETRY_* tools mapping 1:1 to the API surface", () => {
-    const toolkit = createDocketryToolkit({ ...CONFIG, fetch: fakeFetch(() => ({})).fetch });
+describe("createTallylineToolkit", () => {
+  it("registers TALLYLINE_* tools mapping 1:1 to the API surface", () => {
+    const toolkit = createTallylineToolkit({ ...CONFIG, fetch: fakeFetch(() => ({})).fetch });
     const slugs = toolkit.tools.map((t) => t.slug);
     for (const expected of [
-      "DOCKETRY_WHOAMI",
-      "DOCKETRY_LIST_ISSUES",
-      "DOCKETRY_GET_ISSUE",
-      "DOCKETRY_CREATE_ISSUE",
-      "DOCKETRY_UPDATE_ISSUE",
-      "DOCKETRY_TRIAGE_ISSUE",
-      "DOCKETRY_COMMENT",
-      "DOCKETRY_LIST_EVENTS",
-      "DOCKETRY_LIST_TEAMS",
-      "DOCKETRY_LIST_AGENTS",
-      "DOCKETRY_LIST_LABELS",
-      "DOCKETRY_LIST_PROJECTS",
-      "DOCKETRY_LIST_CYCLES",
+      "TALLYLINE_WHOAMI",
+      "TALLYLINE_LIST_ISSUES",
+      "TALLYLINE_GET_ISSUE",
+      "TALLYLINE_CREATE_ISSUE",
+      "TALLYLINE_UPDATE_ISSUE",
+      "TALLYLINE_TRIAGE_ISSUE",
+      "TALLYLINE_COMMENT",
+      "TALLYLINE_LIST_EVENTS",
+      "TALLYLINE_LIST_TEAMS",
+      "TALLYLINE_LIST_AGENTS",
+      "TALLYLINE_LIST_LABELS",
+      "TALLYLINE_LIST_PROJECTS",
+      "TALLYLINE_LIST_CYCLES",
     ]) {
       expect(slugs).toContain(expected);
     }
@@ -93,10 +93,10 @@ describe("createDocketryToolkit", () => {
       if (c.url.endsWith("/issues/SL-7/triage")) return { ok: true };
       return {};
     });
-    const toolkit = createDocketryToolkit({ ...CONFIG, fetch });
+    const toolkit = createTallylineToolkit({ ...CONFIG, fetch });
     const bySlug = new Map(toolkit.tools.map((t) => [t.slug, t]));
 
-    const get = await bySlug.get("DOCKETRY_GET_ISSUE")!.execute(
+    const get = await bySlug.get("TALLYLINE_GET_ISSUE")!.execute(
       { key: "SL-7" },
       { userId: "u" } as Parameters<
         (typeof toolkit.tools)[number]["execute"]
@@ -104,7 +104,7 @@ describe("createDocketryToolkit", () => {
     );
     expect(get.key).toBe("SL-7");
 
-    await bySlug.get("DOCKETRY_TRIAGE_ISSUE")!.execute(
+    await bySlug.get("TALLYLINE_TRIAGE_ISSUE")!.execute(
       { key: "SL-7", action: "accept" },
       { userId: "u" } as Parameters<
         (typeof toolkit.tools)[number]["execute"]

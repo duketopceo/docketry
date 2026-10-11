@@ -3,7 +3,7 @@ import { and, asc, desc, eq, gt, lt, type SQL } from "drizzle-orm";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
-import type { ActorType } from "@docketry/types";
+import type { ActorType } from "@tallyline/types";
 import { db } from "../db/client.js";
 import { agents, events, issues, users } from "../db/schema.js";
 import { apiError } from "../lib/errors.js";

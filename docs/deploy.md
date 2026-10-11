@@ -1,4 +1,4 @@
-# Self-hosting docketry
+# Self-hosting tallyline
 
 Three paths, fastest first. All of them land on the same thing: the web
 app on port `3100`, the API on `4000`, postgres + redis on an internal
@@ -37,7 +37,7 @@ Set these in `.env` next to the compose file (it reads `.env` automatically):
 | Var | Required | Default | Purpose |
 |---|---|---|---|
 | `POSTGRES_PASSWORD` | **yes** | — | Password for the internal postgres |
-| `POSTGRES_USER` / `POSTGRES_DB` | no | `postgres` / `docketry` | Credentials/db name |
+| `POSTGRES_USER` / `POSTGRES_DB` | no | `postgres` / `tallyline` | Credentials/db name |
 | `JWT_SECRET` | **yes** | — | Signs short-lived access JWTs — `openssl rand -hex 32` |
 | `API_BASE_URL` | no | `http://localhost:4000` | Public API origin — used in the GitHub App manifest + Slack/CLI callbacks. Set to your real hostname when fronting with a tunnel |
 | `API_PORT` | no | `4000` | Port the API binds *inside* its container — only change together with the compose `environment`/`API_INTERNAL_URL` |
@@ -59,7 +59,7 @@ Set these in `.env` next to the compose file (it reads `.env` automatically):
 | `GOOGLE_CLIENT_ID`/`_SECRET` | no | — | "Sign in with Google" — callback `{API_BASE_URL}/v1/auth/oauth/google/callback` |
 | `OIDC_ISSUER`/`_CLIENT_ID`/`_CLIENT_SECRET`/`_DISPLAY_NAME`/`_SCOPES` | no | — | Generic OIDC via discovery — `{issuer}/.well-known/openid-configuration` |
 | `SLACK_*` | no | — | Slack intake/mirroring — see [slack.md](./slack.md); empty tokens = off |
-| `DOCKETRY_LLM_*` | no | — | LLM assist (OpenRouter or any OpenAI-compatible endpoint) — see [llm-assist.md](./llm-assist.md); empty key = off |
+| `TALLYLINE_LLM_*` | no | — | LLM assist (OpenRouter or any OpenAI-compatible endpoint) — see [llm-assist.md](./llm-assist.md); empty key = off |
 | `COMPOSIO_API_KEY`, `LINEAR_API_KEY` | no | — | Optional integration credentials |
 | `AUTH_SECRET` | — | — | **removed** — legacy var older `.env` files may still carry; nothing reads it. `JWT_SECRET` is the live secret |
 
@@ -68,9 +68,9 @@ Set these in `.env` next to the compose file (it reads `.env` automatically):
 | Var | Required | Default | Purpose |
 |---|---|---|---|
 | `MCP_PUBLISH_PORT` | no | `3101` | Host port for the hosted-MCP endpoint |
-| `DOCKETRY_MCP_API_URL` | no | `http://api:4000` | API the MCP server proxies to (service-internal; named distinctly so a caller-facing `DOCKETRY_API_URL` can't misroute it) |
-| `DOCKETRY_TOKEN` / `DOCKETRY_WORKSPACE` | no | — | Set both → single-tenant mode; neither → per-request header passthrough (see [klavis.md](./klavis.md)) |
-| `DOCKETRY_ALLOW_API_URL_OVERRIDE` | no | off | `1` honors `x-docketry-api-url` per request — needed for a multi-deployment hosted endpoint; SSRF surface, enable deliberately |
+| `TALLYLINE_MCP_API_URL` | no | `http://api:4000` | API the MCP server proxies to (service-internal; named distinctly so a caller-facing `TALLYLINE_API_URL` can't misroute it) |
+| `TALLYLINE_TOKEN` / `TALLYLINE_WORKSPACE` | no | — | Set both → single-tenant mode; neither → per-request header passthrough (see [klavis.md](./klavis.md)) |
+| `TALLYLINE_ALLOW_API_URL_OVERRIDE` | no | off | `1` honors `x-tallyline-api-url` per request — needed for a multi-deployment hosted endpoint; SSRF surface, enable deliberately |
 
 ## Cloudflare Tunnel — public access, zero open ports
 
@@ -80,8 +80,8 @@ exposing anything inbound:
 ```bash
 # on the host running the stack
 cloudflared tunnel login
-cloudflared tunnel create docketry
-cloudflared tunnel route dns docketry docketry.example.com
+cloudflared tunnel create tallyline
+cloudflared tunnel route dns tallyline tallyline.example.com
 ```
 
 `~/.cloudflared/<tunnel-id>.json` + this `config.yml`:
@@ -91,20 +91,20 @@ tunnel: <tunnel-id>
 credentials-file: /root/.cloudflared/<tunnel-id>.json
 ingress:
   # web on the apex, api on /api/* OR a subdomain — pick one pattern
-  - hostname: docketry.example.com
+  - hostname: tallyline.example.com
     service: http://localhost:3100
-  - hostname: api.docketry.example.com
+  - hostname: api.tallyline.example.com
     service: http://localhost:4000
   - service: http_status:404
 ```
 
 ```bash
-cloudflared tunnel run docketry
+cloudflared tunnel run tallyline
 # or install as a service: cloudflared service install
 ```
 
-Then set `API_BASE_URL=https://api.docketry.example.com` +
-`NEXT_PUBLIC_API_URL=https://api.docketry.example.com` (rebuild the web
+Then set `API_BASE_URL=https://api.tallyline.example.com` +
+`NEXT_PUBLIC_API_URL=https://api.tallyline.example.com` (rebuild the web
 image — the var is build-time), restart. Webhooks (GitHub/Slack) then
 reach the API through the tunnel; their signature checks are unchanged.
 Cookie `Secure` engages automatically via `NODE_ENV=production` + HTTPS.
@@ -169,16 +169,16 @@ ephemeral queue state — safe to lose).
 ```bash
 # backup — consistent dump while the stack runs
 docker compose -f docker-compose.selfhost.yml exec postgres \
-  pg_dump -U postgres -Fc docketry > backup-$(date +%F).dump
+  pg_dump -U postgres -Fc tallyline > backup-$(date +%F).dump
 
 # restore — stop api/web, recreate the db, replay
 # (two separate -c calls: DROP DATABASE refuses to run inside the
 # implicit transaction a multi-statement -c creates)
 docker compose -f docker-compose.selfhost.yml stop api web
 docker compose -f docker-compose.selfhost.yml exec postgres \
-  psql -U postgres -c "DROP DATABASE docketry;"
+  psql -U postgres -c "DROP DATABASE tallyline;"
 docker compose -f docker-compose.selfhost.yml exec postgres \
-  psql -U postgres -c "CREATE DATABASE docketry;"
+  psql -U postgres -c "CREATE DATABASE tallyline;"
 cat backup-YYYY-MM-DD.dump | docker compose -f docker-compose.selfhost.yml \
   exec -T postgres pg_restore -U postgres -d docketry --clean --if-exists
 docker compose -f docker-compose.selfhost.yml start api web

@@ -79,7 +79,7 @@ const installationPayload = (id: number, action = "created") =>
     action,
     installation: { id, account: { login: "duketopceo" } },
     repositories: [
-      { id: 1001, name: "docketry", full_name: "duketopceo/docketry" },
+      { id: 1001, name: "tallyline", full_name: "duketopceo/docketry" },
       { id: 1002, name: "dotfiles", full_name: "duketopceo/dotfiles" },
     ],
   });
@@ -308,7 +308,7 @@ describe("installation binding + repo connect", () => {
 
     const install = await req(`/v1/workspaces/${SLUG}/github/install-url`);
     expect((install.body as { installUrl: string }).installUrl).toContain(
-      "github.com/apps/docketry-test",
+      "github.com/apps/tallyline-test",
     );
   });
 

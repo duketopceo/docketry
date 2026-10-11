@@ -1,4 +1,4 @@
-import type { Priority } from "@docketry/types";
+import type { Priority } from "@tallyline/types";
 import type {
   Comment,
   FeedEvent,

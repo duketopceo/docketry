@@ -1,19 +1,19 @@
-# AGENTS.md — docketry
+# AGENTS.md — tallyline
 
 > This file is the agent entry point for this repo.
 > Full agent context lives at: https://github.com/duketopceo/luke-agents
 
 ## What This Repo Does
 
-docketry is an open-source (MIT), self-hostable, agent-native issue tracker — a Linear-class product where humans and AI agents are first-class citizens on the same board. It is a TypeScript monorepo: a Next.js web app, a Hono + Postgres (Drizzle) API, an MCP server that exposes the tracker to AI agents, a BullMQ dispatch worker for agent routing, a CLI, and shared packages for UI, types, and config. pnpm workspaces + Turborepo orchestrate the monorepo; Docker Compose provides Postgres and Redis for development and self-hosting.
+tallyline is an open-source (MIT), self-hostable, agent-native issue tracker — a Linear-class product where humans and AI agents are first-class citizens on the same board. It is a TypeScript monorepo: a Next.js web app, a Hono + Postgres (Drizzle) API, an MCP server that exposes the tracker to AI agents, a BullMQ dispatch worker for agent routing, a CLI, and shared packages for UI, types, and config. pnpm workspaces + Turborepo orchestrate the monorepo; Docker Compose provides Postgres and Redis for development and self-hosting.
 
 ## Key Files
 
 - `apps/web` — Next.js App Router web app (Tailwind + shadcn/ui + cmdk)
 - `apps/api` — Node + Hono API server, Postgres via Drizzle
-- `apps/mcp-server` — MCP server exposing docketry to AI agents
+- `apps/mcp-server` — MCP server exposing tallyline to AI agents
 - `services/dispatch` — BullMQ worker for agent routing/dispatch
-- `tools/cli` — `docketry` CLI
+- `tools/cli` — `tallyline` CLI
 - `packages/ui` — shared UI components
 - `packages/types` — shared TypeScript types
 - `packages/config` — shared config (tsconfig, lint, etc.)

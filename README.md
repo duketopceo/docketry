@@ -1,4 +1,11 @@
-# docketry
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/lockup-dark.svg">
+    <img alt="Tallyline" src="assets/brand/lockup.svg" height="40">
+  </picture>
+</p>
+
+# Tallyline
 
 > A self-hostable, agent-native issue tracker — Linear-class UX, MIT-licensed, built so humans and AI agents work the same board
 
@@ -9,7 +16,7 @@
 - **API:** Node + Hono + Postgres via Drizzle (`apps/api`)
 - **MCP server:** Model Context Protocol server for AI agents (`apps/mcp-server`)
 - **Dispatch:** agent-routing worker on BullMQ (`services/dispatch`)
-- **CLI:** `docketry` command-line tool (`tools/cli`)
+- **CLI:** `tallyline` command-line tool (`tools/cli`)
 - **Shared packages:** `packages/ui`, `packages/types`, `packages/config`
 - **Infra:** Docker Compose (Postgres + Redis) for dev and self-host
 

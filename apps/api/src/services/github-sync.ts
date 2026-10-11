@@ -1,6 +1,6 @@
 import { createSign } from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import type { IssueState } from "@docketry/types";
+import type { IssueState } from "@tallyline/types";
 import { db } from "../db/client.js";
 import {
   events,
@@ -17,16 +17,16 @@ import { queueDeliveries } from "./outbound.js";
 // Loop prevention is two-layered:
 //  1. Inbound-originated mutations carry `via: "github"` (comments.via column,
 //     event `after` metadata). Every mirror entry point skips via=github
-//     writes, so a GH→docketry change never re-fires a GH API call.
+//     writes, so a GH→tallyline change never re-fires a GH API call.
 //  2. Our own outbound writes echo back as webhook deliveries whose sender
-//     is `${appSlug}[bot]` (and mirrored comments start with the docketry
+//     is `${appSlug}[bot]` (and mirrored comments start with the tallyline
 //     marker) — the inbound handlers drop them before any mutation.
 //
 // All mirror functions are best-effort and never throw: they are invoked
 // fire-and-forget after the local commit, exactly like queueDeliveries —
 // failures land on the issue timeline as `github_sync_failed` events.
 
-export const DOCKETRY_COMMENT_MARKER = "**[docketry]**";
+export const TALLYLINE_COMMENT_MARKER = "**[tallyline]**";
 
 type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -302,7 +302,7 @@ export async function mirrorIssueComment(input: {
       repo,
       "POST",
       `/repos/${repo.fullName}/issues/${link.ghIssueNumber}/comments`,
-      { body: `${DOCKETRY_COMMENT_MARKER}\n\n${input.body}` },
+      { body: `${TALLYLINE_COMMENT_MARKER}\n\n${input.body}` },
     );
     if (!res.ok) throw new Error(`POST comment returned ${res.status}`);
   } catch (err) {
@@ -317,9 +317,9 @@ export async function mirrorIssueComment(input: {
 
 // ── mirror: labels ─────────────────────────────────────────────────
 
-// pushes the issue's current docketry label set onto the linked GH issue.
+// pushes the issue's current tallyline label set onto the linked GH issue.
 // Labels are ensured one-by-one (422 = already exists) then added in a
-// single call. Removals never propagate outbound — docketry has no
+// single call. Removals never propagate outbound — tallyline has no
 // remove-label write path, so ghState-style diffing isn't needed here.
 export async function mirrorIssueLabels(issueId: string): Promise<void> {
   if (!syncEnabled()) return;

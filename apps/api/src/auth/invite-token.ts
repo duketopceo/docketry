@@ -11,7 +11,7 @@ export function hashInviteToken(token: string): string {
 }
 
 export function mintInviteToken(): { token: string; hash: string } {
-  const token = `dok_inv_${randomBytes(24).toString("base64url")}`;
+  const token = `tly_inv_${randomBytes(24).toString("base64url")}`;
   return { token, hash: hashInviteToken(token) };
 }
 

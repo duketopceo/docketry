@@ -1,9 +1,9 @@
 {
-  "name": "@docketry/composio",
+  "name": "@tallyline/composio",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Composio custom toolkit for docketry — DOCKETRY_* tools over the docketry REST API",
+  "description": "Composio custom toolkit for tallyline — TALLYLINE_* tools over the tallyline REST API",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

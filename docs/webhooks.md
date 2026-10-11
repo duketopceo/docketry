@@ -1,6 +1,6 @@
 # Outbound webhooks
 
-Workspace endpoints that receive signed JSON POSTs when docketry events occur.
+Workspace endpoints that receive signed JSON POSTs when tallyline events occur.
 This is the substrate n8n nodes, Slack mirroring, and arbitrary consumers build
 on.
 
@@ -54,9 +54,9 @@ Payload shape:
 Every delivery signs the **raw JSON body** with HMAC-SHA256:
 
 ```
-X-Docketry-Event: issue.state_changed
-X-Docketry-Delivery: <delivery-uuid>
-X-Docketry-Signature: sha256=<hex>
+X-Tallyline-Event: issue.state_changed
+X-Tallyline-Delivery: <delivery-uuid>
+X-Tallyline-Signature: sha256=<hex>
 ```
 
 Node verify example:
@@ -85,7 +85,7 @@ Agents with `harness: "webhook"` and an `endpointUrl` receive dispatches
 through the **same durable pipeline** — the first POST is synchronous, retries
 ride the sweeper with the same backoff and 5-attempt cap. Each agent carries
 its own `endpointSecret` (auto-minted `whsec_…` on first dispatch); verify
-`X-Docketry-Signature` exactly as above. The delivery payload adds
+`X-Tallyline-Signature` exactly as above. The delivery payload adds
 `dispatchId`, `issue`, `agent`, `trigger`, `comment` to the envelope.
 
 A delivery that exhausts retries writes `dispatch_failed` back to the

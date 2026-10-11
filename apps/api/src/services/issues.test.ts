@@ -1,4 +1,4 @@
-import { InvalidTransitionError } from "@docketry/types";
+import { InvalidTransitionError } from "@tallyline/types";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeDb, db } from "../db/client.js";
@@ -22,7 +22,7 @@ beforeAll(async () => {
   workspaceId = ws!.id;
   const [team] = await db
     .insert(teams)
-    .values({ workspaceId, key: "DOK", name: "Docketry" })
+    .values({ workspaceId, key: "DOK", name: "Tallyline" })
     .returning();
   teamId = team!.id;
 });

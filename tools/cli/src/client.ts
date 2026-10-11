@@ -1,4 +1,4 @@
-import type { IssueState, Priority } from "@docketry/types";
+import type { IssueState, Priority } from "@tallyline/types";
 
 // Minimal fetch contract — satisfied by globalThis.fetch and by Hono's
 // app.fetch in tests (both accept a constructed Request; Hono may return

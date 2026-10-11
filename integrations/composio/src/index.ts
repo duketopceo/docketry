@@ -1,7 +1,7 @@
-export { DocketryClient, ApiError } from "./client.js";
+export { TallylineClient, ApiError } from "./client.js";
 export type {
-  DocketryClientConfig,
+  TallylineClientConfig,
   FetchLike,
   Whoami,
 } from "./client.js";
-export { createDocketryToolkit } from "./toolkit.js";
+export { createTallylineToolkit } from "./toolkit.js";

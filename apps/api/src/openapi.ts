@@ -22,7 +22,7 @@ function jsonBody(schema: Record<string, unknown>) {
 export const openApiDoc = {
   openapi: "3.1.0",
   info: {
-    title: "docketry API",
+    title: "tallyline API",
     version: "0.0.0",
     description:
       "Self-hostable, agent-native issue tracker. All resources are workspace-scoped; issue keys are TEAM-n.",
@@ -254,7 +254,7 @@ export const openApiDoc = {
     "/v1/workspaces/{ws}/issues/{key}/summarize": {
       post: {
         summary:
-          "LLM-generated issue summary (title + description + comments). 503 LLM_DISABLED when no DOCKETRY_LLM_API_KEY is configured",
+          "LLM-generated issue summary (title + description + comments). 503 LLM_DISABLED when no TALLYLINE_LLM_API_KEY is configured",
         parameters: [wsParam, keyParam],
         responses: { "200": { description: "Summary text" } },
       },
@@ -393,7 +393,7 @@ export const openApiDoc = {
         responses: {
           "200": {
             description:
-              "type: 'agent' for dok_agt_* keys, 'human' for sessions/PATs/JWTs",
+              "type: 'agent' for tly_agt_* keys, 'human' for sessions/PATs/JWTs",
           },
           "401": { description: "Unauthenticated" },
         },
@@ -600,7 +600,7 @@ export const openApiDoc = {
       },
       post: {
         summary:
-          "Mint a personal access token `dok_pat_*` — plaintext returned once (human session only)",
+          "Mint a personal access token `tly_pat_*` — plaintext returned once (human session only)",
         parameters: [wsParam],
         requestBody: jsonBody({
           type: "object",

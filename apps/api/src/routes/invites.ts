@@ -3,6 +3,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import { z } from "zod";
+import { isPatToken } from "@tallyline/types";
 import { inviteFromToken } from "../auth/invite-token.js";
 import { db } from "../db/client.js";
 import {
@@ -130,7 +131,7 @@ export const inviteAcceptRoutes = new Hono()
     if (!userId) {
       const bearer = c.req.header("authorization");
       const bearerToken = bearer?.startsWith("Bearer ") ? bearer.slice(7) : null;
-      if (bearerToken?.startsWith("dok_pat_")) {
+      if (isPatToken(bearerToken)) {
         const pat = await userFromToken(bearerToken);
         if (pat) userId = pat.userId;
       }

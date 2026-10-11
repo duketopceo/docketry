@@ -1,6 +1,6 @@
 # Klavis Strata — catalog listing
 
-Goal: agents discover docketry next to GitHub/Linear in the Strata catalog
+Goal: agents discover tallyline next to GitHub/Linear in the Strata catalog
 and execute tools end-to-end. Two routes — the self-hosted one works today,
 the native-catalog one is a submission to Klavis.
 
@@ -11,15 +11,15 @@ Two credential modes:
 
 | Mode | When | Credentials |
 |---|---|---|
-| env | `DOCKETRY_TOKEN` + `DOCKETRY_WORKSPACE` set | all requests share them — single-tenant self-host |
+| env | `TALLYLINE_TOKEN` + `TALLYLINE_WORKSPACE` set | all requests share them — single-tenant self-host |
 | **passthrough** | neither set | **per-request headers** — the hosted/multi-tenant shape |
 
 Passthrough request headers:
 
-- `Authorization: Bearer <dok_agt_*>` — the caller's agent key (or PAT/JWT)
-- `x-docketry-workspace: <slug>` — their workspace
-- `x-docketry-api-url: <url>` — only honored when the endpoint sets
-  `DOCKETRY_ALLOW_API_URL_OVERRIDE=1`. Off by default: forwarding
+- `Authorization: Bearer <tly_agt_*>` — the caller's agent key (or PAT/JWT)
+- `x-tallyline-workspace: <slug>` — their workspace
+- `x-tallyline-api-url: <url>` — only honored when the endpoint sets
+  `TALLYLINE_ALLOW_API_URL_OVERRIDE=1`. Off by default: forwarding
   caller-chosen URLs server-side is an SSRF surface. When enabled,
   literal loopback/link-local/cloud-metadata hosts are refused (RFC1918
   stays allowed — pointing at a LAN self-host API is the legitimate use);
@@ -37,8 +37,8 @@ request.
 docker compose -f docker-compose.selfhost.yml --profile mcp up -d
 # → POST http://localhost:3101/mcp  (proxies to api:4000 inside the stack)
 
-# or bare (from the repo root, after pnpm --filter @docketry/mcp-server build):
-DOCKETRY_API_URL=https://api.example.com \
+# or bare (from the repo root, after pnpm --filter @tallyline/mcp-server build):
+TALLYLINE_API_URL=https://api.example.com \
   node apps/mcp-server/dist/index.js --http=3101
 ```
 
@@ -59,11 +59,11 @@ curl -X POST https://api.klavis.ai/mcp-server/strata/create \
     "userId": "user-123",
     "servers": [],
     "externalServers": [{
-      "name": "docketry",
-      "url": "https://mcp.docketry.example.com/mcp",
+      "name": "tallyline",
+      "url": "https://mcp.tallyline.example.com/mcp",
       "headers": {
-        "Authorization": "Bearer dok_agt_...",
-        "x-docketry-workspace": "acme"
+        "Authorization": "Bearer tly_agt_...",
+        "x-tallyline-workspace": "acme"
       }
     }]
   }'
@@ -78,19 +78,19 @@ Native listings live in `Klavis-AI/klavis` under `mcp_servers/` — community
 servers land via PR (see their `CONTRIBUTING.md` + `MCP_SERVER_GUIDE.md`).
 Our submission needs:
 
-- `mcp_servers/docketry/` — a thin wrapper or pointer to our published
+- `mcp_servers/tallyline/` — a thin wrapper or pointer to our published
   image + a README describing tools and auth.
 - Auth model: API-key-style (`api_key` authData → `Authorization` header)
-  plus a `workspace` field → `x-docketry-workspace`, and (for self-hosted
-  deployments) an optional `api_url` field → `x-docketry-api-url`. Whether
+  plus a `workspace` field → `x-tallyline-workspace`, and (for self-hosted
+  deployments) an optional `api_url` field → `x-tallyline-api-url`. Whether
   Klavis's authData can carry the extra fields decides if the native entry
   covers self-hosters or only a managed cloud deployment — confirm with
   them before scoping.
 - A publicly reachable endpoint. Strata-hosted images run on Klavis infra;
-  our server proxies to `DOCKETRY_API_URL`, which for self-hosters is
+  our server proxies to `TALLYLINE_API_URL`, which for self-hosters is
   *their* API — a Klavis-hosted catalog entry therefore needs
-  `x-docketry-api-url` support, i.e. the endpoint must run with
-  `DOCKETRY_ALLOW_API_URL_OVERRIDE=1`. That is the main design point to
+  `x-tallyline-api-url` support, i.e. the endpoint must run with
+  `TALLYLINE_ALLOW_API_URL_OVERRIDE=1`. That is the main design point to
   settle in the submission.
 
 ## Keeping the entry current

@@ -3,7 +3,7 @@
  * methods, and every loadOptions call.
  */
 
-export interface DocketryCredentialShape {
+export interface TallylineCredentialShape {
 	baseUrl: string;
 	workspace: string;
 }
@@ -18,7 +18,7 @@ export function normalizeBaseUrl(baseUrl: string): string {
  * `path` must start with `/`.
  */
 export function workspaceUrl(
-	credentials: DocketryCredentialShape,
+	credentials: TallylineCredentialShape,
 	path: string,
 ): string {
 	const base = normalizeBaseUrl(credentials.baseUrl);

@@ -1,4 +1,4 @@
-import type { IssueState } from "@docketry/types";
+import type { IssueState } from "@tallyline/types";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {

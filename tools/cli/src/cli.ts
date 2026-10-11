@@ -14,9 +14,9 @@ const GLOBAL_OPTIONS: ParseArgsOptionsConfig = {
   help: { type: "boolean", short: "h" },
 };
 
-export const HELP = `docketry — work the board from a shell (alias: dok)
+export const HELP = `tallyline — work the board from a shell (alias: tly)
 
-usage: docketry <command> [args] [flags]
+usage: tallyline <command> [args] [flags]
 
 work loop:
   ready       issues ready to work — todo, unassigned-or-mine, by priority
@@ -40,7 +40,7 @@ feed:
 
 setup:
   init        init --workspace <slug> [--api-url u] [--agent-id id]
-              writes ./.docketry/config.json + agent.md
+              writes ./.tallyline/config.json + agent.md
 
 global flags:
   --json / --format json   machine-readable output (agent chaining)
@@ -52,13 +52,13 @@ global flags:
   --version                print version
 
 environment:
-  DOCKETRY_API_URL    api base url
-  DOCKETRY_TOKEN      dok_agt_* agent key, dok_pat_* PAT, or access JWT
-  DOCKETRY_WORKSPACE  workspace slug
-  DOCKETRY_AGENT_ID   your agent uuid/name — claim/next/ready "mine"
-  DOCKETRY_USER_ID    your user uuid — human identity
-  config files        ~/.config/docketry/config.json, ./.docketry/config.json,
-                      ./.docketry.json (env and flags override)
+  TALLYLINE_API_URL    api base url
+  TALLYLINE_TOKEN      tly_agt_* agent key, tly_pat_* PAT, or access JWT
+  TALLYLINE_WORKSPACE  workspace slug
+  TALLYLINE_AGENT_ID   your agent uuid/name — claim/next/ready "mine"
+  TALLYLINE_USER_ID    your user uuid — human identity
+  config files        ~/.config/tallyline/config.json, ./.tallyline/config.json,
+                      ./.tallyline.json (env and flags override)
 
 exit codes:
   0 ok · 1 error · 2 usage/config · 3 unauthorized/forbidden ·
@@ -91,12 +91,12 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
       return 0;
     }
     if (name === "--version") {
-      io.out(`docketry ${VERSION}`);
+      io.out(`tallyline ${VERSION}`);
       return 0;
     }
     const cmd = commands[name];
     if (!cmd) {
-      io.err(`unknown command '${name}' — run 'docketry help'`);
+      io.err(`unknown command '${name}' — run 'tallyline help'`);
       return 2;
     }
 
@@ -149,15 +149,15 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
       if (!config.workspace) {
         throw new CliError(
           2,
-          "no workspace configured — set DOCKETRY_WORKSPACE or run " +
-            "`docketry init --workspace <slug>`",
+          "no workspace configured — set TALLYLINE_WORKSPACE or run " +
+            "`tallyline init --workspace <slug>`",
         );
       }
       if (!config.token) {
         throw new CliError(
           2,
-          "no token configured — set DOCKETRY_TOKEN (dok_agt_* agent key, " +
-            "dok_pat_* PAT, or access JWT)",
+          "no token configured — set TALLYLINE_TOKEN (tly_agt_* agent key, " +
+            "tly_pat_* PAT, or access JWT)",
         );
       }
       client = new ApiClient({
@@ -186,7 +186,7 @@ export async function run(argv: string[], io: CliIo): Promise<number> {
     if (err instanceof CliError) {
       io.err(err.message);
       if (name !== undefined && err.exitCode === 2) {
-        io.err(`see 'docketry ${name} --help'`);
+        io.err(`see 'tallyline ${name} --help'`);
       }
       return err.exitCode;
     }

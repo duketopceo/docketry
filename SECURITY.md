@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-docketry is pre-v1.0 and under active development. Only the latest `main`
+tallyline is pre-v1.0 and under active development. Only the latest `main`
 branch receives security fixes — there are no supported release lines yet.
 Self-hosters should track `main` (or pin to a recent commit and upgrade
 promptly when a fix lands).
@@ -35,16 +35,16 @@ a public issue for security reports.
 
 ## Scope
 
-docketry is **self-hosted software**. Keep this in mind when reporting:
+tallyline is **self-hosted software**. Keep this in mind when reporting:
 
-- **In scope:** vulnerabilities in docketry's code — the web app (`apps/web`),
+- **In scope:** vulnerabilities in tallyline's code — the web app (`apps/web`),
   API (`apps/api`), MCP server (`apps/mcp-server`), dispatch worker, and CLI —
   and in the default configuration we ship (docker-compose, auth flows,
   webhook handling, secret handling in the codebase).
 - **Out of scope:** issues in your own deployment — your infrastructure,
   reverse proxy, TLS termination, network exposure, or how you configured
   third-party integrations. Also out of scope: vulnerabilities in upstream
-  dependencies without a demonstrated exploit path through docketry (report
+  dependencies without a demonstrated exploit path through tallyline (report
   those upstream), and denial-of-service vectors that require already-trusted
   access.
 
@@ -55,6 +55,6 @@ docketry is **self-hosted software**. Keep this in mind when reporting:
 - If you find a leaked credential (in a commit, issue, log excerpt, or your own
   report), redact it and report it privately via the channels above — do not
   paste live secrets into the report itself.
-- If you discover that docketry logs, stores, or transmits credentials in
+- If you discover that tallyline logs, stores, or transmits credentials in
   plaintext or with insufficient protection, that is a reportable
   vulnerability.

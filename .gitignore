@@ -33,8 +33,8 @@ coverage/
 # Vercel
 .vercel/
 
-# docketry local state
-.docketry/
+# tallyline local state
+.tallyline/
 
 # Local compose overrides (port remaps for sibling worktrees, etc.)
 docker-compose.override.yml

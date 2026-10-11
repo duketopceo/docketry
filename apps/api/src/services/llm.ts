@@ -34,7 +34,7 @@ export function requireLLM(): void {
     throw new HttpError(
       503,
       "LLM_DISABLED",
-      "LLM assist is off — set DOCKETRY_LLM_API_KEY to enable",
+      "LLM assist is off — set TALLYLINE_LLM_API_KEY to enable",
     );
   }
 }
@@ -54,7 +54,7 @@ export function createOpenRouterProvider(fetchImpl?: FetchLike): LLMProvider {
           "content-type": "application/json",
           authorization: `Bearer ${config_.llmApiKey}`,
           "http-referer": config_.apiBaseUrl,
-          "x-title": "docketry",
+          "x-title": "tallyline",
         },
         body: JSON.stringify({
           model: config_.llmModel,

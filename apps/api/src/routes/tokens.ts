@@ -36,8 +36,9 @@ export const tokenRoutes = new Hono()
       const ws = await requireWorkspace(c);
       requireRole(c, "admin");
       const body = c.req.valid("json");
-      if (body.name.toLowerCase().includes("dok_")) {
-        return apiError(c, 422, "BAD_NAME", "name may not contain 'dok_'");
+      const lowered = body.name.toLowerCase();
+      if (lowered.includes("tly_") || lowered.includes("dok_")) {
+        return apiError(c, 422, "BAD_NAME", "name may not contain 'tly_'");
       }
       const { token, id } = await createUserToken(
         session.userId,

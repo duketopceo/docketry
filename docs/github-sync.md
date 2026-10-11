@@ -1,7 +1,7 @@
 # GitHub issue sync (bidirectional)
 
-docketry mirrors linked GitHub issues both ways: local changes push to
-GitHub, GitHub webhook events land on the docketry issue. The link map is
+tallyline mirrors linked GitHub issues both ways: local changes push to
+GitHub, GitHub webhook events land on the tallyline issue. The link map is
 `github_issue_links` (one row per repo↔issue pair, created at intake or
 import time).
 
@@ -34,7 +34,7 @@ events but never mirror outbound — there is no credential to act as.
 
 ## What syncs
 
-Outbound (docketry → GitHub) — fires after the local commit, best-effort,
+Outbound (tallyline → GitHub) — fires after the local commit, best-effort,
 never blocks the request:
 
 - **state** — any `transitionIssue` on a linked issue: terminal states
@@ -43,11 +43,11 @@ never blocks the request:
   when the link's `gh_state` says it's closed. `gh_state` tracking makes
   transitions that don't change the GH side free (no API call).
 - **comments** — `POST .../comments` on a linked issue posts to GH with a
-  `**[docketry]**` provenance prefix.
+  `**[tallyline]**` provenance prefix.
 - **labels** — labels attached at issue create are ensured on the repo
-  (created if missing, docketry color) then added to the GH issue.
+  (created if missing, tallyline color) then added to the GH issue.
 
-Inbound (GitHub → docketry) — `issues` / `issue_comment` deliveries on
+Inbound (GitHub → tallyline) — `issues` / `issue_comment` deliveries on
 **linked** issues only (unlinked issues stay intake-only):
 
 - `edited` → title/body mirrored to `title`/`description` (the
@@ -57,7 +57,7 @@ Inbound (GitHub → docketry) — `issues` / `issue_comment` deliveries on
 - `reopened` → no-op while the local issue is non-terminal; on a terminal
   issue it can't be honored (the state machine has no exits from
   `done`/`canceled`/`duplicate`) → `sync_conflict` event
-- `labeled`/`unlabeled` → label set mirrored; missing docketry labels are
+- `labeled`/`unlabeled` → label set mirrored; missing tallyline labels are
   created by name (GH color or a neutral default)
 - `issue_comment.created` → comment with `**@ghuser** via GitHub:` body
   provenance, `via: "github"`, system actor
@@ -75,7 +75,7 @@ Two independent guards, because each covers what the other can't:
 2. **Bot-sender + marker drop.** Our own outbound writes echo back as
    deliveries whose `sender.login` is `<app-slug>[bot]` — dropped before
    any mutation. Mirrored comments additionally start with
-   `**[docketry]**`, which the inbound comment handler drops regardless of
+   `**[tallyline]**`, which the inbound comment handler drops regardless of
    sender.
 
 Net effect: GH close → local `canceled` → no PATCH back; local `done` →
@@ -95,11 +95,11 @@ GH PATCH → GH `closed` echo → dropped as bot-sent.
 ## Deliberate scope notes
 
 - Comments authored by internal surfaces (review verdicts, dispatch
-  writebacks) are docketry-internal and do not mirror; only the public
+  writebacks) are tallyline-internal and do not mirror; only the public
   comments route does.
 - Push/PR automation (`push`, `pull_request`, `pull_request_review`) is
   GitHub-originated — its transitions carry `via: "github"` and therefore
   never mirror back outbound (a merged PR won't auto-close the linked GH
   issue; use `Closes #N` in the PR body for that).
-- Label *removals* never propagate outbound — docketry has no
+- Label *removals* never propagate outbound — tallyline has no
   remove-label write path, and the outbound mirror only ever adds.

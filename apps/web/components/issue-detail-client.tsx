@@ -1,7 +1,7 @@
 "use client";
 
-import type { IssueState } from "@docketry/types";
-import { legalTransitions } from "@docketry/types";
+import type { IssueState } from "@tallyline/types";
+import { legalTransitions } from "@tallyline/types";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 
@@ -77,7 +77,7 @@ export function StateActions({
   );
 }
 
-// LLM assist — renders nothing when the workspace has no DOCKETRY_LLM_*
+// LLM assist — renders nothing when the workspace has no TALLYLINE_LLM_*
 // configured; the status probe keeps the UI honest instead of showing a
 // button that always 503s.
 export function SummarizeButton({ issueKey }: { issueKey: string }) {

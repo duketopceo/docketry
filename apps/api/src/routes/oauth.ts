@@ -259,7 +259,7 @@ export const oauthRoutes = new Hono()
         try {
           await client.query("BEGIN");
           await client.query(
-            "SELECT pg_advisory_xact_lock(hashtext('docketry-bootstrap')::bigint)",
+            "SELECT pg_advisory_xact_lock(hashtext('tallyline-bootstrap')::bigint)",
           );
           const existing = await client.query("SELECT id FROM workspaces LIMIT 1");
           if (existing.rowCount! > 0) {
@@ -276,7 +276,7 @@ export const oauthRoutes = new Hono()
             [body.bootstrap.workspaceSlug, body.bootstrap.workspaceName],
           )).rows;
           await client.query(
-            "INSERT INTO teams (workspace_id, key, name) VALUES ($1, $2, 'Docketry')",
+            "INSERT INTO teams (workspace_id, key, name) VALUES ($1, $2, 'Tallyline')",
             [ws.id, body.bootstrap.teamKey],
           );
           const pendingEmail = ctx.pending_email as string | null;

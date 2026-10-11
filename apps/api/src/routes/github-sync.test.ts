@@ -49,7 +49,7 @@ const SLUG = `gs-${Date.now()}`;
 const REPO = { full_name: "duketopceo/docketry" };
 const INSTALLATION_ID = 4242;
 const APP_ID = "99999";
-const APP_BOT = "docketry-test[bot]"; // vitest.config GITHUB_APP_SLUG + [bot]
+const APP_BOT = "tallyline-test[bot]"; // vitest.config GITHUB_APP_SLUG + [bot]
 
 let sessionCookie = "";
 let workspaceId = "";
@@ -142,7 +142,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const apiCalls = () => ghCalls.filter((c) => !c.url.includes("access_tokens"));
 const tokenCalls = () => ghCalls.filter((c) => c.url.includes("access_tokens"));
 
-// deliver issues.opened → returns the linked docketry issue row
+// deliver issues.opened → returns the linked tallyline issue row
 async function intakeIssue(ghIssueId: number, ghNumber: number, title: string) {
   await deliver("issues", {
     action: "opened",
@@ -413,7 +413,7 @@ describe("inbound: issues events on linked issues", () => {
     });
   });
 
-  it("labeled creates + attaches a missing docketry label; unlabeled detaches", async () => {
+  it("labeled creates + attaches a missing tallyline label; unlabeled detaches", async () => {
     const { issue } = await intakeIssue(5006, 106, "label me");
     await deliver("issues", {
       action: "labeled",
@@ -495,14 +495,14 @@ describe("inbound: issue_comment events", () => {
     expect(apiCalls()).toHaveLength(0);
   });
 
-  it("drops our own mirrored comments (docketry marker)", async () => {
+  it("drops our own mirrored comments (tallyline marker)", async () => {
     const { issue } = await intakeIssue(5102, 112, "echo target");
     await deliver("issue_comment", {
       action: "created",
       issue: ghIssue(5102, 112),
       comment: {
         id: 777002,
-        body: "**[docketry]**\n\nthis came from us",
+        body: "**[tallyline]**\n\nthis came from us",
         html_url: "https://github.com/x",
         user: { login: "someone" },
       },
@@ -552,7 +552,7 @@ describe("inbound: issue_comment events", () => {
   });
 });
 
-describe("outbound: docketry → github mirror", () => {
+describe("outbound: tallyline → github mirror", () => {
   it("terminal transition PATCHes the GH issue closed with reason", async () => {
     const { issue, link } = await intakeIssue(5201, 121, "mirror close");
     const move = await req(`/v1/workspaces/${SLUG}/issues/${issue.key}`, {
@@ -616,7 +616,7 @@ describe("outbound: docketry → github mirror", () => {
     expect(patch!.body).toEqual({ state: "open" });
   });
 
-  it("comments POST to the linked GH issue with the docketry marker", async () => {
+  it("comments POST to the linked GH issue with the tallyline marker", async () => {
     const { issue } = await intakeIssue(5204, 124, "comment mirror");
     const res = await req(`/v1/workspaces/${SLUG}/issues/${issue.key}/comments`, {
       method: "POST",
@@ -629,7 +629,7 @@ describe("outbound: docketry → github mirror", () => {
     const post = apiCalls().find((c) => c.url.endsWith("/issues/124/comments"));
     expect(post).toBeDefined();
     expect((post!.body as { body: string }).body).toBe(
-      "**[docketry]**\n\nshipping this tomorrow",
+      "**[tallyline]**\n\nshipping this tomorrow",
     );
   });
 

@@ -92,7 +92,7 @@ function BootstrapInner() {
           className="w-full max-w-md rounded-md border border-lining bg-surface-1 p-6"
         >
           <p className="font-mono text-xs uppercase tracking-widest text-accent">
-            docketry
+            tallyline
           </p>
           <h1 className="mt-2 text-lg font-semibold">Name your workspace</h1>
           <p className="mt-1 text-sm text-ink-subtle">
@@ -161,7 +161,7 @@ function BootstrapInner() {
         className="w-full max-w-md rounded-md border border-lining bg-surface-1 p-6"
       >
         <p className="font-mono text-xs uppercase tracking-widest text-accent">
-          docketry
+          tallyline
         </p>
         <h1 className="mt-2 text-lg font-semibold">First-run setup</h1>
         <p className="mt-1 text-sm text-ink-subtle">

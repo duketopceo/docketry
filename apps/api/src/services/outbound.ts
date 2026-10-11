@@ -29,7 +29,7 @@ export function generateEndpointSecret(): string {
   return `whsec_${randomBytes(24).toString("hex")}`;
 }
 
-// X-Docketry-Signature verification for consumers (documented in docs/webhooks.md)
+// X-Tallyline-Signature verification for consumers (documented in docs/webhooks.md)
 export function signDelivery(body: string, secret: string): string {
   return `sha256=${createHmac("sha256", secret).update(body, "utf8").digest("hex")}`;
 }
@@ -203,9 +203,9 @@ async function deliver(
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-docketry-event": row.action,
-        "x-docketry-delivery": row.id,
-        "x-docketry-signature": signDelivery(body, target.secret),
+        "x-tallyline-event": row.action,
+        "x-tallyline-delivery": row.id,
+        "x-tallyline-signature": signDelivery(body, target.secret),
       },
       body,
       signal: AbortSignal.timeout(8000),

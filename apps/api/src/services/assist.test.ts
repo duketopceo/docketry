@@ -163,7 +163,7 @@ describe("llm assist service", () => {
   });
 
   it("kill switch: requireLLM throws when no key is configured", () => {
-    // test env has no DOCKETRY_LLM_API_KEY
+    // test env has no TALLYLINE_LLM_API_KEY
     expect(() => requireLLM()).toThrowError(
       expect.objectContaining({ status: 503, code: "LLM_DISABLED" }),
     );

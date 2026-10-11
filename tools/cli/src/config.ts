@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { readEnv } from "@tallyline/types";
 
 export type EnvLike = Record<string, string | undefined>;
 
@@ -44,18 +45,23 @@ async function readConfigFile(path: string): Promise<FileConfig | null> {
 }
 
 // Precedence (low -> high):
-//   ~/.config/docketry/config.json  <  ./.docketry/config.json  <
-//   ./.docketry.json  <  env (DOCKETRY_*)  <  flags
+//   ~/.config/tallyline/config.json  <  ./.tallyline/config.json  <
+//   ./.tallyline.json  <  env (TALLYLINE_*)  <  flags
 export async function resolveConfig(opts: {
   env: EnvLike;
   cwd: string;
   flags?: { apiUrl?: string; token?: string; workspace?: string };
 }): Promise<ResolvedConfig> {
   const home = opts.env.HOME ?? homedir();
+  // legacy docketry-era paths come first (lowest precedence) so an existing
+  // setup keeps working; any tallyline-named file overrides them
   const candidates = [
     join(home, ".config", "docketry", "config.json"),
     join(opts.cwd, ".docketry", "config.json"),
     join(opts.cwd, ".docketry.json"),
+    join(home, ".config", "tallyline", "config.json"),
+    join(opts.cwd, ".tallyline", "config.json"),
+    join(opts.cwd, ".tallyline.json"),
   ];
 
   const merged: FileConfig = {};
@@ -86,11 +92,18 @@ export async function resolveConfig(opts: {
     ...(merged.userId !== undefined ? { userId: merged.userId } : {}),
   };
 
-  if (env.DOCKETRY_API_URL) config.apiUrl = env.DOCKETRY_API_URL;
-  if (env.DOCKETRY_TOKEN) config.token = env.DOCKETRY_TOKEN;
-  if (env.DOCKETRY_WORKSPACE) config.workspace = env.DOCKETRY_WORKSPACE;
-  if (env.DOCKETRY_AGENT_ID) config.agentId = env.DOCKETRY_AGENT_ID;
-  if (env.DOCKETRY_USER_ID) config.userId = env.DOCKETRY_USER_ID;
+
+  const fromEnv = (name: string) => readEnv(env, name);
+  const envApiUrl = fromEnv("TALLYLINE_API_URL");
+  const envToken = fromEnv("TALLYLINE_TOKEN");
+  const envWorkspace = fromEnv("TALLYLINE_WORKSPACE");
+  const envAgentId = fromEnv("TALLYLINE_AGENT_ID");
+  const envUserId = fromEnv("TALLYLINE_USER_ID");
+  if (envApiUrl) config.apiUrl = envApiUrl;
+  if (envToken) config.token = envToken;
+  if (envWorkspace) config.workspace = envWorkspace;
+  if (envAgentId) config.agentId = envAgentId;
+  if (envUserId) config.userId = envUserId;
 
   if (opts.flags?.apiUrl) config.apiUrl = opts.flags.apiUrl;
   if (opts.flags?.token) config.token = opts.flags.token;

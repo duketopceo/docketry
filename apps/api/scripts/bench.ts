@@ -50,7 +50,7 @@ async function mintKey(wsId: string): Promise<string> {
       .values({ workspaceId: wsId, name: "bench", harness: "vitest" })
       .returning();
   }
-  const key = `dok_agt_bench_${randomBytes(16).toString("hex")}`;
+  const key = `tly_agt_bench_${randomBytes(16).toString("hex")}`;
   await db.insert(agentKeys).values({
     workspaceId: wsId,
     agentId: agent!.id,

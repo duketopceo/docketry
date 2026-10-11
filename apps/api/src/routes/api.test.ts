@@ -3,6 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { app } from "../index.js";
 import { closeDb, db } from "../db/client.js";
 import { runMigrations } from "../db/migrate.js";
+import { hashKey } from "../services/agents.js";
+import { hashToken } from "../services/tokens.js";
 import {
   agentKeys,
   agents,
@@ -367,7 +369,7 @@ describe("api routes (real postgres)", () => {
     );
     expect(readKey.status).toBe(201);
     const roToken = readKey.body.key as string;
-    expect(roToken).toMatch(/^dok_agt_/);
+    expect(roToken).toMatch(/^tly_agt_/);
 
     // read scope passes GET, fails mutations
     const listOk = await req(`/v1/workspaces/${SLUG}/issues`, {
@@ -438,7 +440,7 @@ describe("api routes (real postgres)", () => {
 
     // bogus key → 401
     const badKey = await req(`/v1/workspaces/${SLUG}/issues`, {
-      headers: { authorization: "Bearer dok_agt_bogus" },
+      headers: { authorization: "Bearer tly_agt_bogus" },
     });
     expect(badKey.status).toBe(401);
 
@@ -451,6 +453,58 @@ describe("api routes (real postgres)", () => {
     expect(agentMint.status).toBe(403);
   });
 
+  it("legacy dok_agt_/dok_pat_ credentials issued before the rename still authenticate", async () => {
+    // simulate a pre-rename credential: same hash-at-rest scheme, old prefix
+    const agent = await req(`/v1/workspaces/${SLUG}/agents`, {
+      method: "POST",
+      body: JSON.stringify({ name: "legacy-agent", harness: "x" }),
+    });
+    const keyRes = await req(
+      `/v1/workspaces/${SLUG}/agents/${agent.body.id as string}/keys`,
+      { method: "POST", body: JSON.stringify({ name: "old", scopes: ["read"] }) },
+    );
+    expect(keyRes.body.key as string).toMatch(/^tly_agt_/);
+    const legacyKey = "dok_agt_legacy-fixture-key";
+    await db
+      .update(agentKeys)
+      .set({ tokenHash: hashKey(legacyKey) })
+      .where(eq(agentKeys.id, keyRes.body.id as string));
+    const viaKey = await req(`/v1/workspaces/${SLUG}/issues`, {
+      headers: { authorization: `Bearer ${legacyKey}` },
+    });
+    expect(viaKey.status).toBe(200);
+    const me = await req("/v1/auth/me", {
+      headers: { authorization: `Bearer ${legacyKey}` },
+    });
+    expect(me.body.type).toBe("agent");
+
+    const mint = await req(`/v1/workspaces/${SLUG}/tokens`, {
+      method: "POST",
+      body: JSON.stringify({ name: "old-pat", scopes: ["read"] }),
+    });
+    expect(mint.body.token as string).toMatch(/^tly_pat_/);
+    const legacyPat = "dok_pat_legacy-fixture-token";
+    await db
+      .update(userTokens)
+      .set({ tokenHash: hashToken(legacyPat) })
+      .where(eq(userTokens.id, mint.body.id as string));
+    const viaPat = await req(`/v1/workspaces/${SLUG}/issues`, {
+      headers: { authorization: `Bearer ${legacyPat}` },
+    });
+    expect(viaPat.status).toBe(200);
+
+    // an unknown dok_ token is still rejected (never tried as a JWT)
+    const bogus = await req(`/v1/workspaces/${SLUG}/issues`, {
+      headers: { authorization: "Bearer dok_agt_nope" },
+    });
+    expect(bogus.status).toBe(401);
+
+    // clean up so later token-listing assertions see only their own rows
+    await req(`/v1/workspaces/${SLUG}/tokens/${mint.body.id as string}`, {
+      method: "DELETE",
+    });
+  });
+
   it("personal access tokens: mint, scope enforcement, revoke", async () => {
     const mint = await req(`/v1/workspaces/${SLUG}/tokens`, {
       method: "POST",
@@ -458,7 +512,7 @@ describe("api routes (real postgres)", () => {
     });
     expect(mint.status).toBe(201);
     const pat = mint.body.token as string;
-    expect(pat).toMatch(/^dok_pat_/);
+    expect(pat).toMatch(/^tly_pat_/);
 
     const listOk = await req(`/v1/workspaces/${SLUG}/issues`, {
       headers: { authorization: `Bearer ${pat}` },

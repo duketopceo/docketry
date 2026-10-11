@@ -1,6 +1,6 @@
 import Papa from "papaparse";
 import { and, asc, eq } from "drizzle-orm";
-import type { IssueState, Priority } from "@docketry/types";
+import type { IssueState, Priority } from "@tallyline/types";
 import { db } from "../db/client.js";
 import {
   githubIssueLinks,

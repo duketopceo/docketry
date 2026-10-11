@@ -2,7 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import {
   findPath,
   type IssueState,
-} from "@docketry/types";
+} from "@tallyline/types";
 import { db } from "../db/client.js";
 import {
   comments,
@@ -16,7 +16,7 @@ import {
   teams,
 } from "../db/schema.js";
 import {
-  DOCKETRY_COMMENT_MARKER,
+  TALLYLINE_COMMENT_MARKER,
   isAppBotSender,
   recordSyncConflict,
 } from "./github-sync.js";
@@ -429,7 +429,7 @@ async function syncReopened(
   });
 }
 
-// docketry labels are workspace-scoped and matched to GH labels by name;
+// tallyline labels are workspace-scoped and matched to GH labels by name;
 // missing ones are created (GH color, else neutral default).
 async function ensureLabel(
   workspaceId: string,
@@ -582,7 +582,7 @@ async function onIssueSync(
   else if (action === "unlabeled") await syncLabelRemoved(repo, issue, payload);
 }
 
-// issue_comment.created on a linked issue → docketry comment, authored
+// issue_comment.created on a linked issue → tallyline comment, authored
 // by the GH user (system actor + provenance prefix), via=github so the
 // outbound mirror never echoes it back.
 async function onIssueCommentCreated(
@@ -597,7 +597,7 @@ async function onIssueCommentCreated(
     | undefined;
   if (!comment?.body) return;
   // our own mirrored comment bouncing back
-  if (comment.body.startsWith(DOCKETRY_COMMENT_MARKER)) return;
+  if (comment.body.startsWith(TALLYLINE_COMMENT_MARKER)) return;
 
   const link = await linkForGhIssue(repo.id, gh.id);
   if (!link) return;

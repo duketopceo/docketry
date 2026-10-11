@@ -1,3 +1,5 @@
+import { readEnv, readHeader } from "@tallyline/types";
+
 export interface McpConfig {
   apiUrl: string;
   token: string;
@@ -8,9 +10,9 @@ export class MissingEnvError extends Error {
   constructor(readonly missing: string[]) {
     super(
       `missing required env var(s): ${missing.join(", ")}\n` +
-        "  DOCKETRY_TOKEN     — a dok_agt_* agent key (or dok_pat_* token)\n" +
-        "  DOCKETRY_WORKSPACE — workspace slug, e.g. 'acme'\n" +
-        "  DOCKETRY_API_URL   — optional, default http://localhost:4000",
+        "  TALLYLINE_TOKEN     — a tly_agt_* agent key (or tly_pat_* token)\n" +
+        "  TALLYLINE_WORKSPACE — workspace slug, e.g. 'acme'\n" +
+        "  TALLYLINE_API_URL   — optional, default http://localhost:4000",
     );
     this.name = "MissingEnvError";
   }
@@ -25,13 +27,13 @@ const stripSlash = (url: string) => url.replace(/\/+$/, "");
  */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): McpConfig {
   const missing: string[] = [];
-  const token = env.DOCKETRY_TOKEN?.trim();
-  const workspace = env.DOCKETRY_WORKSPACE?.trim();
-  if (!token) missing.push("DOCKETRY_TOKEN");
-  if (!workspace) missing.push("DOCKETRY_WORKSPACE");
+  const token = readEnv(env, "TALLYLINE_TOKEN")?.trim();
+  const workspace = readEnv(env, "TALLYLINE_WORKSPACE")?.trim();
+  if (!token) missing.push("TALLYLINE_TOKEN");
+  if (!workspace) missing.push("TALLYLINE_WORKSPACE");
   if (missing.length > 0) throw new MissingEnvError(missing);
   return {
-    apiUrl: stripSlash(env.DOCKETRY_API_URL ?? "http://localhost:4000"),
+    apiUrl: stripSlash(readEnv(env, "TALLYLINE_API_URL") ?? "http://localhost:4000"),
     token: token!,
     workspace: workspace!,
   };
@@ -39,7 +41,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): McpConfig {
 
 /**
  * How an --http endpoint resolves credentials. `env` = all requests share the
- * DOCKETRY_TOKEN/DOCKETRY_WORKSPACE env pair (single-tenant self-host).
+ * TALLYLINE_TOKEN/TALLYLINE_WORKSPACE env pair (single-tenant self-host).
  * `passthrough` = each request supplies its own via headers — the shape a
  * hosted multi-tenant endpoint (Klavis Strata externalServers, gateways)
  * needs. One var set without the other is an ambiguous deployment → throw.
@@ -49,18 +51,18 @@ export type HttpAuthMode =
   | { mode: "passthrough"; apiUrl: string; allowApiUrlOverride: boolean };
 
 export function httpAuthMode(env: NodeJS.ProcessEnv): HttpAuthMode {
-  const token = env.DOCKETRY_TOKEN?.trim();
-  const workspace = env.DOCKETRY_WORKSPACE?.trim();
+  const token = readEnv(env, "TALLYLINE_TOKEN")?.trim();
+  const workspace = readEnv(env, "TALLYLINE_WORKSPACE")?.trim();
   if (token && workspace) {
     return { mode: "env", config: loadConfig(env) };
   }
   if (token || workspace) {
-    throw new MissingEnvError([token ? "DOCKETRY_WORKSPACE" : "DOCKETRY_TOKEN"]);
+    throw new MissingEnvError([token ? "TALLYLINE_WORKSPACE" : "TALLYLINE_TOKEN"]);
   }
   return {
     mode: "passthrough",
-    apiUrl: stripSlash(env.DOCKETRY_API_URL ?? "http://localhost:4000"),
-    allowApiUrlOverride: env.DOCKETRY_ALLOW_API_URL_OVERRIDE === "1",
+    apiUrl: stripSlash(readEnv(env, "TALLYLINE_API_URL") ?? "http://localhost:4000"),
+    allowApiUrlOverride: readEnv(env, "TALLYLINE_ALLOW_API_URL_OVERRIDE") === "1",
   };
 }
 
@@ -75,10 +77,10 @@ export class PassthroughAuthError extends Error {
 
 /**
  * Resolve a per-request config from inbound headers in passthrough mode.
- * `authorization` carries the docketry credential (dok_agt_*, dok_pat_*, or a
- * session JWT); `x-docketry-workspace` carries the slug. `x-docketry-api-url`
+ * `authorization` carries the tallyline credential (tly_agt_*, tly_pat_*, or a
+ * session JWT); `x-tallyline-workspace` carries the slug. `x-tallyline-api-url`
  * is honored only when the deployment opted in via
- * DOCKETRY_ALLOW_API_URL_OVERRIDE=1 — forwarding caller-chosen URLs server-side
+ * TALLYLINE_ALLOW_API_URL_OVERRIDE=1 — forwarding caller-chosen URLs server-side
  * is an SSRF surface, so it is off by default.
  */
 export function configFromHeaders(
@@ -89,35 +91,35 @@ export function configFromHeaders(
   const token = auth?.replace(/^bearer\s+/i, "").trim();
   if (!token) {
     throw new PassthroughAuthError(
-      "missing Authorization: Bearer <dok_agt_*> header",
+      "missing Authorization: Bearer <tly_agt_*> header",
     );
   }
-  const workspace = first(headers["x-docketry-workspace"])?.trim();
+  const workspace = first(readHeader(headers, "x-tallyline-workspace"))?.trim();
   if (!workspace || !WORKSPACE_RE.test(workspace)) {
     throw new PassthroughAuthError(
-      "missing or invalid x-docketry-workspace header",
+      "missing or invalid x-tallyline-workspace header",
     );
   }
   let apiUrl = base.apiUrl;
-  const override = first(headers["x-docketry-api-url"])?.trim();
+  const override = first(readHeader(headers, "x-tallyline-api-url"))?.trim();
   if (override) {
     if (!base.allowApiUrlOverride) {
       throw new PassthroughAuthError(
-        "x-docketry-api-url not accepted by this endpoint",
+        "x-tallyline-api-url not accepted by this endpoint",
       );
     }
     let parsed: URL;
     try {
       parsed = new URL(override);
     } catch {
-      throw new PassthroughAuthError("x-docketry-api-url must be http(s)");
+      throw new PassthroughAuthError("x-tallyline-api-url must be http(s)");
     }
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      throw new PassthroughAuthError("x-docketry-api-url must be http(s)");
+      throw new PassthroughAuthError("x-tallyline-api-url must be http(s)");
     }
     if (isBlockedOverrideHost(parsed.hostname)) {
       throw new PassthroughAuthError(
-        "x-docketry-api-url host is not permitted",
+        "x-tallyline-api-url host is not permitted",
       );
     }
     apiUrl = stripSlash(override);

@@ -11,7 +11,7 @@ doc_reviewed: 2026-10-10 (ce-doc-review: coherence, feasibility, scope-guardian,
 
 ## Goal Capsule
 
-- **Objective:** A self-hosting stranger can sign in to docketry with GitHub or Google (or their own OIDC IdP), land in the right workspace as a real member with a role, and be one person across multiple workspaces — while every existing credential (`dok_session`, `dok_pat_`, `dok_agt_`, JWT) keeps working and every workspace boundary stays closed.
+- **Objective:** A self-hosting stranger can sign in to tallyline with GitHub or Google (or their own OIDC IdP), land in the right workspace as a real member with a role, and be one person across multiple workspaces — while every existing credential (`dok_session`, `tly_pat_`, `tly_agt_`, JWT) keeps working and every workspace boundary stays closed.
 - **Means:** `openid-client` v6 provider registry + global `users`/`workspace_members`/`team_members`/`auth_identities`/`auth_providers`/`invites` schema (KTD1, KTD8).
 - **Authority:** Requirements beat implementation detail; R15 (membership checked per request) and R16 (admin-gated minting) are the cardinal invariants; the three research dossiers in Sources orient but do not bind.
 - **Stop conditions:** Any auto-link path that would join two identities on unverified email; any route that lets a removed member keep a live session; `POST /v1/workspaces` staying agent-reachable.
@@ -23,7 +23,7 @@ doc_reviewed: 2026-10-10 (ce-doc-review: coherence, feasibility, scope-guardian,
 
 ### Summary
 
-docketry is an open-source self-hosted issue tracker whose only auth today is email/password behind `/v1/auth/bootstrap`. This plan adds a pluggable OAuth/OIDC provider framework (GitHub + Google named, generic OIDC slot) configured by env vars or an admin settings UI, promotes `users` from workspace-scoped to global identity, and introduces real org structure — workspace membership with owner/admin/member roles, team membership, and link-based invites — so a team can run docketry behind their existing identity stack. Agent authentication is untouched; agents never become members.
+tallyline is an open-source self-hosted issue tracker whose only auth today is email/password behind `/v1/auth/bootstrap`. This plan adds a pluggable OAuth/OIDC provider framework (GitHub + Google named, generic OIDC slot) configured by env vars or an admin settings UI, promotes `users` from workspace-scoped to global identity, and introduces real org structure — workspace membership with owner/admin/member roles, team membership, and link-based invites — so a team can run tallyline behind their existing identity stack. Agent authentication is untouched; agents never become members.
 
 ### Problem Frame
 
@@ -88,10 +88,10 @@ Self-hosters evaluating an OSS tracker hit the same wall: the product works but 
 ### Success Criteria
 
 - `docker compose up` on a clean install → bootstrap → admin adds a Google provider in settings → a second human signs in with Google and lands in the workspace as a member.
-- A removed member's live `dok_session`/`dok_pat_` returns 403 on the next request, not at token expiry (30-day TTL makes lazy revocation unacceptable).
+- A removed member's live `dok_session`/`tly_pat_` returns 403 on the next request, not at token expiry (30-day TTL makes lazy revocation unacceptable).
 - Two providers linked to one verified email produce one user, never two; an unverified-email collision never auto-links.
 - `AUTH_DISABLE_PASSWORD=1` install: password login 403s, first OAuth login bootstraps owner, login page shows providers only.
-- `dok_agt_` keys keep working for reads/writes they always had and gain no new privileges; agent keys cannot create workspaces, invites, or credentials.
+- `tly_agt_` keys keep working for reads/writes they always had and gain no new privileges; agent keys cannot create workspaces, invites, or credentials.
 - Migration on a populated dev DB: all pre-existing issues/comments/events keep their actor names; duplicate-email fixtures merge deterministically with an audit trail.
 
 ### Scope Boundaries
@@ -192,7 +192,7 @@ flowchart TB
 - A 32-byte `AUTH_SECRET_KEY` env var is acceptable as a new required-when-providers-DB-configured secret (providers may be env-only without it).
 - Workspace-declared domains for JIT matching live on `workspaces` (new `allowed_domains text[]`), admin-editable.
 - Bootstrap remains single-use per deployment; under `AUTH_DISABLE_PASSWORD` the first-ever OAuth login substitutes the password step but still collects workspace/team naming.
-- Hosted instances are dogfood surfaces: the first hosted deployment tracks external projects (e.g. `duketopceo/open-computer` — phase-parent/checklist-child roadmap filed by its agents). Deploy docs must keep agent-filed issue flows working end-to-end — `dok_agt_` minting (owner/admin, R16), REST `POST /v1/workspaces/:ws/issues`, and the MCP server — so fleet agents can file and update issues without human-in-loop.
+- Hosted instances are dogfood surfaces: the first hosted deployment tracks external projects (e.g. `duketopceo/open-computer` — phase-parent/checklist-child roadmap filed by its agents). Deploy docs must keep agent-filed issue flows working end-to-end — `tly_agt_` minting (owner/admin, R16), REST `POST /v1/workspaces/:ws/issues`, and the MCP server — so fleet agents can file and update issues without human-in-loop.
 
 ### Sources / Research
 
@@ -253,12 +253,12 @@ flowchart TB
 - Merged user retains membership in **both** workspaces (re-point before delete — a workspace that loses its only member this way is a brick); no workspace ends with zero members or zero owner.
 - Case-variant pair `A@x.com`/`a@x.com` (legal under today's case-sensitive unique) merges without violating `unique(workspace_id, user_id)` or `lower(email)`; post-merge `a@x.com` login authenticates the canonical row.
 - Issues created-by and assigned-to a merged user resolve creator/assignee names under the canonical UUID and appear in canonical's `?assignee` filter; events by the merged user keep `actorName`.
-- A live `dok_session` and `dok_pat_` minted before the migration authenticate afterwards (UUID-stable guarantee).
+- A live `dok_session` and `tly_pat_` minted before the migration authenticate afterwards (UUID-stable guarantee).
 - Rollforward on an empty DB: both migrations apply, schema matches `schema.ts`, `users` has no `workspace_id`.
 - Post-0019 assertion queries pass: `count(users)` delta = `count(user_id_map)`; zero dangling `actor_id` where `*_type='human'` across the four pairs; zero workspaces with zero members/owners; every `sessions.workspace_id` covered by a `workspace_members` row for that user; zero duplicate `lower(email)`; `__drizzle_migrations` matches the journal.
 - Two concurrent `migrate()` runs serialize on the advisory lock; second instance sees all applied, exits clean.
 
-**Verification:** `pnpm --filter @docketry/api test` green on a fresh DB and on a copy of a populated dev DB; `drizzle-kit generate` produces no further diff after `0019`.
+**Verification:** `pnpm --filter @tallyline/api test` green on a fresh DB and on a copy of a populated dev DB; `drizzle-kit generate` produces no further diff after `0019`.
 
 ---
 
@@ -292,8 +292,8 @@ flowchart TB
 - Member of ws A reads ws A issues; same user without membership in ws B gets 403 `FORBIDDEN_WORKSPACE` on ws B routes.
 - Cookie session of a user with memberships in A and B reads B's issues without re-login (roam); `POST /v1/auth/session {slug:B}` re-binds and `/me` reports B as active.
 - A PAT minted for ws A with the user later joining ws B still 403s on every ws B route (hard binding preserved).
-- Removing a member row causes their live `dok_session` and `dok_pat_` to 403 on the next request (no TTL wait).
-- `POST /v1/workspaces` with `dok_agt_` key → 403; with cookie session → 201 and caller is `owner`.
+- Removing a member row causes their live `dok_session` and `tly_pat_` to 403 on the next request (no TTL wait).
+- `POST /v1/workspaces` with `tly_agt_` key → 403; with cookie session → 201 and caller is `owner`.
 - `POST /v1/workspaces/:ws/tokens` (PAT mint) as member → 403 `FORBIDDEN_ROLE`; as admin/owner → 201; via PAT (not cookie) → 403 regardless of role; `POST /v1/auth/token` as member cookie session → 200 (R16 exemption — not a mint).
 - Agent key reads/writes inside its bound workspace unchanged; `validateAssignee` accepts a member, rejects a non-member human, accepts an agent.
 - Cookie/PAT request with `x-actor-type: agent` → 403; same header from an agent key → honored.
@@ -425,7 +425,7 @@ flowchart TB
 - OIDC provider created via API shows up in `GET /v1/auth/methods` and its `start` route redirects (provider registry is shared).
 - e2e global-setup uses `POST /invites` + accept instead of raw SQL user insert.
 
-**Verification:** new suites green; `pnpm --filter @docketry/api test` overall; openapi.json includes every new path.
+**Verification:** new suites green; `pnpm --filter @tallyline/api test` overall; openapi.json includes every new path.
 
 ---
 
@@ -533,7 +533,7 @@ flowchart TB
 2. `/v1/whoami` adds `memberships` (from `workspace_members`) and `role` for the bound workspace; agent-key responses stay unchanged shape plus their bound workspace.
 3. Member events: `member_joined|left|role_changed` rows with `actor_type`/`actor_id` resolution — events route joins users on `actor_type='human'` already; verify no regression.
 4. Openapi + docs stay hand-maintained per repo convention; the "who can mint agent keys" section in docs/agents.md updates to owner/admin.
-5. Agent-key invariant tests: `dok_agt_` gets 403 on member-write, invite, provider, mint, and workspace-create routes; read access to `GET /members` allowed (assignee resolution).
+5. Agent-key invariant tests: `tly_agt_` gets 403 on member-write, invite, provider, mint, and workspace-create routes; read access to `GET /members` allowed (assignee resolution).
 
 **Test scenarios:**
 - MCP `list_members` through the passthrough endpoint returns members for the caller's workspace; another workspace is unreachable.
@@ -616,11 +616,11 @@ The surfaces this change touches and what each inherits:
 
 ## Verification Contract
 
-- `pnpm --filter @docketry/api test` — serial vitest against real Postgres; covers migration (U1), role matrix (U2), provider/OAuth units (U3, U4), admin API (U5), whoami (U8). Fresh DB per run (`DATABASE_URL=postgresql://postgres:postgres@localhost:5432/docketry_auth_test`).
-- `pnpm --filter @docketry/mcp-server test` — `list_members` tool coverage (U8).
+- `pnpm --filter @tallyline/api test` — serial vitest against real Postgres; covers migration (U1), role matrix (U2), provider/OAuth units (U3, U4), admin API (U5), whoami (U8). Fresh DB per run (`DATABASE_URL=postgresql://postgres:postgres@localhost:5432/docketry_auth_test`).
+- `pnpm --filter @tallyline/mcp-server test` — `list_members` tool coverage (U8).
 - `pnpm typecheck && pnpm lint` — repo-wide.
-- `pnpm --filter @docketry/e2e test` — existing specs pass; a11y spec extended to `/settings/*` (U7) plus `/login`, `/join`, `/link`, `/workspaces` under an unauthenticated context (the existing spec only visits authed pages via `storageState` — the new public pages need their own lane); `global-setup.ts` uses the real invite path (U5).
-- `pnpm --filter @docketry/web build` — new pages/routes compile.
+- `pnpm --filter @tallyline/e2e test` — existing specs pass; a11y spec extended to `/settings/*` (U7) plus `/login`, `/join`, `/link`, `/workspaces` under an unauthenticated context (the existing spec only visits authed pages via `storageState` — the new public pages need their own lane); `global-setup.ts` uses the real invite path (U5).
+- `pnpm --filter @tallyline/web build` — new pages/routes compile.
 - Manual OAuth round-trip on the dev stack: GitHub OAuth App per `docs/auth.md` → `/login` button → consent → lands on board as member.
 - Migration rehearsal: dump of a populated dev DB → `0018`+`0019` → verify `user_id_map`, members backfill, and a live session surviving.
 

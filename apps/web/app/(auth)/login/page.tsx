@@ -95,7 +95,7 @@ function LoginInner() {
     <main className="flex min-h-screen items-center justify-center px-6">
       <div className="w-full max-w-sm rounded-md border border-lining bg-surface-1 p-6">
         <p className="font-mono text-xs uppercase tracking-widest text-accent">
-          docketry
+          tallyline
         </p>
         <h1 className="mt-2 text-lg font-semibold">Sign in</h1>
 

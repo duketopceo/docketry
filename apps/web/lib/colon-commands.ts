@@ -1,4 +1,4 @@
-import { findPath, ISSUE_STATES, type IssueState } from "@docketry/types";
+import { findPath, ISSUE_STATES, type IssueState } from "@tallyline/types";
 
 // `:…` command mode — parses and executes typed commands against the
 // existing /api bridges. Kept framework-free so it stays unit-testable.

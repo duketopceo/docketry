@@ -33,7 +33,7 @@ import {
 } from "../../api/src/db/schema.js";
 import { hashKey } from "../../api/src/services/agents.js";
 import { hashToken } from "../../api/src/services/tokens.js";
-import { DocketryClient } from "./client.js";
+import { TallylineClient } from "./client.js";
 import { MissingEnvError, loadConfig } from "./env.js";
 import { createMcpServer } from "./server.js";
 import { runTool } from "./tools.js";
@@ -75,12 +75,12 @@ type Json = Record<string, unknown> & { error?: { code: string } };
 let wsId = "";
 const teamKey = "MCP";
 let agentId = "";
-let rwClient: DocketryClient;
-let roClient: DocketryClient;
-let patClient: DocketryClient;
+let rwClient: TallylineClient;
+let roClient: TallylineClient;
+let patClient: TallylineClient;
 
-function clientFor(token: string): DocketryClient {
-  return new DocketryClient({
+function clientFor(token: string): TallylineClient {
+  return new TallylineClient({
     apiUrl: "http://mcp.test",
     token,
     workspace: SLUG,
@@ -91,7 +91,7 @@ function clientFor(token: string): DocketryClient {
 async function call(
   name: string,
   args: Record<string, unknown>,
-  client: DocketryClient = rwClient,
+  client: TallylineClient = rwClient,
 ): Promise<{ res: CallToolResult; data: Json }> {
   const res = await runTool(name, args, client);
   const first = res.content[0];
@@ -133,8 +133,8 @@ beforeAll(async () => {
     .returning();
   agentId = agent!.id;
 
-  const rwToken = `dok_agt_${randomBytes(24).toString("base64url")}`;
-  const roToken = `dok_agt_${randomBytes(24).toString("base64url")}`;
+  const rwToken = `tly_agt_${randomBytes(24).toString("base64url")}`;
+  const roToken = `tly_agt_${randomBytes(24).toString("base64url")}`;
   await db.insert(agentKeys).values([
     {
       agentId,
@@ -151,7 +151,7 @@ beforeAll(async () => {
       scopes: ["read"],
     },
   ]);
-  const pat = `dok_pat_${randomBytes(24).toString("base64url")}`;
+  const pat = `tly_pat_${randomBytes(24).toString("base64url")}`;
   await db.insert(userTokens).values({
     userId: user!.id,
     workspaceId: wsId,
@@ -175,13 +175,13 @@ describe("config", () => {
   it("fails fast on missing env, defaults API URL", () => {
     expect(() => loadConfig({})).toThrow(MissingEnvError);
     try {
-      loadConfig({ DOCKETRY_TOKEN: "dok_agt_x" });
+      loadConfig({ TALLYLINE_TOKEN: "tly_agt_x" });
     } catch (e) {
-      expect((e as MissingEnvError).missing).toEqual(["DOCKETRY_WORKSPACE"]);
+      expect((e as MissingEnvError).missing).toEqual(["TALLYLINE_WORKSPACE"]);
     }
     const cfg = loadConfig({
-      DOCKETRY_TOKEN: "dok_agt_x",
-      DOCKETRY_WORKSPACE: "acme",
+      TALLYLINE_TOKEN: "tly_agt_x",
+      TALLYLINE_WORKSPACE: "acme",
     });
     expect(cfg.apiUrl).toBe("http://localhost:4000");
     expect(cfg.workspace).toBe("acme");
@@ -416,7 +416,7 @@ describe("tool surface over the real API", () => {
     const badAuth = await call(
       "list_issues",
       {},
-      clientFor("dok_agt_bogus"),
+      clientFor("tly_agt_bogus"),
     );
     expect(badAuth.res.isError).toBe(true);
     expect(badAuth.data.error!.code).toBe("UNAUTHENTICATED");

@@ -1,6 +1,6 @@
 "use client";
 
-import type { IssueState, Priority } from "@docketry/types";
+import type { IssueState, Priority } from "@tallyline/types";
 import { useRouter } from "next/navigation";
 import {
   useCallback,

@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Something in docketry isn't working the way it should
+about: Something in tallyline isn't working the way it should
 title: "fix: "
 labels: bug
 ---
@@ -21,7 +21,7 @@ labels: bug
 
 ## Environment
 
-- docketry version / commit:
+- tallyline version / commit:
 - Deploy method: <!-- local dev (pnpm dev), docker compose, other self-host -->
 - OS:
 - Browser: <!-- if a web UI issue -->

@@ -30,7 +30,7 @@ export const githubRoutes = new Hono()
     await requireWorkspace(c);
     const base = config_.apiBaseUrl;
     return c.json({
-      name: "docketry",
+      name: "tallyline",
       url: base,
       hook_attributes: {
         url: `${base}/webhooks/github`,

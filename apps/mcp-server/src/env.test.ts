@@ -10,13 +10,13 @@ import {
 describe("loadConfig", () => {
   it("builds config and strips trailing slashes", () => {
     const cfg = loadConfig({
-      DOCKETRY_TOKEN: "dok_agt_x",
-      DOCKETRY_WORKSPACE: "acme",
-      DOCKETRY_API_URL: "https://api.example.com/",
+      TALLYLINE_TOKEN: "tly_agt_x",
+      TALLYLINE_WORKSPACE: "acme",
+      TALLYLINE_API_URL: "https://api.example.com/",
     });
     expect(cfg).toEqual({
       apiUrl: "https://api.example.com",
-      token: "dok_agt_x",
+      token: "tly_agt_x",
       workspace: "acme",
     });
   });
@@ -27,8 +27,8 @@ describe("loadConfig", () => {
       loadConfig({});
     } catch (err) {
       expect((err as MissingEnvError).missing).toEqual([
-        "DOCKETRY_TOKEN",
-        "DOCKETRY_WORKSPACE",
+        "TALLYLINE_TOKEN",
+        "TALLYLINE_WORKSPACE",
       ]);
     }
   });
@@ -37,8 +37,8 @@ describe("loadConfig", () => {
 describe("httpAuthMode", () => {
   it("returns env mode when both vars are set", () => {
     const mode = httpAuthMode({
-      DOCKETRY_TOKEN: "dok_agt_x",
-      DOCKETRY_WORKSPACE: "acme",
+      TALLYLINE_TOKEN: "tly_agt_x",
+      TALLYLINE_WORKSPACE: "acme",
     });
     expect(mode.mode).toBe("env");
   });
@@ -53,18 +53,18 @@ describe("httpAuthMode", () => {
   });
 
   it("rejects a half-configured deployment", () => {
-    expect(() => httpAuthMode({ DOCKETRY_TOKEN: "dok_agt_x" })).toThrowError(
+    expect(() => httpAuthMode({ TALLYLINE_TOKEN: "tly_agt_x" })).toThrowError(
       MissingEnvError,
     );
-    expect(() => httpAuthMode({ DOCKETRY_WORKSPACE: "acme" })).toThrowError(
+    expect(() => httpAuthMode({ TALLYLINE_WORKSPACE: "acme" })).toThrowError(
       MissingEnvError,
     );
   });
 
   it("enables the api-url override only on explicit opt-in", () => {
-    const on = httpAuthMode({ DOCKETRY_ALLOW_API_URL_OVERRIDE: "1" });
+    const on = httpAuthMode({ TALLYLINE_ALLOW_API_URL_OVERRIDE: "1" });
     expect(on.mode === "passthrough" && on.allowApiUrlOverride).toBe(true);
-    const off = httpAuthMode({ DOCKETRY_ALLOW_API_URL_OVERRIDE: "true" });
+    const off = httpAuthMode({ TALLYLINE_ALLOW_API_URL_OVERRIDE: "true" });
     expect(off.mode === "passthrough" && off.allowApiUrlOverride).toBe(false);
   });
 });
@@ -75,14 +75,14 @@ describe("configFromHeaders", () => {
   it("builds config from bearer + workspace headers", () => {
     const cfg = configFromHeaders(
       {
-        authorization: "Bearer dok_agt_abc",
-        "x-docketry-workspace": "acme",
+        authorization: "Bearer tly_agt_abc",
+        "x-tallyline-workspace": "acme",
       },
       base,
     );
     expect(cfg).toEqual({
       apiUrl: "http://api:4000",
-      token: "dok_agt_abc",
+      token: "tly_agt_abc",
       workspace: "acme",
     });
   });
@@ -90,38 +90,38 @@ describe("configFromHeaders", () => {
   it("accepts a raw token without the Bearer prefix", () => {
     const cfg = configFromHeaders(
       {
-        authorization: "dok_pat_xyz",
-        "x-docketry-workspace": "acme",
+        authorization: "tly_pat_xyz",
+        "x-tallyline-workspace": "acme",
       },
       base,
     );
-    expect(cfg.token).toBe("dok_pat_xyz");
+    expect(cfg.token).toBe("tly_pat_xyz");
   });
 
   it("rejects missing/invalid credentials with 401-style errors", () => {
     expect(() => configFromHeaders({}, base)).toThrowError(PassthroughAuthError);
     expect(() =>
       configFromHeaders(
-        { authorization: "Bearer dok_agt_abc" },
+        { authorization: "Bearer tly_agt_abc" },
         base,
       ),
     ).toThrowError(PassthroughAuthError);
     expect(() =>
       configFromHeaders(
         {
-          authorization: "Bearer dok_agt_abc",
-          "x-docketry-workspace": "bad slug!",
+          authorization: "Bearer tly_agt_abc",
+          "x-tallyline-workspace": "bad slug!",
         },
         base,
       ),
     ).toThrowError(PassthroughAuthError);
   });
 
-  it("rejects x-docketry-api-url unless the deployment opted in", () => {
+  it("rejects x-tallyline-api-url unless the deployment opted in", () => {
     const headers = {
-      authorization: "Bearer dok_agt_abc",
-      "x-docketry-workspace": "acme",
-      "x-docketry-api-url": "https://other.example.com/",
+      authorization: "Bearer tly_agt_abc",
+      "x-tallyline-workspace": "acme",
+      "x-tallyline-api-url": "https://other.example.com/",
     };
     expect(() => configFromHeaders(headers, base)).toThrowError(
       PassthroughAuthError,
@@ -137,9 +137,9 @@ describe("configFromHeaders", () => {
     expect(() =>
       configFromHeaders(
         {
-          authorization: "Bearer dok_agt_abc",
-          "x-docketry-workspace": "acme",
-          "x-docketry-api-url": "file:///etc/passwd",
+          authorization: "Bearer tly_agt_abc",
+          "x-tallyline-workspace": "acme",
+          "x-tallyline-api-url": "file:///etc/passwd",
         },
         { apiUrl: "http://api:4000", allowApiUrlOverride: true },
       ),
@@ -149,9 +149,9 @@ describe("configFromHeaders", () => {
   it("blocks loopback/link-local/metadata literal hosts, allows LAN", () => {
     const optIn = { apiUrl: "http://api:4000", allowApiUrlOverride: true };
     const headers = (url: string) => ({
-      authorization: "Bearer dok_agt_abc",
-      "x-docketry-workspace": "acme",
-      "x-docketry-api-url": url,
+      authorization: "Bearer tly_agt_abc",
+      "x-tallyline-workspace": "acme",
+      "x-tallyline-api-url": url,
     });
     for (const bad of [
       "http://127.0.0.1:4000",
@@ -168,5 +168,50 @@ describe("configFromHeaders", () => {
     // RFC1918 self-host deployments remain a legitimate override target
     const cfg = configFromHeaders(headers("http://192.168.1.50:4000"), optIn);
     expect(cfg.apiUrl).toBe("http://192.168.1.50:4000");
+  });
+});
+
+describe("legacy docketry names (deprecated, still accepted)", () => {
+  it("loadConfig reads DOCKETRY_* env when TALLYLINE_* is unset", () => {
+    const cfg = loadConfig({
+      DOCKETRY_TOKEN: "dok_agt_old",
+      DOCKETRY_WORKSPACE: "acme",
+      DOCKETRY_API_URL: "https://api.example.com/",
+    });
+    expect(cfg).toEqual({
+      apiUrl: "https://api.example.com",
+      token: "dok_agt_old",
+      workspace: "acme",
+    });
+  });
+
+  it("TALLYLINE_* wins over DOCKETRY_* when both are set", () => {
+    const cfg = loadConfig({
+      TALLYLINE_TOKEN: "tly_agt_new",
+      DOCKETRY_TOKEN: "dok_agt_old",
+      TALLYLINE_WORKSPACE: "new-ws",
+      DOCKETRY_WORKSPACE: "old-ws",
+    });
+    expect(cfg.token).toBe("tly_agt_new");
+    expect(cfg.workspace).toBe("new-ws");
+  });
+
+  it("httpAuthMode honors the legacy override flag", () => {
+    const on = httpAuthMode({ DOCKETRY_ALLOW_API_URL_OVERRIDE: "1" });
+    expect(on.mode === "passthrough" && on.allowApiUrlOverride).toBe(true);
+  });
+
+  it("configFromHeaders accepts legacy x-docketry-* headers and dok_ tokens", () => {
+    const cfg = configFromHeaders(
+      {
+        authorization: "Bearer dok_agt_old",
+        "x-docketry-workspace": "acme",
+        "x-docketry-api-url": "https://api.example.com",
+      },
+      { apiUrl: "http://localhost:4000", allowApiUrlOverride: true },
+    );
+    expect(cfg.workspace).toBe("acme");
+    expect(cfg.token).toBe("dok_agt_old");
+    expect(cfg.apiUrl).toBe("https://api.example.com");
   });
 });

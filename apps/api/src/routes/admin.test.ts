@@ -170,7 +170,7 @@ describe("invites", () => {
     });
     expect(created.status).toBe(201);
     const joinUrl = created.body.joinUrl as string;
-    expect(joinUrl).toContain("/join/dok_inv_");
+    expect(joinUrl).toContain("/join/tly_inv_");
     const token = joinUrl.split("/join/")[1]!;
 
     // unauthenticated claim creates user+member+session (R18c)

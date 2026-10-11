@@ -5,7 +5,7 @@ import {
   type ActorType,
   type IssueSource,
   type IssueState,
-} from "@docketry/types";
+} from "@tallyline/types";
 import { db } from "../db/client.js";
 import { events, issues, teams } from "../db/schema.js";
 import { mirrorIssueState } from "./github-sync.js";

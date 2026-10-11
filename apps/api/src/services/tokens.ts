@@ -7,7 +7,7 @@ import { userTokens, users, workspaces } from "../db/schema.js";
 
 export const ACCESS_TOKEN_TTL_S = 15 * 60;
 const ALG = "HS256";
-const ISS = "docketry";
+const ISS = "tallyline";
 
 export interface JwtClaims {
   sub: string;
@@ -78,7 +78,7 @@ export async function createUserToken(
   scopes: string[],
   expiresAt?: Date,
 ): Promise<{ token: string; id: string }> {
-  const token = `dok_pat_${randomBytes(24).toString("base64url")}`;
+  const token = `tly_pat_${randomBytes(24).toString("base64url")}`;
   const [row] = await db
     .insert(userTokens)
     .values({

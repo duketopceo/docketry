@@ -1,6 +1,6 @@
-# docketry MCP server
+# tallyline MCP server
 
-`apps/mcp-server` (`@docketry/mcp-server`) exposes the issue/workflow surface
+`apps/mcp-server` (`@tallyline/mcp-server`) exposes the issue/workflow surface
 to MCP clients — Claude Code, Cursor, opencode, or anything else that speaks
 MCP. It is a thin client over the REST API: every tool call is an
 authenticated HTTP request, so the API's auth, scope, and state-machine rules
@@ -10,12 +10,12 @@ stay the single source of truth.
 
 | Var | Required | Notes |
 | --- | --- | --- |
-| `DOCKETRY_TOKEN` | stdio / env-http | `dok_agt_*` agent key (preferred — actions are attributed to the agent) or `dok_pat_*` personal token. Mutating tools require the `write` scope. |
-| `DOCKETRY_WORKSPACE` | stdio / env-http | Workspace slug, e.g. `acme`. |
-| `DOCKETRY_API_URL` | no | API base URL. Default `http://localhost:4000`. |
-| `DOCKETRY_ALLOW_API_URL_OVERRIDE` | no | HTTP passthrough only — `1` honors per-request `x-docketry-api-url`. Off by default. |
+| `TALLYLINE_TOKEN` | stdio / env-http | `tly_agt_*` agent key (preferred — actions are attributed to the agent) or `tly_pat_*` personal token. Mutating tools require the `write` scope. |
+| `TALLYLINE_WORKSPACE` | stdio / env-http | Workspace slug, e.g. `acme`. |
+| `TALLYLINE_API_URL` | no | API base URL. Default `http://localhost:4000`. |
+| `TALLYLINE_ALLOW_API_URL_OVERRIDE` | no | HTTP passthrough only — `1` honors per-request `x-tallyline-api-url`. Off by default. |
 
-stdio always needs `DOCKETRY_TOKEN` + `DOCKETRY_WORKSPACE` — missing vars
+stdio always needs `TALLYLINE_TOKEN` + `TALLYLINE_WORKSPACE` — missing vars
 fail fast: the server writes the missing names to stderr and exits 1.
 `--http` needs them only for single-tenant mode; with neither set it runs
 per-request header passthrough instead (see below).
@@ -23,18 +23,18 @@ per-request header passthrough instead (see below).
 ## Transports
 
 - **stdio** (default) — what local MCP clients spawn:
-  `tsx apps/mcp-server/src/index.ts` (dev) or `docketry-mcp` / `node
-  apps/mcp-server/dist/index.js` after `pnpm --filter @docketry/mcp-server
+  `tsx apps/mcp-server/src/index.ts` (dev) or `tallyline-mcp` / `node
+  apps/mcp-server/dist/index.js` after `pnpm --filter @tallyline/mcp-server
   build`.
 - **Streamable HTTP** — `--http[=PORT]` (or `MCP_HTTP_PORT`, default `3101`)
   serves a stateless `POST /mcp` endpoint plus `GET /health`. Credentials
-  resolve per deployment: with `DOCKETRY_TOKEN`+`DOCKETRY_WORKSPACE` set,
+  resolve per deployment: with `TALLYLINE_TOKEN`+`TALLYLINE_WORKSPACE` set,
   every request shares them (single-tenant). With neither set the endpoint
   runs **passthrough** — each request supplies `Authorization: Bearer
-  <key>` + `x-docketry-workspace: <slug>` headers, which is what hosted
+  <key>` + `x-tallyline-workspace: <slug>` headers, which is what hosted
   multi-tenant front-ends (Klavis Strata `externalServers`, gateways) send.
-  `x-docketry-api-url` is honored only when the deployment sets
-  `DOCKETRY_ALLOW_API_URL_OVERRIDE=1`. See [klavis.md](./klavis.md).
+  `x-tallyline-api-url` is honored only when the deployment sets
+  `TALLYLINE_ALLOW_API_URL_OVERRIDE=1`. See [klavis.md](./klavis.md).
 
 ## Client config
 
@@ -43,13 +43,13 @@ Claude Code — `claude mcp add` or `.mcp.json`:
 ```json
 {
   "mcpServers": {
-    "docketry": {
+    "tallyline": {
       "command": "node",
-      "args": ["/path/to/docketry/apps/mcp-server/dist/index.js"],
+      "args": ["/path/to/tallyline/apps/mcp-server/dist/index.js"],
       "env": {
-        "DOCKETRY_API_URL": "http://localhost:4000",
-        "DOCKETRY_TOKEN": "dok_agt_…",
-        "DOCKETRY_WORKSPACE": "acme"
+        "TALLYLINE_API_URL": "http://localhost:4000",
+        "TALLYLINE_TOKEN": "tly_agt_…",
+        "TALLYLINE_WORKSPACE": "acme"
       }
     }
   }

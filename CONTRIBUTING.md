@@ -1,6 +1,6 @@
-# Contributing to docketry
+# Contributing to tallyline
 
-Thanks for helping build docketry — a self-hostable, agent-native issue tracker where humans and AI agents work the same board. This document covers setup, the local quality gate, and the conventions that keep the repo consistent.
+Thanks for helping build tallyline — a self-hostable, agent-native issue tracker where humans and AI agents work the same board. This document covers setup, the local quality gate, and the conventions that keep the repo consistent.
 
 ## Setup
 
@@ -48,7 +48,7 @@ If you are picking up work, look for issues labeled `work-order`. If you are pro
 
 ## License
 
-docketry is MIT-licensed. There is no CLA and no DCO — by submitting a contribution you agree it is provided under the terms of the existing [MIT license](./LICENSE-MIT). That's it.
+tallyline is MIT-licensed. There is no CLA and no DCO — by submitting a contribution you agree it is provided under the terms of the existing [MIT license](./LICENSE-MIT). That's it.
 
 ## Conduct
 

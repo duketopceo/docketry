@@ -484,7 +484,7 @@ export const githubWebhookEvents = pgTable(
   (t) => [index().on(t.eventType)],
 );
 
-// GitHub issue ↔ docketry issue map — intake dedupe + bidirectional sync (#60)
+// GitHub issue ↔ tallyline issue map — intake dedupe + bidirectional sync (#60)
 export const githubIssueLinks = pgTable(
   "github_issue_links",
   {

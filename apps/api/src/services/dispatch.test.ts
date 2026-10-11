@@ -297,7 +297,7 @@ describe("dispatch router (#23)", () => {
       rq.on("end", () => {
         captured.push({
           body: data,
-          sig: rq.headers["x-docketry-signature"] as string | null,
+          sig: rq.headers["x-tallyline-signature"] as string | null,
         });
         rs.writeHead(200).end();
       });

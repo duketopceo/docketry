@@ -1,6 +1,6 @@
 # Dispatch adapters — the harness contract
 
-Docketry routes work to agents through **adapters**. When a human assigns an
+Tallyline routes work to agents through **adapters**. When a human assigns an
 issue to an agent or `@mentions` one in a comment, the dispatch bus creates a
 durable `dispatches` record, posts an ack on the issue thread, and invokes the
 adapter registered for that agent's `harness`. Outcomes post back to the
@@ -19,7 +19,7 @@ interface DispatchAdapter {
 
 `launch` must return promptly — long-running work belongs in the harness,
 which reports progress back over the REST API (comments, state transitions,
-`dok_agt_*` scoped keys).
+`tly_agt_*` scoped keys).
 
 ```ts
 interface DispatchContext {
@@ -40,7 +40,7 @@ interface DispatchResult {
 
 | Harness name | Behavior |
 |---|---|
-| `local`, `claude-code`, `codex`, `opencode` | Local adapter — marks the dispatch `claimed` immediately; a human or daemon runs `docketry claim` / MCP locally |
+| `local`, `claude-code`, `codex`, `opencode` | Local adapter — marks the dispatch `claimed` immediately; a human or daemon runs `tallyline claim` / MCP locally |
 | `webhook` | POSTs the dispatch payload to the agent's `endpointUrl` (8s timeout); non-2xx → `dispatch_failed` |
 
 ## Dispatch lifecycle
@@ -51,8 +51,8 @@ issue thread.
 
 ## Running a local session
 
-`docketry work` is the local runner: it polls `claimed` dispatches for your
-agent identity, seeds `.docketry-context.md` with the issue (key, title,
+`tallyline work` is the local runner: it polls `claimed` dispatches for your
+agent identity, seeds `.tallyline-context.md` with the issue (key, title,
 description, thread, board rules), and spawns the harness binary in an
 isolated git worktree on branch `<KEY>-slug` — falling back to the current
 directory outside a repo. On exit it reports back via
@@ -61,25 +61,25 @@ directory outside a repo. On exit it reports back via
 as a thread comment.
 
 ```sh
-docketry work --dry-run            # show what would be spawned
-docketry work                      # process all claimed dispatches once
-docketry work --follow             # poll continuously (default 15s)
-docketry work --cmd <binary>       # override the harness binary
-DOCKETRY_WORK_CMD=<binary>         # env override
+tallyline work --dry-run            # show what would be spawned
+tallyline work                      # process all claimed dispatches once
+tallyline work --follow             # poll continuously (default 15s)
+tallyline work --cmd <binary>       # override the harness binary
+TALLYLINE_WORK_CMD=<binary>         # env override
 ```
 
 Harness binaries are invoked as `<binary> <context-file>` with the issue
 context file as argv[1]; `claude`/`codex`/`opencode` are auto-detected from
 the agent's `harness` field. Agent keys may only report their own dispatches.
-The spawned process gets `DOCKETRY_DISPATCH_ID` and `DOCKETRY_ISSUE_KEY`.
+The spawned process gets `TALLYLINE_DISPATCH_ID` and `TALLYLINE_ISSUE_KEY`.
 
 ## Session timeline
 
 Inside a session the harness posts structured progress events:
 
 ```sh
-docketry session implementing "refactoring dispatch router"   # DOCKETRY_DISPATCH_ID set by `docketry work`
-docketry session testing "api suite green" --dispatch <uuid>
+tallyline session implementing "refactoring dispatch router"   # TALLYLINE_DISPATCH_ID set by `tallyline work`
+tallyline session testing "api suite green" --dispatch <uuid>
 ```
 
 `POST /v1/:ws/dispatches/:id/events` accepts batches of

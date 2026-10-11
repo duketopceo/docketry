@@ -1,14 +1,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { DocketryClient } from "./client.js";
+import type { TallylineClient } from "./client.js";
 import { executeTool, toolDefs } from "./tools.js";
 
-export const SERVER_INFO = { name: "docketry", version: "0.0.0" } as const;
+export const SERVER_INFO = { name: "tallyline", version: "0.0.0" } as const;
 
 /**
- * Build an McpServer with the full docketry tool surface registered against
+ * Build an McpServer with the full tallyline tool surface registered against
  * `client`. Transport-agnostic — index.ts connects stdio or HTTP.
  */
-export function createMcpServer(client: DocketryClient): McpServer {
+export function createMcpServer(client: TallylineClient): McpServer {
   const server = new McpServer(SERVER_INFO);
   for (const def of toolDefs) {
     server.registerTool(

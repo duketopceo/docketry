@@ -6,9 +6,11 @@ import {
   ISSUE_KEY_PATTERN,
   ISSUE_STATES,
   PRIORITIES,
+  isAgentToken,
+  readEnv,
   type IssueState,
   type Priority,
-} from "@docketry/types";
+} from "@tallyline/types";
 import {
   ApiClient,
   ApiError,
@@ -180,7 +182,7 @@ async function agentIdByName(
 
 // Who is calling — for `claim`, `next`, and the "mine" half of `ready`.
 // Agent keys carry no whoami endpoint, so identity comes from config:
-// DOCKETRY_AGENT_ID / DOCKETRY_USER_ID (UUID or registered agent name).
+// TALLYLINE_AGENT_ID / TALLYLINE_USER_ID (UUID or registered agent name).
 async function resolveIdentity(
   ctx: CmdCtx,
   required: boolean,
@@ -194,14 +196,14 @@ async function resolveIdentity(
   }
   if (userId) {
     if (!isUuid(userId)) {
-      throw usage("DOCKETRY_USER_ID must be a UUID");
+      throw usage("TALLYLINE_USER_ID must be a UUID");
     }
     return { type: "human", id: userId };
   }
   if (required) {
     throw usage(
       "no identity configured — pass --as <agent-name|uuid> or set " +
-        "DOCKETRY_AGENT_ID / DOCKETRY_USER_ID",
+        "TALLYLINE_AGENT_ID / TALLYLINE_USER_ID",
     );
   }
   return null;
@@ -227,7 +229,7 @@ async function resolveAssignee(
   }
   const type =
     typeFlag ??
-    (ctx.cfg.agentId !== undefined || ctx.cfg.token?.startsWith("dok_agt_")
+    (ctx.cfg.agentId !== undefined || isAgentToken(ctx.cfg.token)
       ? "agent"
       : "human");
   return { type, id: value };
@@ -251,7 +253,7 @@ function parentIdFlag(
 // --- commands ---------------------------------------------------------------
 
 const readyCmd: Command = {
-  usage: "docketry ready [--state todo[,…]] [--limit N] [--all]",
+  usage: "tallyline ready [--state todo[,…]] [--limit N] [--all]",
   summary:
     "issues ready to work — todo (by default), unassigned or mine, " +
     "priority-ordered",
@@ -290,7 +292,7 @@ const readyCmd: Command = {
 };
 
 const nextCmd: Command = {
-  usage: "docketry next",
+  usage: "tallyline next",
   summary:
     "the one issue to work now — your in_progress issue, else the top " +
     "of ready",
@@ -327,9 +329,9 @@ const nextCmd: Command = {
 };
 
 const claimCmd: Command = {
-  usage: "docketry claim <KEY> [--as <agent-name|uuid>] [--type agent|human]",
+  usage: "tallyline claim <KEY> [--as <agent-name|uuid>] [--type agent|human]",
   summary:
-    "assign an issue to yourself (DOCKETRY_AGENT_ID) or an explicit assignee",
+    "assign an issue to yourself (TALLYLINE_AGENT_ID) or an explicit assignee",
   options: {
     as: { type: "string" },
     type: { type: "string" },
@@ -352,7 +354,7 @@ const claimCmd: Command = {
 
 function transitionCmd(target: IssueState, verb: string): Command {
   return {
-    usage: `docketry ${verb} <KEY>`,
+    usage: `tallyline ${verb} <KEY>`,
     summary: `move KEY toward '${target}' along legal transitions`,
     options: {},
     needsApi: true,
@@ -364,7 +366,7 @@ function transitionCmd(target: IssueState, verb: string): Command {
 }
 
 const stateCmd: Command = {
-  usage: `docketry state <KEY> <${ISSUE_STATES.join("|")}>`,
+  usage: `tallyline state <KEY> <${ISSUE_STATES.join("|")}>`,
   summary:
     "move KEY to any state, stepping through legal transitions as needed",
   options: {},
@@ -388,7 +390,7 @@ const stateCmd: Command = {
 };
 
 const commentCmd: Command = {
-  usage: "docketry comment <KEY> [body…] [--body text]",
+  usage: "tallyline comment <KEY> [body…] [--body text]",
   summary: "add a comment (body may also come from stdin)",
   options: {
     body: { type: "string", short: "m" },
@@ -411,7 +413,7 @@ const commentCmd: Command = {
 
 const createCmd: Command = {
   usage:
-    "docketry create --title <t> [--team K] [--state backlog|triage] " +
+    "tallyline create --title <t> [--team K] [--state backlog|triage] " +
     "[--priority p] [--description d] [--assignee a] [--parent KEY]",
   summary: "file a new issue",
   options: {
@@ -472,7 +474,7 @@ const createCmd: Command = {
 
 const listCmd: Command = {
   usage:
-    "docketry list [--state s[,…]] [--priority p[,…]] [--assignee me|none|" +
+    "tallyline list [--state s[,…]] [--priority p[,…]] [--assignee me|none|" +
     "name|uuid] [--team K] [--search q] [--limit N] [--cursor c]",
   summary: "list issues with filters",
   options: {
@@ -532,7 +534,7 @@ const listCmd: Command = {
 };
 
 const searchCmd: Command = {
-  usage: "docketry search <query> [--limit N] [--state s[,…]]",
+  usage: "tallyline search <query> [--limit N] [--state s[,…]]",
   summary: "title search — shorthand for `list --search`",
   options: {
     limit: { type: "string", short: "n" },
@@ -554,7 +556,7 @@ const searchCmd: Command = {
 };
 
 const showCmd: Command = {
-  usage: "docketry show <KEY>",
+  usage: "tallyline show <KEY>",
   summary: "issue detail plus its comment thread",
   options: {},
   needsApi: true,
@@ -573,7 +575,7 @@ const showCmd: Command = {
 };
 
 const triageCmd: Command = {
-  usage: "docketry triage <KEY> <accept|decline>",
+  usage: "tallyline triage <KEY> <accept|decline>",
   summary:
     "accept a triage item into the backlog, or decline it to canceled",
   options: {},
@@ -630,7 +632,7 @@ async function pumpSse(
 }
 
 const eventsCmd: Command = {
-  usage: "docketry events [--limit N] [--after <event-id>] [--follow]",
+  usage: "tallyline events [--limit N] [--after <event-id>] [--follow]",
   summary:
     "tail the workspace event feed; --follow streams via SSE with " +
     "last-id resume",
@@ -699,33 +701,33 @@ const eventsCmd: Command = {
   },
 };
 
-const AGENT_MD = `# docketry agent context
+const AGENT_MD = `# tallyline agent context
 
-This project is tracked by a docketry workspace. Use the \`docketry\`
-(alias \`dok\`) CLI — humans and agents share the same board.
+This project is tracked by a tallyline workspace. Use the \`tallyline\`
+(alias \`tly\`) CLI — humans and agents share the same board.
 
 ## Auth
 
 \`\`\`sh
-export DOCKETRY_TOKEN=dok_agt_...   # scoped agent key (needs read+write to mutate)
-export DOCKETRY_AGENT_ID=<uuid>     # your registered agent id — required for
+export TALLYLINE_TOKEN=tly_agt_...   # scoped agent key (needs read+write to mutate)
+export TALLYLINE_AGENT_ID=<uuid>     # your registered agent id — required for
                                     # claim / next / ready's "mine" filter
 \`\`\`
 
-Workspace + API URL come from .docketry/config.json (flags and
-DOCKETRY_API_URL / DOCKETRY_WORKSPACE override).
+Workspace + API URL come from .tallyline/config.json (flags and
+TALLYLINE_API_URL / TALLYLINE_WORKSPACE override).
 
 ## Work loop
 
 \`\`\`sh
-dok ready --json          # unblocked todo issues, priority-ordered
-dok next --json           # your in_progress issue, else the top of ready
-dok claim ENG-123         # assign to yourself
-dok start ENG-123         # -> in_progress
-dok comment ENG-123 "wip: found root cause in dispatch loop"
-dok done ENG-123          # -> done (steps through in_review automatically)
-dok create --title "…" --priority high
-dok events --after 41     # resume the workspace feed; --follow to stream
+tly ready --json          # unblocked todo issues, priority-ordered
+tly next --json           # your in_progress issue, else the top of ready
+tly claim ENG-123         # assign to yourself
+tly start ENG-123         # -> in_progress
+tly comment ENG-123 "wip: found root cause in dispatch loop"
+tly done ENG-123          # -> done (steps through in_review automatically)
+tly create --title "…" --priority high
+tly events --after 41     # resume the workspace feed; --follow to stream
 \`\`\`
 
 ## Output & exit codes
@@ -738,7 +740,7 @@ dok events --after 41     # resume the workspace feed; --follow to stream
 
 const workCmd: Command = {
   usage:
-    "docketry work [--once] [--interval N] [--cmd <binary>] [--dry-run] " +
+    "tallyline work [--once] [--interval N] [--cmd <binary>] [--dry-run] " +
     "[--follow]",
   summary:
     "run claimed dispatches — spawn the local harness in an isolated " +
@@ -754,7 +756,7 @@ const workCmd: Command = {
   async run(ctx) {
     const me = await resolveIdentity(ctx, true);
     if (me!.type !== "agent") {
-      throw usage("work requires an agent identity (DOCKETRY_AGENT_ID)");
+      throw usage("work requires an agent identity (TALLYLINE_AGENT_ID)");
     }
     const { agents } = await ctx.client.listAgents();
     const agent = agents.find((a) => a.id === me!.id);
@@ -762,12 +764,12 @@ const workCmd: Command = {
 
     const bin =
       strFlag(ctx.flags, "cmd") ??
-      ctx.io.env.DOCKETRY_WORK_CMD ??
+      readEnv(ctx.io.env, "TALLYLINE_WORK_CMD") ??
       harnessBin(agent.harness);
     const dryRun = boolFlag(ctx.flags, "dry-run");
     if (!bin && !dryRun) {
       throw fail(
-        `no harness binary for '${agent.harness}' — pass --cmd or set DOCKETRY_WORK_CMD`,
+        `no harness binary for '${agent.harness}' — pass --cmd or set TALLYLINE_WORK_CMD`,
       );
     }
     const interval = intFlag(ctx.flags, "interval", 15, 3600);
@@ -814,7 +816,7 @@ const workCmd: Command = {
         let inWorktree = false;
         try {
           const root = (await exec("git", ["rev-parse", "--show-toplevel"], ctx.io.cwd)).stdout.trim();
-          workDir = join(root, ".docketry", issue.key);
+          workDir = join(root, ".tallyline", issue.key);
           try {
             await exec("git", ["worktree", "add", workDir, "-b", branch], ctx.io.cwd);
           } catch {
@@ -826,7 +828,7 @@ const workCmd: Command = {
           // not a git repo — work in cwd, note it in the report
         }
 
-        const ctxFile = join(workDir, ".docketry-context.md");
+        const ctxFile = join(workDir, ".tallyline-context.md");
         await writeFile(ctxFile, prompt);
         ctx.io.out(`${issue.key} → ${workDir} (${bin})`);
 
@@ -839,8 +841,8 @@ const workCmd: Command = {
               stdio: "inherit",
               env: {
                 ...process.env,
-                DOCKETRY_DISPATCH_ID: d.id,
-                DOCKETRY_ISSUE_KEY: issue.key,
+                TALLYLINE_DISPATCH_ID: d.id,
+                TALLYLINE_ISSUE_KEY: issue.key,
               },
             });
             child.on("close", (code) =>
@@ -880,9 +882,9 @@ const SESSION_KINDS = [
 
 const sessionCmd: Command = {
   usage:
-    "docketry session <kind> <message…> — kinds: " +
+    "tallyline session <kind> <message…> — kinds: " +
     SESSION_KINDS.join("|") +
-    "  (dispatch from DOCKETRY_DISPATCH_ID or --dispatch)",
+    "  (dispatch from TALLYLINE_DISPATCH_ID or --dispatch)",
   summary: "post a progress event to your dispatched session timeline",
   options: {
     dispatch: { type: "string" },
@@ -900,11 +902,11 @@ const sessionCmd: Command = {
     if (!message) throw usage("session requires a message");
     if (message.length > 500) throw usage("message too long (max 500)");
     const dispatchId =
-      strFlag(ctx.flags, "dispatch") ?? ctx.io.env.DOCKETRY_DISPATCH_ID;
+      strFlag(ctx.flags, "dispatch") ?? readEnv(ctx.io.env, "TALLYLINE_DISPATCH_ID");
     if (!dispatchId || !isUuid(dispatchId)) {
       throw usage(
-        "no dispatch — run inside `docketry work`, set " +
-          "DOCKETRY_DISPATCH_ID, or pass --dispatch <uuid>",
+        "no dispatch — run inside `tallyline work`, set " +
+          "TALLYLINE_DISPATCH_ID, or pass --dispatch <uuid>",
       );
     }
     await ctx.client.appendSessionEvents(dispatchId, [{ kind, message }]);
@@ -915,10 +917,10 @@ const sessionCmd: Command = {
 
 const initCmd: Command = {
   usage:
-    "docketry init --workspace <slug> [--api-url url] [--agent-id id|name] " +
+    "tallyline init --workspace <slug> [--api-url url] [--agent-id id|name] " +
     "[--force]",
   summary:
-    "write .docketry/config.json + .docketry/agent.md for this directory",
+    "write .tallyline/config.json + .tallyline/agent.md for this directory",
   options: {
     "agent-id": { type: "string" },
     force: { type: "boolean" },
@@ -930,7 +932,7 @@ const initCmd: Command = {
     if (!workspace) {
       throw usage("init requires --workspace <slug>");
     }
-    const dir = join(ctx.io.cwd, ".docketry");
+    const dir = join(ctx.io.cwd, ".tallyline");
     const configPath = join(dir, "config.json");
     if (existsSync(configPath) && !boolFlag(ctx.flags, "force")) {
       throw fail(`${configPath} already exists — pass --force to overwrite`);
@@ -941,7 +943,7 @@ const initCmd: Command = {
       if (!ctx.cfg.token) {
         throw usage(
           "resolving an agent name needs a token — pass the UUID or set " +
-            "DOCKETRY_TOKEN",
+            "TALLYLINE_TOKEN",
         );
       }
       const client = new ApiClient({
@@ -984,7 +986,7 @@ const initCmd: Command = {
       }
     } else {
       ctx.io.out(
-        "set DOCKETRY_TOKEN (dok_agt_* / dok_pat_* / JWT) to authenticate",
+        "set TALLYLINE_TOKEN (tly_agt_* / tly_pat_* / JWT) to authenticate",
       );
     }
   },

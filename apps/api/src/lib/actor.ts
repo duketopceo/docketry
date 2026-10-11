@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import type { ActorType } from "@docketry/types";
+import type { ActorType } from "@tallyline/types";
 import type { Actor } from "../services/issues.js";
 import { HttpError } from "./errors.js";
 

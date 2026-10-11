@@ -1,5 +1,5 @@
 import { and, asc, eq, gt, inArray, lt, ne, notInArray } from "drizzle-orm";
-import { TERMINAL_STATES } from "@docketry/types";
+import { TERMINAL_STATES } from "@tallyline/types";
 import { db } from "../db/client.js";
 import {
   cycleVelocity,

@@ -1,8 +1,8 @@
 /**
  * Outbound webhook event catalog — `entityType.action` names as delivered by
- * docketry (see docs/webhooks.md and apps/api/src/services/outbound.ts).
+ * tallyline (see docs/webhooks.md and apps/api/src/services/outbound.ts).
  */
-export const DOCKETRY_EVENTS = [
+export const TALLYLINE_EVENTS = [
 	{ value: "issue.created", name: "Issue Created" },
 	{ value: "issue.state_changed", name: "Issue State Changed" },
 	{ value: "issue.commented", name: "Issue Commented" },
@@ -13,8 +13,8 @@ export const DOCKETRY_EVENTS = [
 	{ value: "issue.session_update", name: "Issue Session Update" },
 ] as const;
 
-export type DocketryEventAction =
-	(typeof DOCKETRY_EVENTS)[number]["value"];
+export type TallylineEventAction =
+	(typeof TALLYLINE_EVENTS)[number]["value"];
 
 /**
  * Normalizes the node's multi-select into the `events` array the

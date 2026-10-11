@@ -311,10 +311,10 @@ describe("slack receiver", () => {
     const s = createSlack(fakeSlack);
     calls.length = 0;
     const [link] = await db.select().from(slackLinks).limit(1);
-    await s.mirrorComment(link!.issueId, "human comment from docketry");
+    await s.mirrorComment(link!.issueId, "human comment from tallyline");
     expect(
       calls.some(
-        (c) => c.method === "chat.postMessage" && c.body.text === "human comment from docketry",
+        (c) => c.method === "chat.postMessage" && c.body.text === "human comment from tallyline",
       ),
     ).toBe(true);
     calls.length = 0;

@@ -5,9 +5,9 @@ import {
   PRIORITIES,
   type IssueState,
   type Priority,
-} from "@docketry/types";
+} from "@tallyline/types";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { ApiError, DocketryClient } from "./client.js";
+import { ApiError, TallylineClient } from "./client.js";
 
 // ── API row shapes (only the fields tools read) ──────────────────────
 
@@ -190,7 +190,7 @@ export interface ToolDef {
   /** Validates raw args against inputSchema, then invokes the handler. */
   call: (
     rawArgs: unknown,
-    client: DocketryClient,
+    client: TallylineClient,
   ) => Promise<Record<string, unknown>>;
 }
 
@@ -199,7 +199,7 @@ function defineTool<S extends ZodShape>(def: {
   description: string;
   inputSchema: S;
   readOnly?: boolean;
-  handler: (args: ArgsOf<S>, client: DocketryClient) => Promise<Record<string, unknown>>;
+  handler: (args: ArgsOf<S>, client: TallylineClient) => Promise<Record<string, unknown>>;
 }): ToolDef {
   const schema = z.object(def.inputSchema);
   return {
@@ -218,7 +218,7 @@ function defineTool<S extends ZodShape>(def: {
 export async function executeTool(
   def: ToolDef,
   args: unknown,
-  client: DocketryClient,
+  client: TallylineClient,
 ): Promise<CallToolResult> {
   try {
     return okResult(await def.call(args, client));
@@ -671,7 +671,7 @@ export const toolsByName = new Map(toolDefs.map((d) => [d.name, d]));
 export function runTool(
   name: string,
   args: Record<string, unknown>,
-  client: DocketryClient,
+  client: TallylineClient,
 ): Promise<CallToolResult> {
   const def = toolsByName.get(name);
   if (!def) return Promise.resolve(errorResult("UNKNOWN_TOOL", `unknown tool '${name}'`));

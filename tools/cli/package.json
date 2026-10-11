@@ -1,11 +1,12 @@
 {
-  "name": "@docketry/cli",
+  "name": "@tallyline/cli",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "bin": {
-    "docketry": "./dist/index.js",
-    "dok": "./dist/index.js"
+    "tallyline": "./dist/index.js",
+    "tly": "./dist/index.js",
+    "dok": "./dist/dok.js"
   },
   "files": [
     "dist"
@@ -19,7 +20,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@docketry/types": "workspace:*"
+    "@tallyline/types": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.23.15",

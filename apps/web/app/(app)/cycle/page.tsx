@@ -1,4 +1,4 @@
-import type { IssueState } from "@docketry/types";
+import type { IssueState } from "@tallyline/types";
 import {
   CycleManager,
   type ManagerCycle,

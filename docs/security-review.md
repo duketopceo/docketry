@@ -1,7 +1,7 @@
 # Security review — v1.0 gate (#37)
 
 Checklist from `luke-agents/SECURITY_GUIDELINES.md`, walked 2026-10-09
-against `main` @ `4ddc13f` (+ this PR's changes). Scope: docketry API, web
+against `main` @ `4ddc13f` (+ this PR's changes). Scope: tallyline API, web
 app, MCP server, CLI, and all webhook/integration surfaces.
 
 **Re-walked 2026-10-11** for the OAuth/org-identity release (global users,
@@ -13,7 +13,7 @@ workspace memberships, provider sign-in, invites, credential-class gates)
 - No secrets in the repo; `.env` / `.env.local` gitignored; `.env.example`
   carries empty placeholders only.
 - GitGuardian + Socket Security run on every PR.
-- Agent keys (`dok_agt_*`), PATs (`dok_pat_*`), sessions, invite tokens,
+- Agent keys (`tly_agt_*`), PATs (`tly_pat_*`), sessions, invite tokens,
   and webhook secrets are all stored hashed (`sha256`) or held in env —
   never logged. Invite tokens are single-use, email-bindable, 7-day
   default expiry.
@@ -30,7 +30,7 @@ workspace memberships, provider sign-in, invites, credential-class gates)
 ## AuthN / authZ — PASS *(re-walk)*
 
 - Every `/v1/*` data route resolves identity through `requireWorkspace`
-  — session cookie, `dok_agt_` key, `dok_pat_`, or access JWT. Default
+  — session cookie, `tly_agt_` key, `tly_pat_`, or access JWT. Default
   deny: no identity → 401; scoped credentials bound to a different
   workspace → 403. Cookie sessions **roam** — every request re-checks
   membership in the path workspace, so removal kills access instantly;

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# docketry MCP server — Streamable HTTP endpoint for hosted/multi-tenant
+# tallyline MCP server — Streamable HTTP endpoint for hosted/multi-tenant
 # use (Klavis Strata, gateways). Runs `--http`; credentials arrive per
 # request via headers in passthrough mode.
 
@@ -12,12 +12,12 @@ COPY packages/types/package.json packages/types/package.json
 COPY apps/mcp-server/package.json apps/mcp-server/package.json
 # manifest-only: deploy resolves the devDep workspace link (tests use the api app)
 COPY apps/api/package.json apps/api/package.json
-RUN pnpm install --frozen-lockfile --filter @docketry/mcp-server...
+RUN pnpm install --frozen-lockfile --filter @tallyline/mcp-server...
 
 COPY packages/types packages/types
 COPY apps/mcp-server apps/mcp-server
-RUN pnpm --filter @docketry/types build && pnpm --filter @docketry/mcp-server build
-RUN pnpm deploy --legacy --filter @docketry/mcp-server --prod /out
+RUN pnpm --filter @tallyline/types build && pnpm --filter @tallyline/mcp-server build
+RUN pnpm deploy --legacy --filter @tallyline/mcp-server --prod /out
 
 FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS run
 ENV NODE_ENV=production
@@ -25,6 +25,6 @@ WORKDIR /app
 COPY --from=build --chown=node:node /out ./
 USER node
 EXPOSE 3101
-# passthrough mode (no DOCKETRY_TOKEN/WORKSPACE) = per-request header creds;
+# passthrough mode (no TALLYLINE_TOKEN/WORKSPACE) = per-request header creds;
 # set the env pair for a single-tenant self-host endpoint instead
 CMD ["node", "dist/index.js", "--http"]

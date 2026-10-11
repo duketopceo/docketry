@@ -1,9 +1,10 @@
+import { readEnv } from "@tallyline/types";
 import { config } from "dotenv";
 
 config({ path: new URL("../../../.env", import.meta.url) });
 
 const env = (key: string, fallback?: string): string => {
-  const value = process.env[key] ?? fallback;
+  const value = readEnv(process.env, key) ?? fallback;
   if (value === undefined) {
     throw new Error(`Missing required env var: ${key}`);
   }
@@ -34,7 +35,7 @@ export const config_ = {
   // Slack app — empty means every slack surface is off
   slackBotToken: env("SLACK_BOT_TOKEN", ""),
   slackSigningSecret: env("SLACK_SIGNING_SECRET", ""),
-  // the docketry workspace this Slack app reports into
+  // the tallyline workspace this Slack app reports into
   slackWorkspaceSlug: env("SLACK_WORKSPACE_SLUG", ""),
   slackIntakeEmoji: env("SLACK_INTAKE_EMOJI", "ticket"),
 
@@ -82,8 +83,8 @@ export const config_ = {
     .filter(Boolean),
 
   // LLM assist — entirely opt-in; empty key means every llm surface is off
-  llmApiKey: env("DOCKETRY_LLM_API_KEY", ""),
-  llmBaseUrl: env("DOCKETRY_LLM_BASE_URL", "https://openrouter.ai/api/v1"),
+  llmApiKey: env("TALLYLINE_LLM_API_KEY", ""),
+  llmBaseUrl: env("TALLYLINE_LLM_BASE_URL", "https://openrouter.ai/api/v1"),
   // cheap-by-default per the spend ceiling; override for your budget
-  llmModel: env("DOCKETRY_LLM_MODEL", "google/gemini-2.5-flash-lite"),
+  llmModel: env("TALLYLINE_LLM_MODEL", "google/gemini-2.5-flash-lite"),
 } as const;

@@ -155,7 +155,7 @@ export function createSlack(fetchImpl?: FetchLike) {
     if (!issue) {
       return {
         response_type: "ephemeral",
-        text: "That thread is already linked to a docketry issue.",
+        text: "That thread is already linked to a tallyline issue.",
       };
     }
     return {

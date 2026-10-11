@@ -47,7 +47,7 @@ Every intake path writes a `slack_links` row (issue ↔ channel+thread+reporter)
 | Direction | Behavior |
 |---|---|
 | Slack thread reply | becomes a comment `**<@user> via Slack:** …` (+ `commented` event with `after.via="slack"`) |
-| docketry comment | posted into the linked thread — unless it carries the `via Slack:` marker (loop break) |
+| tallyline comment | posted into the linked thread — unless it carries the `via Slack:` marker (loop break) |
 | terminal transition (`done`/`canceled`/`duplicate`) | `:white_check_mark:` resolution reply naming the resolver (user or agent) |
 
 Bot-posted and subtype messages never mirror inbound — our own `chat.postMessage`
@@ -56,6 +56,6 @@ posts can't echo back. `DELETE /v1/:ws/issues/:key/slack-link` unlinks;
 
 ## Limitations
 
-- One docketry workspace per deployment (`SLACK_WORKSPACE_SLUG`) — Slack
+- One tallyline workspace per deployment (`SLACK_WORKSPACE_SLUG`) — Slack
   multi-workspace installs are a future OAuth-dance feature.
 - Mirroring is best-effort; Slack API failures log, never block issue writes.

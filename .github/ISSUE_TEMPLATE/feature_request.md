@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Propose new behavior or a new capability for docketry
+about: Propose new behavior or a new capability for tallyline
 title: "feat: "
 labels: enhancement
 ---
@@ -11,7 +11,7 @@ labels: enhancement
 
 ## Proposed behavior
 
-<!-- What should docketry do? Describe the interaction or API surface, not just the goal. -->
+<!-- What should tallyline do? Describe the interaction or API surface, not just the goal. -->
 
 ## Alternatives considered
 

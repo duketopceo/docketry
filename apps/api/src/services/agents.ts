@@ -18,7 +18,7 @@ export async function createAgentKey(
   scopes: string[],
   expiresAt?: Date,
 ): Promise<{ key: string; id: string }> {
-  const key = `dok_agt_${randomBytes(24).toString("base64url")}`;
+  const key = `tly_agt_${randomBytes(24).toString("base64url")}`;
   const [row] = await db
     .insert(agentKeys)
     .values({

@@ -1,11 +1,11 @@
 /**
- * Thin REST client over the docketry API. The MCP server never touches
+ * Thin REST client over the tallyline API. The MCP server never touches
  * Postgres — every tool call is an authenticated HTTP request against
- * `DOCKETRY_API_URL` so the API's auth, scope, and state-machine rules are
+ * `TALLYLINE_API_URL` so the API's auth, scope, and state-machine rules are
  * the single source of truth.
  */
 
-export interface DocketryClientConfig {
+export interface TallylineClientConfig {
   apiUrl: string;
   token: string;
   workspace: string;
@@ -36,14 +36,14 @@ export interface Whoami {
 
 type Query = Record<string, string | number | boolean | undefined>;
 
-export class DocketryClient {
+export class TallylineClient {
   private readonly baseUrl: string;
   private readonly wsBase: string;
   private readonly token: string;
   private readonly fetchImpl: typeof fetch;
   private cachedWhoami: Promise<Whoami> | null = null;
 
-  constructor(config: DocketryClientConfig) {
+  constructor(config: TallylineClientConfig) {
     this.baseUrl = config.apiUrl.replace(/\/+$/, "");
     this.wsBase = `${this.baseUrl}/v1/workspaces/${encodeURIComponent(config.workspace)}`;
     this.token = config.token;
@@ -108,7 +108,7 @@ export class DocketryClient {
       throw new ApiError(
         0,
         "UNREACHABLE",
-        `cannot reach docketry API at ${this.baseUrl}: ${
+        `cannot reach tallyline API at ${this.baseUrl}: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );
@@ -130,7 +130,7 @@ export class DocketryClient {
       throw new ApiError(
         res.status,
         apiErr?.code ?? "HTTP_ERROR",
-        apiErr?.message ?? `HTTP ${res.status} from docketry API`,
+        apiErr?.message ?? `HTTP ${res.status} from tallyline API`,
       );
     }
     return data as T;

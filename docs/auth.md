@@ -1,6 +1,6 @@
 # Authentication & SSO
 
-docketry supports email/password (built-in), GitHub, Google, and any
+tallyline supports email/password (built-in), GitHub, Google, and any
 generic OIDC provider. Humans are global identities — one `users` row
 with memberships into workspaces — so a single sign-in can roam every
 workspace the account belongs to, and `/workspaces` offers a chooser
@@ -132,7 +132,7 @@ single-use token, default 7-day expiry. Options: `email` binding,
   at `/workspaces` sets it (and re-binds the session server-side).
 - Cookie sessions roam all member workspaces per request — membership
   is checked on every call, so removal is effective immediately.
-- PATs (`dok_pat_*`), access JWTs, and agent keys (`dok_agt_*`) are
+- PATs (`tly_pat_*`), access JWTs, and agent keys (`tly_agt_*`) are
   workspace-bound. None can create workspaces, manage members/invites/
   providers, or mint credentials — those are cookie+role-gated.
 

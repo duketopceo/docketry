@@ -1,5 +1,5 @@
 /**
- * Thin REST client over the docketry API. The Composio toolkit never touches
+ * Thin REST client over the tallyline API. The Composio toolkit never touches
  * Postgres — every tool call is an authenticated HTTP request against the
  * configured base URL, so the API's auth, scope, and state-machine rules stay
  * the single source of truth.
@@ -38,12 +38,12 @@ export interface Whoami {
   workspaceSlug: string | null;
 }
 
-export interface DocketryClientConfig {
-  /** API origin, e.g. https://docketry.example.com — no trailing slash needed. */
+export interface TallylineClientConfig {
+  /** API origin, e.g. https://tallyline.example.com — no trailing slash needed. */
   baseUrl: string;
   /** Workspace slug — every resource route is /v1/workspaces/{ws}/… */
   workspace: string;
-  /** dok_agt_* agent key or dok_pat_* personal access token. */
+  /** tly_agt_* agent key or tly_pat_* personal access token. */
   apiKey: string;
   /** Injectable for tests — defaults to globalThis.fetch. */
   fetch?: FetchLike;
@@ -51,7 +51,7 @@ export interface DocketryClientConfig {
 
 type Query = Record<string, string | number | boolean | undefined>;
 
-export class DocketryClient {
+export class TallylineClient {
   readonly baseUrl: string;
   readonly workspace: string;
 
@@ -60,7 +60,7 @@ export class DocketryClient {
   private readonly fetchImpl: FetchLike;
   private cachedWhoami: Promise<Whoami> | null = null;
 
-  constructor(config: DocketryClientConfig) {
+  constructor(config: TallylineClientConfig) {
     this.baseUrl = config.baseUrl.replace(/\/+$/, "");
     this.workspace = config.workspace;
     this.wsBase = `${this.baseUrl}/v1/workspaces/${encodeURIComponent(config.workspace)}`;
@@ -133,7 +133,7 @@ export class DocketryClient {
       throw new ApiError(
         0,
         "UNREACHABLE",
-        `cannot reach docketry API at ${this.baseUrl}: ${
+        `cannot reach tallyline API at ${this.baseUrl}: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );
@@ -156,7 +156,7 @@ export class DocketryClient {
       throw new ApiError(
         res.status,
         apiErr?.code ?? "HTTP_ERROR",
-        apiErr?.message ?? `HTTP ${res.status} from docketry API`,
+        apiErr?.message ?? `HTTP ${res.status} from tallyline API`,
       );
     }
     return data as T;
