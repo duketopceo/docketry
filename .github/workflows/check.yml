@@ -37,6 +37,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run typecheck lint
       - run: pnpm turbo run build
+      - name: Silver Lining design gates
+        run: |
+          pnpm lint:design
+          pnpm test:contrast
+          pnpm test:token-parity
       - name: Plugin and marketplace manifests
         run: |
           npm install --global @anthropic-ai/claude-code@2.1.296

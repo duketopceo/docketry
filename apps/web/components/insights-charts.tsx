@@ -33,16 +33,17 @@ export interface Insights {
   throughput: { week: string; human: number; agent: number; system: number }[];
 }
 
-const AXIS = { fontSize: 10, fontFamily: "monospace", fill: "#6b7280" };
+const AXIS = { fontSize: 11, fontFamily: "monospace", fill: "var(--sl-ink-subtle)" };
 const TIP = {
   contentStyle: {
-    background: "#16181d",
-    border: "1px solid #2a2f3a",
+    background: "var(--sl-surface-2)",
+    border: "1px solid var(--sl-lining)",
     borderRadius: 4,
     fontSize: 11,
     fontFamily: "monospace",
+    color: "var(--sl-ink)",
   },
-  labelStyle: { color: "#9ca3af" },
+  labelStyle: { color: "var(--sl-ink-subtle)" },
 } as const;
 
 function Panel({
@@ -59,7 +60,7 @@ function Panel({
       <div className="mb-2 flex items-baseline gap-2">
         <h2 className="text-xs font-semibold">{title}</h2>
         {hint && (
-          <span className="font-mono text-[10px] text-ink-tertiary">{hint}</span>
+          <span className="font-mono text-[11px] text-ink-tertiary">{hint}</span>
         )}
       </div>
       <div className="min-h-36 flex-1">{children}</div>
@@ -88,11 +89,11 @@ export function InsightsClient({ insights }: { insights: Insights }) {
       >
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={cycleTime.weekly} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
-            <CartesianGrid stroke="#1f232b" vertical={false} />
+            <CartesianGrid stroke="var(--sl-lining-faint)" vertical={false} />
             <XAxis dataKey="week" tick={AXIS} tickLine={false} axisLine={false} />
             <YAxis tick={AXIS} tickLine={false} axisLine={false} unit="d" />
             <Tooltip {...TIP} />
-            <Bar dataKey="avgDays" name="avg days" fill="#7c8cf8" radius={[2, 2, 0, 0]} />
+            <Bar dataKey="avgDays" name="avg days" fill="var(--sl-accent)" radius={[2, 2, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </Panel>
@@ -100,12 +101,12 @@ export function InsightsClient({ insights }: { insights: Insights }) {
       <Panel title="Burnup" hint="weekly cumulative · total vs done">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={burnup} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
-            <CartesianGrid stroke="#1f232b" vertical={false} />
+            <CartesianGrid stroke="var(--sl-lining-faint)" vertical={false} />
             <XAxis dataKey="week" tick={AXIS} tickLine={false} axisLine={false} />
             <YAxis tick={AXIS} tickLine={false} axisLine={false} allowDecimals={false} />
             <Tooltip {...TIP} />
-            <Line type="monotone" dataKey="total" stroke="#39404c" dot={false} strokeWidth={1.5} />
-            <Line type="monotone" dataKey="done" stroke="#3fb68f" dot={false} strokeWidth={1.5} />
+            <Line type="monotone" dataKey="total" stroke="var(--sl-lining-strong)" dot={false} strokeWidth={1.5} />
+            <Line type="monotone" dataKey="done" stroke="var(--sl-status-healthy)" dot={false} strokeWidth={1.5} />
           </LineChart>
         </ResponsiveContainer>
       </Panel>
@@ -113,14 +114,14 @@ export function InsightsClient({ insights }: { insights: Insights }) {
       <Panel title="Throughput" hint="issues done per week, by actor">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={throughput} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
-            <CartesianGrid stroke="#1f232b" vertical={false} />
+            <CartesianGrid stroke="var(--sl-lining-faint)" vertical={false} />
             <XAxis dataKey="week" tick={AXIS} tickLine={false} axisLine={false} />
             <YAxis tick={AXIS} tickLine={false} axisLine={false} allowDecimals={false} />
             <Tooltip {...TIP} />
-            <Legend wrapperStyle={{ fontSize: 10, fontFamily: "monospace" }} />
-            <Bar dataKey="human" stackId="a" fill="#7c8cf8" />
-            <Bar dataKey="agent" stackId="a" fill="#b07cf8" />
-            <Bar dataKey="system" stackId="a" fill="#39404c" />
+            <Legend wrapperStyle={{ fontSize: 11, fontFamily: "monospace" }} />
+            <Bar dataKey="human" stackId="a" fill="var(--sl-ink-muted)" />
+            <Bar dataKey="agent" stackId="a" fill="var(--sl-accent)" />
+            <Bar dataKey="system" stackId="a" fill="var(--sl-lining-strong)" />
           </BarChart>
         </ResponsiveContainer>
       </Panel>
@@ -131,13 +132,13 @@ export function InsightsClient({ insights }: { insights: Insights }) {
       >
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={velocity} margin={{ top: 4, right: 8, left: -18, bottom: 0 }}>
-            <CartesianGrid stroke="#1f232b" vertical={false} />
+            <CartesianGrid stroke="var(--sl-lining-faint)" vertical={false} />
             <XAxis dataKey="cycle" tick={AXIS} tickLine={false} axisLine={false} />
             <YAxis tick={AXIS} tickLine={false} axisLine={false} allowDecimals={false} />
             <Tooltip {...TIP} />
-            <Legend wrapperStyle={{ fontSize: 10, fontFamily: "monospace" }} />
-            <Bar dataKey="done" name="issues done" fill="#3fb68f" radius={[2, 2, 0, 0]} />
-            <Bar dataKey="estimateDone" name="estimate done" fill="#39404c" radius={[2, 2, 0, 0]} />
+            <Legend wrapperStyle={{ fontSize: 11, fontFamily: "monospace" }} />
+            <Bar dataKey="done" name="issues done" fill="var(--sl-status-healthy)" radius={[2, 2, 0, 0]} />
+            <Bar dataKey="estimateDone" name="estimate done" fill="var(--sl-lining-strong)" radius={[2, 2, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </Panel>

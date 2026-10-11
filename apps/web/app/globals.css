@@ -1,29 +1,43 @@
 @import "tailwindcss";
+@import "@tallyline/silver-lining/silver-lining.css";
 
-@theme {
-  --color-canvas: #0a0c10;
-  --color-surface-1: #10141b;
-  --color-surface-2: #161b24;
-  --color-surface-3: #1c222e;
-  --color-surface-4: #232a38;
-  --color-lining-faint: #1f232b;
-  --color-lining: #39404c;
-  --color-lining-strong: #5a6270;
-  --color-lining-bright: #c9cdd4;
-  /* Control boundary (inputs, selects, bordered buttons): lining-strong, 3.18:1 on canvas.
-     The default lining is 1.87:1 and stays decorative (panels, separators). */
-  --color-control: #5a6270;
-  --color-ink: #eef1f6;
-  --color-ink-muted: #c3c9d4;
-  --color-ink-subtle: #8b93a3;
-  --color-ink-tertiary: #7c8593;
-  --color-accent: #3ea1f7;
-  --color-accent-hover: #6eb9fb;
-  --color-on-accent: #06080c;
-  --color-urgent: #ef4444;
-  --color-attention: #f59e0b;
-  --color-healthy: #10b981;
-  --color-neutral: #9ca3af;
+/* Colours come from Silver Lining (packages/silver-lining): every value below
+   is a var() into the generated, theme-aware token CSS. Variable names are the
+   ones this app already used, so existing utilities (bg-canvas, text-ink-muted,
+   border-lining, ...) keep working. Do not add raw colours here. */
+@theme inline {
+  --color-canvas: var(--sl-canvas);
+  --color-surface-1: var(--sl-surface-1);
+  --color-surface-2: var(--sl-surface-2);
+  --color-surface-3: var(--sl-surface-3);
+  --color-surface-4: var(--sl-surface-4);
+  --color-lining-faint: var(--sl-lining-faint);
+  --color-lining: var(--sl-lining);
+  --color-lining-strong: var(--sl-lining-strong);
+  --color-lining-bright: var(--sl-lining-bright);
+  --color-control: var(--sl-control);
+  --color-ink: var(--sl-ink);
+  --color-ink-muted: var(--sl-ink-muted);
+  --color-ink-subtle: var(--sl-ink-subtle);
+  --color-ink-tertiary: var(--sl-ink-tertiary);
+  --color-ink-disabled: var(--sl-ink-disabled);
+  --color-accent: var(--sl-accent);
+  --color-accent-hover: var(--sl-accent-hover);
+  --color-accent-pressed: var(--sl-accent-pressed);
+  --color-accent-soft: var(--sl-accent-soft);
+  --color-on-accent: var(--sl-on-accent);
+  --color-glint: var(--sl-glint);
+  --color-glint-silver: var(--sl-glint-silver);
+  --color-overlay: var(--sl-overlay);
+  --color-scrim: var(--sl-scrim);
+  --color-urgent: var(--sl-status-urgent);
+  --color-attention: var(--sl-status-attention);
+  --color-healthy: var(--sl-status-healthy);
+  --color-neutral: var(--sl-status-neutral);
+  --color-urgent-soft: var(--sl-status-urgent-soft);
+  --color-attention-soft: var(--sl-status-attention-soft);
+  --color-healthy-soft: var(--sl-status-healthy-soft);
+  --color-neutral-soft: var(--sl-status-neutral-soft);
 }
 
 body {
@@ -31,38 +45,10 @@ body {
   color: var(--color-ink);
 }
 
-/* Light theme (secondary, opt-in via <html class="light">). Control border uses
-   light-lining-bright #5f6879 (5.15:1); light lining-strong #a3aab6 fails at 2.14:1. */
-html.light {
-  --color-canvas: #f4f5f8;
-  --color-surface-1: #ffffff;
-  --color-surface-2: #eef0f4;
-  --color-surface-3: #e4e7ec;
-  --color-surface-4: #dde1e8;
-  --color-lining-faint: #e8eaef;
-  --color-lining: #c9cdd4;
-  --color-lining-strong: #a3aab6;
-  --color-lining-bright: #5f6879;
-  --color-control: #5f6879;
-  --color-ink: #151923;
-  --color-ink-muted: #3f4756;
-  --color-ink-subtle: #566070;
-  --color-ink-tertiary: #566070;
-  --color-accent: #0b66cc;
-  --color-accent-hover: #0a56ad;
-  --color-on-accent: #ffffff;
-  --color-urgent: #b91c1c;
-  --color-attention: #b45309;
-  --color-healthy: #047857;
-  --color-neutral: #4b5563;
-}
-
 html {
   font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-feature-settings: "calt", "kern";
-  color-scheme: dark;
 }
-html.light { color-scheme: light; }
 
 /* Focus is lining + ring, never just color (DESIGN.md text-input-focused). */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
