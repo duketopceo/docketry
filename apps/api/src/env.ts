@@ -1,5 +1,6 @@
 import { readEnv } from "@tallyline/types";
 import { config } from "dotenv";
+import { assertProductionSecrets, DEV_JWT_SECRET } from "./lib/startup-guard.js";
 
 config({ path: new URL("../../../.env", import.meta.url) });
 
@@ -11,6 +12,13 @@ const env = (key: string, fallback?: string): string => {
   return value;
 };
 
+// production boot refuses unset/default/weak secrets (see lib/startup-guard.ts)
+assertProductionSecrets({
+  nodeEnv: process.env.NODE_ENV,
+  jwtSecret: readEnv(process.env, "JWT_SECRET"),
+  authSecretKey: readEnv(process.env, "AUTH_SECRET_KEY"),
+});
+
 export const config_ = {
   port: Number(env("API_PORT", "4000")),
   databaseUrl: env(
@@ -18,7 +26,7 @@ export const config_ = {
     "postgresql://postgres:postgres@localhost:5432/docketry",
   ),
   redisUrl: env("REDIS_URL", "redis://localhost:6380"),
-  jwtSecret: env("JWT_SECRET", "docketry-dev-secret-change-me"),
+  jwtSecret: env("JWT_SECRET", DEV_JWT_SECRET),
   rateLimitPerMin: Number(env("RATE_LIMIT_PER_MIN", "600")),
   apiBaseUrl: env("API_BASE_URL", "http://localhost:4000"),
   githubAppSlug: env("GITHUB_APP_SLUG", ""),
