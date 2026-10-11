@@ -200,6 +200,25 @@ async function validateProject(
   }
 }
 
+// A parent must be another issue in the SAME workspace — an id from another
+// tenant would otherwise be stored and surface in that tenant's `children`.
+async function validateParent(
+  workspaceId: string,
+  parentId: string,
+  selfKey?: string,
+): Promise<void> {
+  const [parent] = await db
+    .select({ key: issues.key })
+    .from(issues)
+    .where(and(eq(issues.id, parentId), eq(issues.workspaceId, workspaceId)));
+  if (!parent) {
+    throw new HttpError(422, "INVALID_PARENT", "parent issue not in workspace");
+  }
+  if (selfKey !== undefined && parent.key === selfKey) {
+    throw new HttpError(422, "INVALID_PARENT", "an issue cannot be its own parent");
+  }
+}
+
 export const issueRoutes = new Hono()
   .post(
     "/workspaces/:ws/issues",
@@ -227,6 +246,11 @@ export const issueRoutes = new Hono()
       if (body.cycleId) await validateCycle(ws.id, team.id, body.cycleId);
       if (body.projectId)
         await validateProject(ws.id, team.id, body.projectId);
+      if (body.parentId) await validateParent(ws.id, body.parentId);
+      // validate before creating: a 422 must not leave an orphan issue behind
+      if (body.assigneeId && body.assigneeType) {
+        await validateAssignee(ws.id, body.assigneeType, body.assigneeId);
+      }
 
       const issue = await createIssue({
         workspaceId: ws.id,
@@ -240,9 +264,6 @@ export const issueRoutes = new Hono()
         creator: actor,
       });
 
-      if (body.assigneeId && body.assigneeType) {
-        await validateAssignee(ws.id, body.assigneeType, body.assigneeId);
-      }
       if (body.labelIds?.length) {
         await setIssueLabels(issue.id, ws.id, body.labelIds);
       }
@@ -409,6 +430,7 @@ export const issueRoutes = new Hono()
       if (body.assigneeId && body.assigneeType) {
         await validateAssignee(ws.id, body.assigneeType, body.assigneeId);
       }
+      if (body.parentId) await validateParent(ws.id, body.parentId, key);
       if (body.cycleId || body.projectId) {
         const issue = await findIssue(ws.id, key);
         if (body.cycleId)
@@ -450,6 +472,9 @@ export const issueRoutes = new Hono()
             and(eq(issues.workspaceId, ws.id), eq(issues.key, key)),
           )
           .returning();
+        // no row matched: unknown key (or another tenant's) is a 404, never a
+        // 200 with an empty body
+        if (!issue) issue = await findIssue(ws.id, key);
       } else {
         issue = await findIssue(ws.id, key);
       }
@@ -729,6 +754,9 @@ async function setIssueLabels(
     .where(
       and(eq(labels.workspaceId, workspaceId), inArray(labels.id, labelIds)),
     );
+  // ids that are unknown or belong to another workspace are dropped; if none
+  // remain there is nothing to insert (drizzle throws on an empty values())
+  if (valid.length === 0) return;
   await db
     .insert(issueLabels)
     .values(valid.map((l) => ({ issueId, labelId: l.id })));
