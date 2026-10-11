@@ -226,6 +226,54 @@ describe("invites", () => {
   });
 });
 
+describe("agent-key invariants", () => {
+  let agtKey = "";
+  beforeAll(async () => {
+    const reg = await req("/v1/workspaces/u5/agents", {
+      method: "POST", cookie: ownerCookie,
+      body: JSON.stringify({ name: "u5-agent", harness: "test" }),
+    });
+    const agentId = ((reg.body.agent ?? reg.body) as { id: string }).id;
+    const mint = await req(`/v1/workspaces/u5/agents/${agentId}/keys`, {
+      method: "POST", cookie: ownerCookie,
+      body: JSON.stringify({ name: "default", scopes: ["read", "write"] }),
+    });
+    agtKey = mint.body.key as string;
+  });
+
+  it("agent key reads the roster but cannot touch admin surfaces", async () => {
+    const auth = { authorization: `Bearer ${agtKey}` };
+    const roster = await req("/v1/workspaces/u5/members", { headers: auth });
+    expect(roster.status).toBe(200);
+
+    for (const [path, init] of [
+      ["/v1/workspaces/u5/invites", { method: "POST", body: "{}" }],
+      ["/v1/workspaces/u5/tokens", { method: "POST", body: JSON.stringify({ name: "x" }) }],
+      ["/v1/workspaces", { method: "POST", body: JSON.stringify({ slug: "agt-ws", name: "X" }) }],
+      [`/v1/workspaces/u5/members/${memberId}`, { method: "DELETE" }],
+      [`/v1/workspaces/u5/members/${memberId}`, { method: "PATCH", body: JSON.stringify({ role: "admin" }) }],
+    ] as const) {
+      const res = await req(path, { ...init, headers: auth });
+      expect(res.status, `${init.method} ${path}`).toBe(403);
+    }
+  });
+
+  it("whoami: human creds report role+memberships; agent key reports bound ws only", async () => {
+    const human = await req("/v1/whoami", { cookie: ownerCookie });
+    expect(human.status).toBe(200);
+    expect(human.body.role).toBe("owner");
+    expect((human.body.memberships as unknown[]).length).toBeGreaterThan(0);
+
+    const agent = await req("/v1/whoami", {
+      headers: { authorization: `Bearer ${agtKey}` },
+    });
+    expect(agent.status).toBe(200);
+    expect(agent.body.type).toBe("agent");
+    expect(agent.body.workspaceSlug).toBe("u5");
+    expect(agent.body.memberships).toBeUndefined();
+  });
+});
+
 describe("providers admin", () => {
   it("instance-admin gate: workspace owner (bootstrap fallback) passes, member 403/401", async () => {
     const asOwner = await req("/v1/auth/providers", { cookie: ownerCookie });

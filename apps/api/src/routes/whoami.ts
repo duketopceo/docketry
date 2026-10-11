@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { db } from "../db/client.js";
 import { workspaces } from "../db/schema.js";
 import { apiError } from "../lib/errors.js";
+import { membershipsFor } from "../services/members.js";
 
 // Credential introspection — agent keys and PATs are workspace-bound
 // server-side, so clients (MCP server, CLI) resolve "who am I" from the
@@ -32,6 +33,10 @@ export const whoamiRoutes = new Hono().get("/whoami", async (c) => {
       "sign in or present agent credentials",
     );
   }
+  // delegated credentials (PAT/JWT) and cookie sessions alike report the
+  // caller's memberships — agents resolve role/assignee info without a
+  // second route
+  const memberships = await membershipsFor(session.userId);
   return c.json({
     type: "human" as const,
     id: session.userId,
@@ -41,5 +46,7 @@ export const whoamiRoutes = new Hono().get("/whoami", async (c) => {
     scopes: c.get("tokenScopes") ?? ["read", "write"],
     workspaceId: session.workspaceId,
     workspaceSlug: session.workspaceSlug || null,
+    memberships,
+    role: memberships.find((m) => m.workspaceId === session.workspaceId)?.role ?? null,
   });
 });

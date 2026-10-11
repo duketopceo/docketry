@@ -163,7 +163,6 @@ afterAll(async () => {
     .from(workspaces)
     .where(eq(workspaces.slug, SLUG));
   if (ws) {
-    await db.delete(invites).where(eq(invites.workspaceId, ws.id));
     await db
       .delete(users)
       .where(
@@ -174,9 +173,22 @@ afterAll(async () => {
       events,
       githubIssueLinks,
       issueExternalRefs,
+      dispatches,
+      webhookDeliveries,
+      webhookEndpoints,
       issues,
       slackLinks,
+      labels,
+      agentKeys,
+      agents,
+      userTokens,
+      views,
+      cycleVelocity,
+      cycles,
+      projectMilestones,
+      projects,
       githubRepos,
+      githubInstallations,
       invites,
       oauthCodes,
       workspaceMembers,

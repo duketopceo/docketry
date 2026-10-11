@@ -50,6 +50,14 @@ interface AgentRow {
   capabilities: string[];
 }
 
+interface MemberRow {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  role: "owner" | "admin" | "member";
+}
+
 interface TeamRow {
   id: string;
   key: string;
@@ -538,6 +546,26 @@ export const toolDefs: ToolDef[] = [
           id: t.id,
           key: t.key,
           name: t.name,
+        })),
+      };
+    },
+  }),
+
+  defineTool({
+    name: "list_members",
+    description:
+      "List human members of the workspace (name, email, role) — assignee resolution for issues.",
+    inputSchema: {},
+    readOnly: true,
+    handler: async (_args, client) => {
+      const res = await client.apiGet<{ members: MemberRow[] }>("/members");
+      return {
+        members: res.members.map((m) => ({
+          id: m.id,
+          userId: m.userId,
+          name: m.name,
+          email: m.email,
+          role: m.role,
         })),
       };
     },

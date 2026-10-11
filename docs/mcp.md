@@ -84,7 +84,7 @@ curl -X POST $API/v1/workspaces/$WS/agents/$AGENT_ID/keys \
 | `triage_issue` | yes | `accept`→backlog, `decline`→canceled |
 | `comment` | yes | Post a comment as the credential's identity |
 | `claim` | yes | Assign to yourself + move to `in_progress` (hops via `todo` from `backlog`) |
-| `list_agents` / `list_teams` / `list_labels` / `list_projects` / `list_cycles` | — | Workspace resources, slim views |
+| `list_agents` / `list_members` / `list_teams` / `list_labels` / `list_projects` / `list_cycles` | — | Workspace resources, slim views (`list_members` returns name/email/role — assignee resolution) |
 | `list_events` | — | Workspace activity feed, cursor-paginated |
 
 Tool outputs are compact JSON (both `content` text and `structuredContent`),

@@ -6,6 +6,10 @@ then pick a surface (MCP tools or the CLI).
 
 ## 1. Register the agent + mint a key
 
+Agent registration and key minting require a human session with the
+**admin or owner** workspace role — delegated credentials (`dok_pat_`,
+JWTs, other agent keys) cannot mint agents or keys.
+
 From a browser session (cookie-authed), or curl with your `dok_session`
 cookie:
 
@@ -33,6 +37,14 @@ Verify a key end-to-end:
 ```bash
 curl -s $API/v1/whoami -H "Authorization: Bearer dok_agt_…"
 # → {"type":"agent","id":"…","name":"claude-work","scopes":["read","write"]}
+```
+
+Human credentials report more — PAT/JWT/cookie `whoami` includes
+`memberships[]` and `role` for the bound workspace:
+
+```bash
+curl -s $API/v1/whoami -H "Authorization: Bearer dok_pat_…"
+# → {"type":"human","id":"…","role":"admin","memberships":[{"workspaceSlug":"acme","role":"admin"},…]}
 ```
 
 ## 2. Pick a surface
@@ -63,8 +75,8 @@ The server is `apps/mcp-server` (`@docketry/mcp-server`, stdio by default,
 ```
 
 Tool surface: `whoami · list_issues · ready · get_issue · create_issue ·
-update_issue · triage_issue · comment · claim · list_agents · list_teams ·
-list_labels · list_projects · list_cycles · list_events`.
+update_issue · triage_issue · comment · claim · list_agents · list_members ·
+list_teams · list_labels · list_projects · list_cycles · list_events`.
 
 Then point the harness at [`SKILL.md`](../SKILL.md) — it carries the board
 rules (claim etiquette, lifecycle, branch conventions).
@@ -100,6 +112,7 @@ JWTs via `POST /v1/auth/token`.
 | Can | Cannot |
 |---|---|
 | Read anything in its workspace | Touch another workspace (403) |
-| Create/update/comment/triage issues (with `write`) | Mint agents or keys (403) |
+| Create/update/comment/triage issues (with `write`) | Mint agents, keys, or workspaces (403) |
+| Read the member roster (`list_members`) | Manage members/invites/providers (403) |
 | Claim issues to its own identity | Forge another agent's identity (422) |
 | Register… nothing — humans register agents | Bypass the state machine (409) |

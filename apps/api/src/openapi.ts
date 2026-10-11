@@ -40,7 +40,8 @@ export const openApiDoc = {
     },
     "/v1/workspaces": {
       post: {
-        summary: "Create workspace",
+        summary:
+          "Create workspace (cookie session only — delegated credentials rejected; creator becomes owner)",
         requestBody: {
           required: true,
           content: {
@@ -60,6 +61,21 @@ export const openApiDoc = {
           "201": { description: "Workspace created" },
           "409": { description: "Slug taken" },
         },
+      },
+    },
+    "/v1/workspaces/{ws}": {
+      patch: {
+        summary:
+          "Update workspace settings (admin+) — name and allowedDomains (email-domain JIT allowlist)",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            allowedDomains: { type: "array", items: { type: "string" } },
+          },
+        }),
+        responses: { "200": { description: "Updated workspace" } },
       },
     },
     "/v1/workspaces/{ws}/teams": {
@@ -373,7 +389,7 @@ export const openApiDoc = {
     "/v1/whoami": {
       get: {
         summary:
-          "Credential introspection — resolves the bearer credential to {type, id, name, scopes, workspaceId, workspaceSlug}",
+          "Credential introspection — resolves the bearer credential to {type, id, name, scopes, workspaceId, workspaceSlug}; human responses include memberships[] and role for the bound workspace",
         responses: {
           "200": {
             description:
@@ -381,6 +397,199 @@ export const openApiDoc = {
           },
           "401": { description: "Unauthenticated" },
         },
+      },
+    },
+    "/v1/auth/methods": {
+      get: {
+        summary:
+          "Public auth discovery — {password: bool, providers: [{key,type,label}]}; the login page renders from this",
+        responses: { "200": { description: "Available auth methods" } },
+      },
+    },
+    "/v1/auth/oauth/{provider}/start": {
+      get: {
+        summary:
+          "OAuth leg 1 — issues state cookies (PKCE, nonce, return_to, invite, login_nonce) and 302s to the provider authorize URL",
+        parameters: [
+          { name: "provider", in: "path", required: true, schema: { type: "string" } },
+          { name: "return_to", in: "query", schema: { type: "string" } },
+          { name: "invite", in: "query", schema: { type: "string" } },
+          { name: "login_nonce", in: "query", schema: { type: "string" } },
+        ],
+        responses: { "302": { description: "Redirect to provider" } },
+      },
+    },
+    "/v1/auth/oauth/{provider}/callback": {
+      get: {
+        summary:
+          "OAuth leg 2 — provider redirect lands here; verifies state, exchanges code, resolves identity, mints a one-time code and redirects to the web origin's /api/auth/callback",
+        parameters: [
+          { name: "provider", in: "path", required: true, schema: { type: "string" } },
+          { name: "code", in: "query", schema: { type: "string" } },
+          { name: "state", in: "query", schema: { type: "string" } },
+        ],
+        responses: { "302": { description: "Redirect to web origin" } },
+      },
+    },
+    "/v1/auth/oauth/exchange": {
+      post: {
+        summary:
+          "OAuth leg 3 — exchange a one-time code for a session. Dispatches on purpose: login claims and mints; pending-bootstrap returns context until a bootstrap payload arrives; pending-link returns link context (409) until /oauth/link completes",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["code"],
+          properties: {
+            code: { type: "string" },
+            login_nonce: { type: "string" },
+            bootstrap: {
+              type: "object",
+              properties: {
+                workspaceSlug: { type: "string" },
+                workspaceName: { type: "string" },
+                teamKey: { type: "string" },
+              },
+            },
+          },
+        }),
+        responses: {
+          "200": { description: "purpose: login|pending-bootstrap (+session cookie on login)" },
+          "409": { description: "purpose: pending-link + link context" },
+          "410": { description: "code expired or already used" },
+        },
+      },
+    },
+    "/v1/auth/oauth/link": {
+      post: {
+        summary:
+          "Complete a pending-link: prove control of the matched account (password when set, else live session) then write the auth_identities row. Never mints a session",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["code"],
+          properties: {
+            code: { type: "string" },
+            password: { type: "string" },
+          },
+        }),
+        responses: {
+          "200": { description: "Linked" },
+          "401": { description: "proof failed" },
+          "410": { description: "code expired or already used" },
+        },
+      },
+    },
+    "/v1/auth/accept-invite": {
+      post: {
+        summary:
+          "Accept an invite — resolves the caller from cookie session or PAT (never a body userId), enforces email binding; unauthenticated {name,password} claims create account+member+session on password-enabled installs",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["token"],
+          properties: {
+            token: { type: "string" },
+            name: { type: "string" },
+            password: { type: "string" },
+          },
+        }),
+        responses: {
+          "200": { description: "Joined (existing account)" },
+          "201": { description: "Joined (new account, session minted)" },
+          "403": { description: "invite email mismatch" },
+          "410": { description: "invite expired/revoked/used" },
+        },
+      },
+    },
+    "/v1/auth/providers": {
+      get: {
+        summary: "List sign-in providers (instance admins; secrets masked, env-sourced rows marked)",
+        responses: { "200": { description: "Providers" }, "403": { description: "not instance admin" } },
+      },
+      post: {
+        summary: "Add a sign-in provider (instance admins; secret encrypted at rest)",
+        requestBody: jsonBody({
+          type: "object",
+          required: ["key", "type", "label", "clientId", "clientSecret"],
+          properties: {
+            key: { type: "string" },
+            type: { type: "string", enum: ["github", "google", "oidc"] },
+            label: { type: "string" },
+            clientId: { type: "string" },
+            clientSecret: { type: "string" },
+            issuer: { type: "string" },
+            scopes: { type: "array", items: { type: "string" } },
+          },
+        }),
+        responses: { "201": { description: "Provider created" }, "409": { description: "env-shadowed key" } },
+      },
+    },
+    "/v1/auth/providers/{id}": {
+      patch: {
+        summary: "Update a provider (write-only clientSecret; env-shadowed rows reject)",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: { "200": { description: "Updated" } },
+      },
+      delete: {
+        summary: "Delete a provider",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: { "200": { description: "Deleted" } },
+      },
+    },
+    "/v1/auth/providers/{id}/test": {
+      post: {
+        summary: "Connectivity probe — fetches the provider's authorize/discovery endpoint (egress-constrained)",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: { "200": { description: "{ok, status}" }, "422": { description: "unreachable or not permitted" } },
+      },
+    },
+    "/v1/workspaces/{ws}/members": {
+      get: {
+        summary: "List workspace members (any credential with workspace access — assignee resolution)",
+        parameters: [wsParam],
+        responses: { "200": { description: "members[]: {id,userId,name,email,role}" } },
+      },
+    },
+    "/v1/workspaces/{ws}/members/{id}": {
+      patch: {
+        summary: "Change a member's role (admin+; owner rows and owner grants require owner; last owner protected)",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          required: ["role"],
+          properties: { role: { type: "string", enum: ["member", "admin", "owner"] } },
+        }),
+        responses: { "200": { description: "Updated" }, "409": { description: "last owner" } },
+      },
+      delete: {
+        summary: "Remove a member (admin+; owner removal requires owner; last owner protected)",
+        parameters: [wsParam],
+        responses: { "200": { description: "Removed" }, "409": { description: "last owner" } },
+      },
+    },
+    "/v1/workspaces/{ws}/invites": {
+      get: {
+        summary: "List pending invites (admin+)",
+        parameters: [wsParam],
+        responses: { "200": { description: "invites[]" } },
+      },
+      post: {
+        summary: "Create an invite — opaque token hashed at rest, optional email binding + team, default 7d expiry; joinUrl built from WEB_URL",
+        parameters: [wsParam],
+        requestBody: jsonBody({
+          type: "object",
+          properties: {
+            email: { type: "string" },
+            role: { type: "string", enum: ["member", "admin"] },
+            teamId: { type: "string" },
+            expiresInDays: { type: "integer" },
+          },
+        }),
+        responses: { "201": { description: "{id, joinUrl, expiresAt}" } },
+      },
+    },
+    "/v1/workspaces/{ws}/invites/{id}": {
+      delete: {
+        summary: "Revoke a pending invite (admin+)",
+        parameters: [wsParam],
+        responses: { "200": { description: "Revoked" } },
       },
     },
     "/v1/workspaces/{ws}/tokens": {

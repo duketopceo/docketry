@@ -9,19 +9,26 @@ import { runMigrations } from "../../api/src/db/migrate.js";
 import {
   agentKeys,
   agents,
+  authIdentities,
+  authProviders,
   comments,
   cycles,
   events,
+  invites,
   issueLabels,
   issues,
   labels,
+  oauthCodes,
   projectMilestones,
   projects,
   sessions,
+  teamMembers,
   teams,
+  userIdMap,
   users,
   userTokens,
   views,
+  workspaceMembers,
   workspaces,
 } from "../../api/src/db/schema.js";
 import { hashKey } from "../../api/src/services/agents.js";
@@ -52,6 +59,13 @@ const WIPE_ORDER = [
   projectMilestones,
   projects,
   sessions,
+  invites,
+  oauthCodes,
+  authIdentities,
+  authProviders,
+  userIdMap,
+  teamMembers,
+  workspaceMembers,
   users,
   teams,
 ] as const;
@@ -103,8 +117,11 @@ beforeAll(async () => {
 
   const [user] = await db
     .insert(users)
-    .values({ workspaceId: wsId, email: "mcp@t.co", name: "MCP Human" })
+    .values({ email: "mcp@t.co", name: "MCP Human" })
     .returning();
+  await db
+    .insert(workspaceMembers)
+    .values({ workspaceId: wsId, userId: user!.id, role: "owner" });
   const [agent] = await db
     .insert(agents)
     .values({
@@ -359,6 +376,11 @@ describe("tool surface over the real API", () => {
       (teamsRes.data.teams as { key: string }[]).map((t) => t.key),
     ).toContain(teamKey);
 
+    const membersRes = await call("list_members", {});
+    expect(
+      (membersRes.data.members as { role: string }[]).map((m) => m.role),
+    ).toContain("owner");
+
     const labelsRes = await call("list_labels", {});
     expect(
       (labelsRes.data.labels as { name: string }[]).map((l) => l.name),
@@ -443,6 +465,7 @@ describe("MCP protocol end-to-end (InMemoryTransport)", () => {
       "claim",
       "ready",
       "list_agents",
+      "list_members",
       "list_projects",
       "list_cycles",
       "list_teams",
