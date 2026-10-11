@@ -35,6 +35,12 @@ importers:
       '@hono/zod-validator':
         specifier: ^0.9.1
         version: 0.9.1(hono@4.13.13)(zod@4.6.5)
+      '@modelcontextprotocol/sdk':
+        specifier: 1.31.0
+        version: 1.31.0(@cfworker/json-schema@4.1.1)(zod@4.6.5)
+      '@tallyline/mcp-server':
+        specifier: workspace:*
+        version: link:../mcp-server
       '@tallyline/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -85,9 +91,6 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
-      '@tallyline/api':
-        specifier: workspace:*
-        version: link:../api
       '@tallyline/types':
         specifier: workspace:*
         version: link:../../packages/types

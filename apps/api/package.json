@@ -12,9 +12,11 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@tallyline/types": "workspace:*",
     "@hono/node-server": "^2.1.4",
     "@hono/zod-validator": "^0.9.1",
+    "@modelcontextprotocol/sdk": "1.31.0",
+    "@tallyline/mcp-server": "workspace:*",
+    "@tallyline/types": "workspace:*",
     "dotenv": "^18.0.6",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",

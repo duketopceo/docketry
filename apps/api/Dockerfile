@@ -9,11 +9,14 @@ WORKDIR /repo
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages/types/package.json packages/types/package.json
 COPY apps/api/package.json apps/api/package.json
+COPY apps/mcp-server/package.json apps/mcp-server/package.json
 RUN pnpm install --frozen-lockfile --filter @tallyline/api...
 
+# the API serves the remote MCP endpoint (/mcp) from the shared tool surface
 COPY packages/types packages/types
+COPY apps/mcp-server apps/mcp-server
 COPY apps/api apps/api
-RUN pnpm --filter @tallyline/types build && pnpm --filter @tallyline/api build
+RUN pnpm --filter @tallyline/types build && pnpm --filter @tallyline/mcp-server build && pnpm --filter @tallyline/api build
 RUN pnpm deploy --legacy --filter @tallyline/api --prod /out
 
 FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS run
