@@ -2,6 +2,8 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    globalSetup: ["./test/global-setup.ts"],
+    setupFiles: ["./test/setup-file.ts"],
     env: {
       GITHUB_WEBHOOK_SECRET: "test-webhook-secret",
       GITHUB_APP_SLUG: "tallyline-test",
