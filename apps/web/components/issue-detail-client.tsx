@@ -61,8 +61,8 @@ export function StateActions({
             to === "done"
               ? "bg-healthy/20 text-healthy hover:bg-healthy/30"
               : to === "canceled" || to === "duplicate"
-                ? "border border-lining text-ink-subtle hover:border-urgent hover:text-urgent"
-                : "border border-lining text-ink-muted hover:border-accent hover:text-accent"
+                ? "border border-control text-ink-subtle hover:border-urgent hover:text-urgent"
+                : "border border-control text-ink-muted hover:border-accent hover:text-accent"
           }`}
         >
           {pending === to ? "…" : (NEXT_LABEL[to] ?? `→ ${to}`)}
@@ -116,7 +116,7 @@ export function SummarizeButton({ issueKey }: { issueKey: string }) {
           }
           setSummary(body.summary);
         }}
-        className="h-6 rounded-sm border border-lining px-2 font-mono text-[10px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
+        className="h-6 rounded-sm border border-control px-2 font-mono text-[10px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
       >
         {busy ? "summarizing…" : "✦ summarize"}
       </button>
@@ -175,7 +175,7 @@ export function CommentComposer({ issueKey }: { issueKey: string }) {
         onChange={(e) => setBody(e.target.value)}
         placeholder="Leave a comment…"
         rows={3}
-        className="w-full resize-none rounded-sm border border-lining bg-surface-2 px-3 py-2 text-sm text-ink placeholder:text-ink-tertiary focus:border-accent focus:outline-none"
+        className="w-full resize-none rounded-sm border border-control bg-surface-2 px-3 py-2 text-sm text-ink placeholder:text-ink-tertiary focus:border-accent focus:outline-none"
       />
       {error && (
         <p className="mt-1 text-[12px] text-urgent" role="alert">

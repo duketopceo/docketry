@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { LoadingState } from "./primitives";
 import type {
   RoadmapCycle,
   RoadmapIssue,
@@ -14,11 +15,7 @@ const RoadmapClient = dynamic(
   () => import("./roadmap-client").then((m) => m.RoadmapClient),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex flex-1 animate-pulse items-center justify-center font-mono text-[11px] text-ink-tertiary">
-        loading roadmap…
-      </div>
-    ),
+    loading: () => <LoadingState label="loading roadmap…" />,
   },
 );
 

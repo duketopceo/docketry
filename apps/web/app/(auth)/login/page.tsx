@@ -94,9 +94,10 @@ function LoginInner() {
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
       <div className="w-full max-w-sm rounded-md border border-lining bg-surface-1 p-6">
-        <p className="font-mono text-xs uppercase tracking-widest text-accent">
-          tallyline
-        </p>
+        <div className="flex items-center gap-2">
+          <img src="/brand/mark-small-dark.svg" width={24} height={24} alt="" />
+          <span className="text-[15px] font-semibold tracking-tight">tallyline</span>
+        </div>
         <h1 className="mt-2 text-lg font-semibold">Sign in</h1>
 
         {error && (
@@ -131,7 +132,7 @@ function LoginInner() {
         {(!methods || methods.password) && (
           <form onSubmit={onSubmit}>
             <label
-              className={`${methods?.providers.length ? "mt-5" : "mt-5"} block text-xs text-ink-subtle`}
+              className="mt-5 block text-xs text-ink-subtle"
               htmlFor="email"
             >
               Email
@@ -142,7 +143,7 @@ function LoginInner() {
               type="email"
               required
               autoFocus
-              className="mt-1 w-full rounded-sm border border-lining bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-lining-strong"
+              className="mt-1 w-full rounded-sm border border-control bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-lining-strong"
             />
 
             <label
@@ -156,7 +157,7 @@ function LoginInner() {
               name="password"
               type="password"
               required
-              className="mt-1 w-full rounded-sm border border-lining bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-lining-strong"
+              className="mt-1 w-full rounded-sm border border-control bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-lining-strong"
             />
 
             <button

@@ -632,7 +632,7 @@ function ProjectDetail({
                 project.id,
               )
             }
-            className="h-6 rounded-sm border border-lining bg-surface-2 px-1 font-mono text-[11px] text-ink-muted focus:border-accent focus:outline-none disabled:opacity-50"
+            className="h-6 rounded-sm border border-control bg-surface-2 px-1 font-mono text-[11px] text-ink-muted focus:border-accent focus:outline-none disabled:opacity-50"
             aria-label="project status"
           >
             {Object.keys(STATUS_LABEL).map((s) => (
@@ -731,19 +731,19 @@ function ProjectDetail({
                 value={msTitle}
                 onChange={(e) => setMsTitle(e.target.value)}
                 placeholder="milestone title"
-                className="h-6 w-36 rounded-sm border border-lining bg-surface-2 px-1.5 text-[11px] text-ink placeholder:text-ink-tertiary focus:border-accent focus:outline-none"
+                className="h-6 w-36 rounded-sm border border-control bg-surface-2 px-1.5 text-[11px] text-ink placeholder:text-ink-tertiary focus:border-accent focus:outline-none"
               />
               <input
                 type="datetime-local"
                 value={msDate}
                 onChange={(e) => setMsDate(e.target.value)}
-                className="h-6 rounded-sm border border-lining bg-surface-2 px-1 font-mono text-[10px] text-ink-muted"
+                className="h-6 rounded-sm border border-control bg-surface-2 px-1 font-mono text-[10px] text-ink-muted"
                 aria-label="milestone target date"
               />
               <button
                 type="submit"
                 disabled={busy !== null || !msTitle.trim()}
-                className="h-6 rounded-sm border border-lining px-2 font-mono text-[10px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
+                className="h-6 rounded-sm border border-control px-2 font-mono text-[10px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
               >
                 add
               </button>
@@ -830,12 +830,12 @@ function NewProjectForm({
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="project name"
-        className="h-7 w-44 rounded-sm border border-lining bg-surface-2 px-2 text-[12px] text-ink placeholder:text-ink-tertiary focus:border-accent focus:outline-none"
+        className="h-7 w-44 rounded-sm border border-control bg-surface-2 px-2 text-[12px] text-ink placeholder:text-ink-tertiary focus:border-accent focus:outline-none"
       />
       <select
         value={teamKey}
         onChange={(e) => setTeamKey(e.target.value)}
-        className="h-7 rounded-sm border border-lining bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
+        className="h-7 rounded-sm border border-control bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
         aria-label="team (optional)"
       >
         <option value="">workspace</option>
@@ -849,7 +849,7 @@ function NewProjectForm({
         type="datetime-local"
         value={startDate}
         onChange={(e) => setStartDate(e.target.value)}
-        className="h-7 rounded-sm border border-lining bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
+        className="h-7 rounded-sm border border-control bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
         aria-label="start date"
       />
       <span className="font-mono text-[11px] text-ink-tertiary">→</span>
@@ -857,7 +857,7 @@ function NewProjectForm({
         type="datetime-local"
         value={targetDate}
         onChange={(e) => setTargetDate(e.target.value)}
-        className="h-7 rounded-sm border border-lining bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
+        className="h-7 rounded-sm border border-control bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
         aria-label="target date (optional)"
       />
       <button

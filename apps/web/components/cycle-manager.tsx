@@ -143,7 +143,7 @@ export function CycleManager({
                     c.id,
                   )
                 }
-                className="rounded-sm border border-lining px-2 py-0.5 font-mono text-[10px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
+                className="rounded-sm border border-control px-2 py-0.5 font-mono text-[10px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
               >
                 {busy === c.id ? "…" : "activate"}
               </button>
@@ -164,7 +164,7 @@ export function CycleManager({
                   );
                 }
               }}
-              className="rounded-sm border border-lining px-2 py-0.5 font-mono text-[10px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
+              className="rounded-sm border border-control px-2 py-0.5 font-mono text-[10px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
             >
               complete
             </button>
@@ -180,7 +180,7 @@ export function CycleManager({
                   void call(`/api/cycles/${c.id}`, { method: "DELETE" }, c.id);
                 }
               }}
-              className="rounded-sm border border-lining px-2 py-0.5 font-mono text-[10px] text-ink-subtle hover:border-urgent hover:text-urgent disabled:opacity-50"
+              className="rounded-sm border border-control px-2 py-0.5 font-mono text-[10px] text-ink-subtle hover:border-urgent hover:text-urgent disabled:opacity-50"
             >
               delete
             </button>
@@ -200,7 +200,7 @@ export function CycleManager({
         <select
           value={teamKey}
           onChange={(e) => setTeamKey(e.target.value)}
-          className="h-7 rounded-sm border border-lining bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
+          className="h-7 rounded-sm border border-control bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
         >
           {teams.map((t) => (
             <option key={t.key} value={t.key}>
@@ -212,20 +212,20 @@ export function CycleManager({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="name (optional)"
-          className="h-7 w-32 rounded-sm border border-lining bg-surface-2 px-2 text-[12px] text-ink placeholder:text-ink-tertiary focus:border-accent focus:outline-none"
+          className="h-7 w-32 rounded-sm border border-control bg-surface-2 px-2 text-[12px] text-ink placeholder:text-ink-tertiary focus:border-accent focus:outline-none"
         />
         <input
           type="datetime-local"
           value={startsAt}
           onChange={(e) => setStartsAt(e.target.value)}
-          className="h-7 rounded-sm border border-lining bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
+          className="h-7 rounded-sm border border-control bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
         />
         <span className="font-mono text-[11px] text-ink-tertiary">→</span>
         <input
           type="datetime-local"
           value={endsAt}
           onChange={(e) => setEndsAt(e.target.value)}
-          className="h-7 rounded-sm border border-lining bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
+          className="h-7 rounded-sm border border-control bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
         />
         <label className="flex items-center gap-1 font-mono text-[10px] text-ink-tertiary">
           <input

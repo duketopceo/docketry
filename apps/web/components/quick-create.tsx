@@ -157,19 +157,19 @@ export function QuickCreate() {
             onChange={(e) => update({ title: e.target.value })}
             placeholder="Issue title"
             required
-            className="w-full rounded-sm border border-lining bg-surface-2 px-3 py-2 text-sm text-ink placeholder:text-ink-tertiary focus:border-accent focus:outline-none"
+            className="w-full rounded-sm border border-control bg-surface-2 px-3 py-2 text-sm text-ink placeholder:text-ink-tertiary focus:border-accent focus:outline-none"
           />
           <textarea
             value={draft.description}
             onChange={(e) => update({ description: e.target.value })}
             placeholder="Description (optional)"
             rows={3}
-            className="w-full resize-none rounded-sm border border-lining bg-surface-2 px-3 py-2 text-sm text-ink placeholder:text-ink-tertiary focus:border-accent focus:outline-none"
+            className="w-full resize-none rounded-sm border border-control bg-surface-2 px-3 py-2 text-sm text-ink placeholder:text-ink-tertiary focus:border-accent focus:outline-none"
           />
           <select
             value={draft.priority}
             onChange={(e) => update({ priority: e.target.value })}
-            className="rounded-sm border border-lining bg-surface-2 px-2 py-1.5 text-[13px] text-ink-muted focus:border-accent focus:outline-none"
+            className="rounded-sm border border-control bg-surface-2 px-2 py-1.5 text-[13px] text-ink-muted focus:border-accent focus:outline-none"
             aria-label="Priority"
           >
             <option value="none">No priority</option>

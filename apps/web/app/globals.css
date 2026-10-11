@@ -10,6 +10,9 @@
   --color-lining: #39404c;
   --color-lining-strong: #5a6270;
   --color-lining-bright: #c9cdd4;
+  /* Control boundary (inputs, selects, bordered buttons): lining-strong, 3.18:1 on canvas.
+     The default lining is 1.87:1 and stays decorative (panels, separators). */
+  --color-control: #5a6270;
   --color-ink: #eef1f6;
   --color-ink-muted: #c3c9d4;
   --color-ink-subtle: #8b93a3;
@@ -26,4 +29,57 @@
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
+}
+
+/* Light theme (secondary, opt-in via <html class="light">). Control border uses
+   light-lining-bright #5f6879 (5.15:1); light lining-strong #a3aab6 fails at 2.14:1. */
+html.light {
+  --color-canvas: #f4f5f8;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #eef0f4;
+  --color-surface-3: #e4e7ec;
+  --color-surface-4: #dde1e8;
+  --color-lining-faint: #e8eaef;
+  --color-lining: #c9cdd4;
+  --color-lining-strong: #a3aab6;
+  --color-lining-bright: #5f6879;
+  --color-control: #5f6879;
+  --color-ink: #151923;
+  --color-ink-muted: #3f4756;
+  --color-ink-subtle: #667080;
+  --color-ink-tertiary: #667080;
+  --color-accent: #0b66cc;
+  --color-accent-hover: #0a56ad;
+  --color-on-accent: #ffffff;
+  --color-urgent: #b91c1c;
+  --color-attention: #b45309;
+  --color-healthy: #047857;
+  --color-neutral: #4b5563;
+}
+
+html {
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-feature-settings: "calt", "kern";
+  color-scheme: dark;
+}
+html.light { color-scheme: light; }
+
+/* Focus is lining + ring, never just color (DESIGN.md text-input-focused). */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline-offset: 0;
+  border-color: var(--color-lining-strong);
+}
+
+::selection { background: color-mix(in srgb, var(--color-accent) 35%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

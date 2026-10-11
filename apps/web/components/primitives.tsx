@@ -159,3 +159,28 @@ export function EmptyState({
     </div>
   );
 }
+
+// Loading state: quiet hairline skeleton rows, shimmer-free (DESIGN.md motion rules);
+// opacity pulse is disabled under prefers-reduced-motion by globals.css.
+export function LoadingState({ label }: { label: string }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex flex-1 flex-col gap-2 p-6"
+    >
+      <span className="font-mono text-[11px] text-ink-subtle">{label}</span>
+      {[72, 56, 64, 40].map((w, i) => (
+        <div
+          key={i}
+          className="h-9 animate-pulse rounded-xs border-b border-lining-faint"
+        >
+          <div
+            className="mt-3 h-2 rounded-full bg-surface-3"
+            style={{ width: `${w}%` }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}

@@ -114,12 +114,12 @@ export function ReviewQueue({ queue }: { queue: QueueRow[] }) {
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
                 placeholder="feedback for the agent…"
-                className="h-7 w-64 rounded-sm border border-lining bg-surface-1 px-2 text-[12px] text-ink placeholder:text-ink-tertiary focus:outline-1 focus:outline-accent"
+                className="h-7 w-64 rounded-sm border border-control bg-surface-1 px-2 text-[12px] text-ink placeholder:text-ink-tertiary focus:outline-1 focus:outline-accent"
               />
               <button
                 type="submit"
                 disabled={busy || !feedback.trim()}
-                className="h-7 rounded-sm border border-lining px-2 font-mono text-[11px] text-ink-muted hover:bg-surface-2 disabled:opacity-40"
+                className="h-7 rounded-sm border border-control px-2 font-mono text-[11px] text-ink-muted hover:bg-surface-2 disabled:opacity-40"
               >
                 send
               </button>
@@ -129,13 +129,13 @@ export function ReviewQueue({ queue }: { queue: QueueRow[] }) {
               <button
                 onClick={() => void act(r.key, "approve")}
                 disabled={busy}
-                className="h-7 rounded-sm border border-lining px-2 font-mono text-[11px] text-ink-muted hover:bg-surface-2 hover:text-ink disabled:opacity-40"
+                className="h-7 rounded-sm border border-control px-2 font-mono text-[11px] text-ink-muted hover:bg-surface-2 hover:text-ink disabled:opacity-40"
               >
                 a approve
               </button>
               <button
                 onClick={() => setSendBackKey(r.key)}
-                className="h-7 rounded-sm border border-lining px-2 font-mono text-[11px] text-ink-muted hover:bg-surface-2 hover:text-ink"
+                className="h-7 rounded-sm border border-control px-2 font-mono text-[11px] text-ink-muted hover:bg-surface-2 hover:text-ink"
               >
                 x send back
               </button>

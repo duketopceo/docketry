@@ -46,7 +46,7 @@ export function ProjectSelect({
             setPending(false);
           }
         }}
-        className="h-6 rounded-sm border border-lining bg-surface-2 px-1 font-mono text-[11px] text-ink-muted focus:border-accent focus:outline-none disabled:opacity-50"
+        className="h-6 rounded-sm border border-control bg-surface-2 px-1 font-mono text-[11px] text-ink-muted focus:border-accent focus:outline-none disabled:opacity-50"
       >
         <option value="">no project</option>
         {projects.map((p) => (

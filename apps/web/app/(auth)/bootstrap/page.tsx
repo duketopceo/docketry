@@ -81,7 +81,7 @@ function BootstrapInner() {
   }
 
   const field =
-    "mt-1 w-full rounded-sm border border-lining bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-lining-strong";
+    "mt-1 w-full rounded-sm border border-control bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-lining-strong";
   const label = "mt-4 block text-xs text-ink-subtle";
 
   if (oauthCode) {
@@ -91,9 +91,10 @@ function BootstrapInner() {
           onSubmit={onOauthSubmit}
           className="w-full max-w-md rounded-md border border-lining bg-surface-1 p-6"
         >
-          <p className="font-mono text-xs uppercase tracking-widest text-accent">
-            tallyline
-          </p>
+          <div className="flex items-center gap-2">
+            <img src="/brand/mark-small-dark.svg" width={24} height={24} alt="" />
+            <span className="text-[15px] font-semibold tracking-tight">tallyline</span>
+          </div>
           <h1 className="mt-2 text-lg font-semibold">Name your workspace</h1>
           <p className="mt-1 text-sm text-ink-subtle">
             You're the first user — finish setup by naming the workspace and
@@ -160,9 +161,10 @@ function BootstrapInner() {
         onSubmit={onSubmit}
         className="w-full max-w-md rounded-md border border-lining bg-surface-1 p-6"
       >
-        <p className="font-mono text-xs uppercase tracking-widest text-accent">
-          tallyline
-        </p>
+        <div className="flex items-center gap-2">
+          <img src="/brand/mark-small-dark.svg" width={24} height={24} alt="" />
+          <span className="text-[15px] font-semibold tracking-tight">tallyline</span>
+        </div>
         <h1 className="mt-2 text-lg font-semibold">First-run setup</h1>
         <p className="mt-1 text-sm text-ink-subtle">
           Create the workspace, its first team, and the owner account. This
