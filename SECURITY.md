@@ -19,7 +19,7 @@ promptly when a fix lands).
 where we can discuss, develop a fix, and coordinate disclosure without exposing
 details publicly.
 
-**Fallback:** if private reporting is unavailable, email security@docketry.dev.
+**Fallback:** if private reporting is unavailable, email security@tallyline.app.
 Include a description, reproduction steps, and affected components. Do not open
 a public issue for security reports.
 

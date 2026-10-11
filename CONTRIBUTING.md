@@ -52,4 +52,4 @@ tallyline is MIT-licensed. There is no CLA and no DCO — by submitting a contri
 
 ## Conduct
 
-This project follows the [Contributor Covenant](./CODE_OF_CONDUCT.md). Report conduct issues to conduct@docketry.dev.
+This project follows the [Contributor Covenant](./CODE_OF_CONDUCT.md). Report conduct issues to conduct@tallyline.app.
