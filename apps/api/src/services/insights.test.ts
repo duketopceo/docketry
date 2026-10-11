@@ -144,7 +144,23 @@ describe("GET /v1/:ws/insights", () => {
     const k3 = await createIssue("still open");
 
     await walkToDone(k1); // human session cookie
-    await walkToDone(k2, agentToken);
+    // PLAN-056: an agent can only submit for review; the human approves
+    for (const state of ["todo", "in_progress", "in_review"]) {
+      const r = await req(`/v1/workspaces/${SLUG}/issues/${k2}`, {
+        method: "PATCH",
+        body: JSON.stringify({ state }),
+      }, agentToken);
+      expect(r.status).toBe(200);
+    }
+    const denied = await req(`/v1/workspaces/${SLUG}/issues/${k2}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "done" }),
+    }, agentToken);
+    expect(denied.status).toBe(403);
+    await req(`/v1/workspaces/${SLUG}/issues/${k2}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "done" }),
+    });
     await req(`/v1/workspaces/${SLUG}/issues/${k3}`, {
       method: "PATCH",
       body: JSON.stringify({ state: "backlog" }),
@@ -163,8 +179,8 @@ describe("GET /v1/:ws/insights", () => {
     expect(lastBurn.done).toBe(2);
 
     const tp = ins.throughput.at(-1)!;
-    expect(tp.human).toBe(1);
-    expect(tp.agent).toBe(1);
+    expect(tp.human).toBe(2); // humans approve all completions now
+    expect(tp.agent).toBe(0);
   });
 
   it("includes velocity snapshots for completed cycles", async () => {
