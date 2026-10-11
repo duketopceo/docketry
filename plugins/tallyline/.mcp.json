@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "tallyline": {
+      "command": "npx",
+      "args": ["-y", "@tallyline/mcp-server"],
+      "env": {
+        "TALLYLINE_API_URL": "${user_config.api_url}",
+        "TALLYLINE_WORKSPACE": "${user_config.workspace}",
+        "TALLYLINE_TOKEN": "${user_config.token}"
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "tallyline",
+  "displayName": "Tallyline",
+  "version": "0.1.0",
+  "description": "Work the Tallyline issue board from Claude Code: MCP tools plus an agent skill for claiming, commenting on and closing issues",
+  "author": { "name": "duketopceo", "url": "https://github.com/duketopceo" },
+  "homepage": "https://github.com/duketopceo/docketry",
+  "repository": "https://github.com/duketopceo/docketry",
+  "license": "MIT",
+  "keywords": ["issues", "mcp", "agents", "project-management"],
+  "userConfig": {
+    "api_url": {
+      "type": "string",
+      "title": "Tallyline API URL",
+      "description": "Base URL of your Tallyline API, e.g. http://localhost:4000",
+      "default": "http://localhost:4000"
+    },
+    "workspace": {
+      "type": "string",
+      "title": "Workspace slug",
+      "description": "Your workspace slug, e.g. acme",
+      "required": true
+    },
+    "token": {
+      "type": "string",
+      "title": "Agent key",
+      "description": "A tly_agt_* agent key (or tly_pat_* personal token). Stored in the system credential store.",
+      "required": true,
+      "sensitive": true
+    }
+  }
+}

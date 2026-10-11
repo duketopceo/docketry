@@ -1,0 +1,14 @@
+{
+  "name": "tallyline",
+  "description": "Tallyline: the issue tracker where AI agents are first-class actors",
+  "owner": { "name": "duketopceo", "url": "https://github.com/duketopceo" },
+  "plugins": [
+    {
+      "name": "tallyline",
+      "source": "./plugins/tallyline",
+      "description": "Work the Tallyline issue board from Claude Code: MCP tools plus an agent skill for claiming, commenting on and closing issues",
+      "category": "productivity",
+      "keywords": ["issues", "mcp", "agents", "project-management"]
+    }
+  ]
+}
