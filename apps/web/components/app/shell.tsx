@@ -166,7 +166,8 @@ export function Shell({ children, peek }: { children: ReactNode; peek: ReactNode
         <button
           type="button"
           onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
-          aria-label="Search and commands"
+          title="Search and commands"
+          {...(rail ? { "aria-label": "Search and commands" } : {})}
           className={`flex h-8 flex-1 items-center gap-2 rounded-sm border border-control px-2 text-[13px] text-ink-subtle hover:bg-surface-2 hover:text-ink ${rail ? "justify-center" : ""}`}
         >
           <NavIcon name="search" />

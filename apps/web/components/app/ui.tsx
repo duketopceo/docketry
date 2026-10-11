@@ -80,7 +80,7 @@ export function Assignee({ type, name, size = 20 }: { type: "human" | "agent" | 
 }
 
 export function Kbd({ children }: { children: React.ReactNode }) {
-  return <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-xs border border-lining px-1 font-mono text-[11px] text-ink-subtle">{children}</kbd>;
+  return <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-xs border border-current/40 px-1 font-mono text-[11px] text-current">{children}</kbd>;
 }
 
 export function Skeleton({ className = "" }: { className?: string }) {
