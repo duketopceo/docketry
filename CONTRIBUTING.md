@@ -15,7 +15,7 @@ docker compose up -d   # Postgres on :5432, Redis on :6380
 pnpm dev               # turbo dev — web + api + workers
 ```
 
-Fill in `.env` values as needed for the integrations you are touching — the core app only needs `DATABASE_URL`, `REDIS_URL`, and `AUTH_SECRET`.
+Fill in `.env` values as needed for the integrations you are touching — the core app only needs `DATABASE_URL` and `REDIS_URL` (there is no `AUTH_SECRET` — it was a dead var; `JWT_SECRET` has a dev fallback, and `AUTH_SECRET_KEY`/OAuth vars are only needed when developing provider sign-in — see [docs/auth.md](./docs/auth.md)).
 
 ## The check gate
 

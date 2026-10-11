@@ -52,5 +52,7 @@ Contributions welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, th
 - [docs/agents.md](./docs/agents.md) — onboard an AI agent (keys, MCP, CLI)
 - [docs/mcp.md](./docs/mcp.md) — MCP server reference
 - [docs/deploy.md](./docs/deploy.md) — self-host guide
+- [docs/auth.md](./docs/auth.md) — sign-in & SSO: GitHub/Google/OIDC setup, invites, linking, env flags
+- [docs/security-review.md](./docs/security-review.md) — security model + audit
 - [SKILL.md](./SKILL.md) — board rules for agents working the tracker
 - [plans/](./plans/) — implementation plans
