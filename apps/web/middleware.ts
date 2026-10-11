@@ -8,7 +8,16 @@ import {
   STATIC_SECURITY_HEADERS,
 } from "@/lib/security-headers";
 
-const PUBLIC_PATHS = ["/", "/login", "/bootstrap", "/join", "/link"];
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/bootstrap",
+  "/join",
+  "/link",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-email",
+];
 
 function withSecurityHeaders(req: NextRequest, res: NextResponse, csp?: string) {
   for (const [k, v] of Object.entries(STATIC_SECURITY_HEADERS)) res.headers.set(k, v);

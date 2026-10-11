@@ -5,6 +5,7 @@ import { GlobalNav } from "@/components/global-nav";
 import { KeymapOverlay } from "@/components/keymap-overlay";
 import { QuickCreate } from "@/components/quick-create";
 import { Sidebar } from "@/components/sidebar";
+import { AccountGate } from "@/components/account/account-gate";
 import { api, type Me } from "@/lib/api";
 
 export default async function AppLayout({
@@ -21,6 +22,11 @@ export default async function AppLayout({
   if (!memberships.some((m) => m.workspaceSlug === me.data!.workspaceSlug)) {
     redirect("/workspaces");
   }
+  const active = memberships.find((m) => m.workspaceSlug === me.data!.workspaceSlug);
+  const pendingDeletion =
+    active?.deletedAt && active.purgeAfter
+      ? { name: active.workspaceName ?? active.workspaceSlug, purgeAfter: active.purgeAfter }
+      : null;
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar
@@ -31,7 +37,11 @@ export default async function AppLayout({
           )?.role
         }
       />
-      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <AccountGate emailVerified={me.data.emailVerified !== false} pendingDeletion={pendingDeletion}>
+          {children}
+        </AccountGate>
+      </div>
       <QuickCreate />
       <CommandPalette workspace={me.data.workspaceSlug} />
       <GlobalNav />

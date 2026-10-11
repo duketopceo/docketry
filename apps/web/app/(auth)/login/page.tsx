@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { TallyMark } from "@/components/tally-mark";
@@ -19,6 +20,7 @@ const ERROR_COPY: Record<string, string> = {
   link_disabled: "account linking is disabled on this instance",
   no_workspace: "your account has no workspace — ask an admin for an invite",
   auth: "sign-in failed — try again",
+  account_deleted: "Your account was deleted. Everything tied to it is gone.",
 };
 
 export default function LoginPage() {
@@ -160,6 +162,13 @@ function LoginInner() {
               required
               className="mt-1 w-full rounded-sm border border-control bg-surface-2 px-3 py-2 text-sm text-ink outline-none focus:border-lining-strong"
             />
+
+            <Link
+              href="/forgot-password"
+              className="mt-2 inline-block text-xs text-accent hover:underline"
+            >
+              Forgot your password?
+            </Link>
 
             <button
               type="submit"
