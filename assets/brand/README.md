@@ -1,20 +1,26 @@
-# docketry brand assets (proposal)
+# tallyline brand assets
 
-Status: **proposal, 2026-10-10. The owner signs off logos.** Nothing here replaces
-`assets/logo.svg` / `assets/logo-wordmark.svg` until approved.
+Canonical marks (from the Tallyline rename): `mark.svg` / `mark-dark.svg`,
+`mark-small.svg` / `mark-small-dark.svg`, `lockup.svg` / `lockup-dark.svg` —
+the tally-strike mark, four strokes struck through by a signal-azure line.
+`glint.svg` remains the agent-provenance star (spec in `DESIGN.md`).
+
+The `logo*` / `wordmark*` / `social-card.svg` / `preview/` files below are the
+**superseded docketry proposal** (2026-10-10, predates the rename) — kept for
+reference; do not ship them in product UI.
 
 All files are hand-written SVG. No raster sources, no stock icons, no generated imagery.
 PNG files in `preview/` are renders (`resvg`, then `oxipng`) for review only.
 
 | File | Use |
 |---|---|
-| `logo.svg` | Mark for light backgrounds (solid ink card, light-theme azure glint) |
-| `logo-dark.svg` | Mark for dark backgrounds (surface card, outlined, dark-theme azure glint) |
-| `wordmark.svg` / `wordmark-dark.svg` | "docketry" lettering, ink for light / near-white for dark |
-| `lockup.svg` / `lockup-dark.svg` | Mark + wordmark, for README and site headers |
+| `logo.svg` | Superseded — proposal mark for light backgrounds (docket card, glint) |
+| `logo-dark.svg` | Superseded — proposal mark for dark backgrounds |
+| `wordmark.svg` / `wordmark-dark.svg` | Superseded — "docketry" lettering |
+| `lockup.svg` / `lockup-dark.svg` | **Canonical** — tally-strike mark + "tallyline" wordmark |
 | `glint.svg` | The agent-provenance star on its own (spec in `DESIGN.md`) |
 | `status-glyphs.svg` | Urgent / attention / healthy / neutral, shape plus colour |
-| `social-card.svg` | 1280x640 repo social preview (no text, so it renders without fonts) |
+| `social-card.svg` | Superseded — proposal repo social preview |
 
 ## Construction
 
