@@ -505,7 +505,7 @@ Terse, technical, declarative. The UI is written by an engineer for an operator.
 ## Imagery
 
 - **The product is the imagery.** Docs, README, and marketing surfaces show real product UI — the board, the inbox, an agent-run trace — framed in `card-panel` chrome on `{colors.canvas}`.
-- **Empty-state illustration:** a single piece of linework — a docket card outline in `{colors.lining}` with one edge in `{colors.lining-bright}` and a small silver glint — never characters, never stock art.
+- **Empty-state illustration:** a single piece of linework — four tally strokes in `{colors.lining}` with one `{colors.lining-bright}` strike — never characters, never stock art.
 - **No photography, no textures, no gradient meshes.** The palette is flat dark + metal + one azure.
 - **Avatars:** 20/24/32px circles (`{rounded.full}`). Agent avatars carry the 12px glint badge; human avatars never do — provenance is visual from across the room.
 
@@ -545,7 +545,7 @@ Terse, technical, declarative. The UI is written by an engineer for an operator.
 - **`sparkle-glint`** — the four-point star per the Shapes spec. Rendered inline-block, baseline-aligned to text, `aria-hidden="true"` with the provenance fact carried in text (`filed by ornith`) — the glyph is a mark, not the message.
 
 ### Empty & Error
-- **`empty-state`** — centered in the list/panel: linework docket card (lining stroke), `headline` "what you'll see here", `body` `ink-subtle` "why it's empty", then the action (`button-secondary` or keycap-hinted shortcut).
+- **`empty-state`** — centered in the list/panel: linework tally strokes (lining stroke), `headline` "what you'll see here", `body` `ink-subtle` "why it's empty", then the action (`button-secondary` or keycap-hinted shortcut).
 - **`error-panel`** — `card-panel` chrome with `{colors.lining-bright}` border, `status-urgent` dot + `body-strong` "what broke", `body` `ink-muted` "why", right-aligned `button-secondary` action ("Retry", "Re-authenticate"). In panels; `role="alert"`.
 
 ## Do's and Don'ts
@@ -630,7 +630,7 @@ The seven load-bearing components — the minimum vocabulary an agent needs to s
 | **Status pill** (`status-pill`) | 20px pill · `status-*-soft` fill · 5px status dot · `micro` label in the status color · `rounded.pill`. Four statuses only; blue never appears. |
 | **Command palette** (`command-palette`) | `surface-2` · `lining-strong` border · `shadows.overlay` · `rounded.xl` 14px · 640px · 40px rows (`surface-3` active) · `⌘K` trigger · entrance 200ms `ease-out` · recent → navigate → actions → search → help ordering. |
 | **Sparkle glint** (`sparkle-glint`) | 4-point concave star, straight segments · 12/16/20px · `glint` azure (or `glint-silver` inside lit surfaces) · static, `aria-hidden` · means exactly "an agent touched this" · sparse by rule. |
-| **Empty state** (`empty-state`) | Linework docket card (`lining` stroke, one `lining-bright` edge, silver glint) · `headline` what's here · `body` `ink-subtle` why empty · `button-secondary` or keycap action. Centered, 48px vertical padding. |
+| **Empty state** (`empty-state`) | Linework tally strokes (`lining` stroke, one `lining-bright` strike) · `headline` what's here · `body` `ink-subtle` why empty · `button-secondary` or keycap action. Centered, 48px vertical padding. |
 | **Error state** (`error-panel`) | `card-panel` chrome + `lining-bright` border · urgent dot + `body-strong` what broke · `body` `ink-muted` why · `button-secondary` recommended action right-aligned · `role="alert"` · persists until dismissed or resolved — never auto-dismisses. |
 
 ---
@@ -663,7 +663,7 @@ Role rules: azure = action/focus/provenance only, never status. Status colours n
   Glint never animates and never appears for human-authored work. Silver lining brightens only
   with a recommended action beside it.
 Media strategy: the product is the imagery. Real screenshots of the running app in a card-panel
-  frame; linework docket card for empty states; no photography, no illustration, no mesh gradients.
+  frame; linework tally strokes for empty states; no photography, no illustration, no mesh gradients.
 Reject: Linear's tokens and trade dress (plan R25), indigo/violet accents, glassmorphism and
   shadows for depth, gradient hero art, emoji status, rounded-everything.
 Token commitments: see Colors and Typography above. Radius 8px cards, 14px overlays, pill status.
@@ -737,7 +737,7 @@ TUI: no spinners that rewrite lines in non-TTY output, `--json` output has no AN
 | CLI (`tools/cli`) | Plain text; mono IDs, state words (not colours) first; colour only on TTY; exit codes 0-5 |
 | MCP tool output | Compact JSON, no presentation; a name and key per entity, no row dumps |
 | README and docs | Real screenshots in `card-panel` framing; lockup top; no hero art |
-| Social card, favicon | `assets/brand/social-card.svg`, `logo.svg` (proposal, pending owner sign-off) |
+| Social card, favicon | `assets/brand/social-card.svg`, `icon.svg` (tally mark) |
 | Emails and notifications | Light token set, status inks, glint as a 12px mark before agent names |
 | Bar widget, plugin panel, TUI | None today. If added, reuse the status glyphs and mono IDs |
 

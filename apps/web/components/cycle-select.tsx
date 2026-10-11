@@ -26,6 +26,7 @@ export function CycleSelect({
   return (
     <span className="inline-flex items-center gap-1">
       <select
+        aria-label="Cycle"
         value={current ?? ""}
         disabled={pending}
         onChange={async (e) => {

@@ -198,6 +198,7 @@ export function CycleManager({
         className="flex flex-wrap items-center gap-2 border-t border-lining-faint px-4 py-3"
       >
         <select
+          aria-label="Team"
           value={teamKey}
           onChange={(e) => setTeamKey(e.target.value)}
           className="h-7 rounded-sm border border-control bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
@@ -209,6 +210,7 @@ export function CycleManager({
           ))}
         </select>
         <input
+          aria-label="Cycle name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="name (optional)"
@@ -216,6 +218,7 @@ export function CycleManager({
         />
         <input
           type="datetime-local"
+          aria-label="Cycle start"
           value={startsAt}
           onChange={(e) => setStartsAt(e.target.value)}
           className="h-7 rounded-sm border border-control bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
@@ -223,6 +226,7 @@ export function CycleManager({
         <span className="font-mono text-[11px] text-ink-tertiary">→</span>
         <input
           type="datetime-local"
+          aria-label="Cycle end"
           value={endsAt}
           onChange={(e) => setEndsAt(e.target.value)}
           className="h-7 rounded-sm border border-control bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"

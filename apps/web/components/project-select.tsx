@@ -24,6 +24,7 @@ export function ProjectSelect({
   return (
     <span className="inline-flex items-center gap-1">
       <select
+        aria-label="Project"
         value={current ?? ""}
         disabled={pending}
         onChange={async (e) => {

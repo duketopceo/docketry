@@ -98,6 +98,7 @@ export function MemberList({
               <td className="py-2.5 pr-4">
                 {canAdmin ? (
                   <select
+                    aria-label={`Role for ${m.name}`}
                     value={m.role}
                     disabled={busy === m.id}
                     onChange={(e) => changeRole(m, e.target.value)}
