@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import { z } from "zod";
@@ -24,11 +24,17 @@ import {
   sessionFromToken,
 } from "../services/auth.js";
 import { createInvite, listInvites, revokeInvite } from "../services/invites.js";
-import { requireRole } from "../services/members.js";
+import { memberOf, requireRole } from "../services/members.js";
 import { userFromToken } from "../services/tokens.js";
 import { setSessionCookie } from "./auth.js";
 import { requireWorkspace } from "./workspaces.js";
 import { clock } from "../services/clock.js";
+import {
+  assertSeatForJoin,
+  assertWithinLimit,
+  PlanLimitError,
+  PublicPlanLimitError,
+} from "../services/entitlements.js";
 
 
 const createSchema = z.object({
@@ -73,6 +79,8 @@ export const inviteRoutes = new Hono()
           return apiError(c, 422, "BAD_TEAM", "team_id must belong to this workspace");
         }
       }
+      // every live invite reserves a seat
+      await assertWithinLimit("seats", ws.id);
       const { invite, token } = await createInvite({
         workspaceId: ws.id,
         email: body.email ?? null,
@@ -81,6 +89,12 @@ export const inviteRoutes = new Hono()
         createdBy: session.userId,
         expiresAt: new Date(clock.ms() + body.expiresInDays * 86_400_000),
       });
+      try {
+        await assertWithinLimit("seats", ws.id, 0); // lost a race? undo
+      } catch (err) {
+        await revokeInvite(invite.id, ws.id);
+        throw err;
+      }
       await emit(ws.id, session.userId, "invite_created", invite!.id);
       return c.json(
         {
@@ -143,7 +157,11 @@ export const inviteAcceptRoutes = new Hono()
       if (invite.email && invite.email !== u.email.trim().toLowerCase()) {
         return apiError(c, 403, "INVITE_EMAIL_MISMATCH", "this invite is bound to a different email");
       }
-      await acceptForUser(userId, invite);
+      // already a member: idempotent ok, no seat needed and nothing consumed
+      if (await memberOf(userId, invite.workspaceId)) {
+        return c.json({ ok: true, workspaceId: invite.workspaceId });
+      }
+      await withSeatLock(invite.workspaceId, (tx) => acceptForUser(userId, invite, tx));
       return c.json({ ok: true, workspaceId: invite.workspaceId });
     }
 
@@ -161,26 +179,57 @@ export const inviteAcceptRoutes = new Hono()
     if (!body.name || !body.password) {
       return apiError(c, 401, "UNAUTHENTICATED", "sign in or claim with name+password");
     }
-    const [u] = await db
-      .insert(users)
-      .values({
-        email,
-        name: body.name,
-        passwordHash: hashPassword(body.password),
-      })
-      .returning();
-    await acceptForUser(u!.id, invite);
-    const token = await createSession(u!.id, invite.workspaceId);
+    const u = await withSeatLock(invite.workspaceId, async (tx) => {
+      const [created] = await tx
+        .insert(users)
+        .values({
+          email,
+          name: body.name!,
+          passwordHash: hashPassword(body.password!),
+        })
+        .returning();
+      await acceptForUser(created!.id, invite, tx);
+      return created!;
+    });
+    const token = await createSession(u.id, invite.workspaceId);
     setSessionCookie(c, token);
     return c.json({ ok: true, workspaceId: invite.workspaceId }, 201);
   });
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Seat check + join as one critical section per workspace: concurrent
+ * accepts serialise on an advisory lock and each commits its member row
+ * before the next counts, so two accepts can never both take the last seat.
+ * The 402 goes to someone who may not be a member, so it names the plan but
+ * never the workspace's usage numbers.
+ */
+async function withSeatLock<T>(workspaceId: string, join: (tx: Tx) => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`seats:${workspaceId}`}, 0))`);
+    try {
+      await assertSeatForJoin(workspaceId);
+    } catch (err) {
+      if (err instanceof PlanLimitError) {
+        throw new PublicPlanLimitError(
+          "This workspace has no free seats on its current plan. Ask a workspace admin to free a seat or upgrade, then use this invite again.",
+          err.detail.plan,
+        );
+      }
+      throw err;
+    }
+    return join(tx);
+  });
+}
+
 async function acceptForUser(
   userId: string,
   invite: { id: string; workspaceId: string; teamId: string | null; role: "member" | "admin" },
+  tx: Pick<typeof db, "insert" | "update"> = db,
 ) {
   // atomic claim — a concurrent accept yields exactly one member row
-  const [claimed] = await db
+  const [claimed] = await tx
     .update(invites)
     .set({ acceptedAt: clock.now(), acceptedBy: userId })
     .where(and(eq(invites.id, invite.id), isNull(invites.acceptedAt)))
@@ -188,15 +237,15 @@ async function acceptForUser(
   if (!claimed) {
     throw Object.assign(new Error("invite already used"), { status: 410 });
   }
-  await db.insert(workspaceMembers).values({
+  await tx.insert(workspaceMembers).values({
     workspaceId: invite.workspaceId,
     userId,
     role: invite.role,
   }).onConflictDoNothing();
   if (invite.teamId) {
-    await db.insert(teamMembers).values({ teamId: invite.teamId, userId }).onConflictDoNothing();
+    await tx.insert(teamMembers).values({ teamId: invite.teamId, userId }).onConflictDoNothing();
   }
-  await db.insert(events).values({
+  await tx.insert(events).values({
     workspaceId: invite.workspaceId, actorType: "system", actorId: userId,
     action: "member_joined", entityType: "member", entityId: userId,
   });

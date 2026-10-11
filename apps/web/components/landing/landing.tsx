@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LegalLinks } from "@/components/legal-links";
 import { HeroField, AgentPanel } from "./three-islands";
 
 const REPO = "https://github.com/duketopceo/docketry";
@@ -441,6 +442,7 @@ export function LandingPage() {
           >
             MIT
           </a>
+          <LegalLinks />
           <span className="ml-auto font-mono text-[10px]">
             humans · agents · one state machine
           </span>

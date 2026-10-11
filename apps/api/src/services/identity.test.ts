@@ -17,6 +17,7 @@ import {
 import { config_ } from "../env.js";
 import { mintInviteToken } from "../auth/invite-token.js";
 import type { IdentityResult } from "../auth/providers/types.js";
+import { setBillingForTests } from "./entitlements.js";
 import { resolveIdentity } from "./identity.js";
 import { membershipsFor } from "./members.js";
 import { NOW, useFrozenClock } from "../../test/clock.js";
@@ -188,6 +189,72 @@ describe("resolveIdentity", () => {
       { providerKey: "stub", inviteHash: boundHash },
     );
     expect(mismatch).toEqual({ kind: "error", code: "INVITE_EMAIL_MISMATCH" });
+  });
+
+  it("BILLING=on: pending invites reserve seats, so SSO JIT is refused when members + pending fill the cap", async () => {
+    const ws = await reset();
+    for (const n of [1, 2]) {
+      const [u] = await db.insert(users).values({ email: `res${n}@corp.io`, name: `R${n}` }).returning();
+      await db.insert(workspaceMembers).values({ workspaceId: ws.id, userId: u!.id, role: n === 1 ? "owner" : "member" });
+    }
+    const { hash } = mintInviteToken();
+    await db.insert(invites).values({
+      workspaceId: ws.id, email: "reserved@corp.io", tokenHash: hash,
+      role: "member", expiresAt: new Date(NOW + 86_400_000),
+    });
+    setBillingForTests(true);
+    try {
+      // 2 members + 1 pending invite = 3 of 3: the reserved seat is not up for grabs
+      const jit = await resolveIdentity(ident({ subject: "res-jit", email: "jit@corp.io" }), {
+        providerKey: "stub",
+        inviteHash: null,
+      });
+      expect(jit).toEqual({ kind: "error", code: "PLAN_LIMIT" });
+      expect(await db.select().from(users)).toHaveLength(2);
+      // the invitee themself still gets the seat their invite reserved
+      const viaInvite = await resolveIdentity(ident({ subject: "res-inv", email: "reserved@corp.io" }), {
+        providerKey: "stub",
+        inviteHash: hash,
+      });
+      expect(viaInvite.kind).toBe("login");
+    } finally {
+      setBillingForTests(null);
+    }
+  });
+
+  it("BILLING=on, full Free workspace: SSO joins answer PLAN_LIMIT and create nobody", async () => {
+    const ws = await reset();
+    for (const n of [1, 2, 3]) {
+      const [u] = await db.insert(users).values({ email: `seat${n}@corp.io`, name: `S${n}` }).returning();
+      await db.insert(workspaceMembers).values({ workspaceId: ws.id, userId: u!.id, role: n === 1 ? "owner" : "member" });
+    }
+    setBillingForTests(true);
+    try {
+      const auto = await resolveIdentity(ident({ subject: "full-1", email: "new@corp.io" }), {
+        providerKey: "stub",
+        inviteHash: null,
+      });
+      expect(auto).toEqual({ kind: "error", code: "PLAN_LIMIT" });
+      const { hash } = mintInviteToken();
+      await db.insert(invites).values({
+        workspaceId: ws.id, email: null, tokenHash: hash,
+        role: "member", expiresAt: new Date(NOW + 86_400_000),
+      });
+      const viaInvite = await resolveIdentity(ident({ subject: "full-2", email: "inv@corp.io" }), {
+        providerKey: "stub",
+        inviteHash: hash,
+      });
+      expect(viaInvite).toEqual({ kind: "error", code: "PLAN_LIMIT" });
+      expect(await db.select().from(users)).toHaveLength(3);
+    } finally {
+      setBillingForTests(null);
+    }
+    // billing off again: the same join succeeds
+    const r = await resolveIdentity(ident({ subject: "full-3", email: "later@corp.io" }), {
+      providerKey: "stub",
+      inviteHash: null,
+    });
+    expect(r.kind).toBe("login");
   });
 
   it("zero workspaces → pending-bootstrap", async () => {

@@ -29,12 +29,15 @@ import { providerRoutes } from "./routes/providers.js";
 import { resourceRoutes } from "./routes/resources.js";
 import { slackRoutes } from "./routes/slack.js";
 import { tokenRoutes } from "./routes/tokens.js";
+import { usageRoutes } from "./routes/usage.js";
 import { webhookEndpointRoutes } from "./routes/webhook-endpoints.js";
 import { webhookRoutes } from "./routes/webhooks.js";
 import { whoamiRoutes } from "./routes/whoami.js";
 import { workspaceRoutes } from "./routes/workspaces.js";
 import { SESSION_COOKIE } from "./services/auth.js";
 import { NotFoundError } from "./services/issues.js";
+import { PlanLimitError, PublicPlanLimitError } from "./services/entitlements.js";
+import { countApiCall, flushApiCalls, rollupTick } from "./services/usage.js";
 
 const rateLimiter = createRateLimiter(config_.rateLimitPerMin);
 // counts unauthenticated traffic + failed credentials per client IP; health
@@ -71,6 +74,13 @@ export const app = new Hono()
   .route("/v1/auth", inviteAcceptRoutes)
   .route("/v1/auth", providerRoutes)
   .use("/v1/*", requireSession)
+  .use("/v1/*", async (c, next) => {
+    await next();
+    // after authorization: refused requests (401/403, incl. role gates that
+    // run after requireWorkspace) never count against the workspace
+    const ws = c.get("usageWorkspaceId");
+    if (ws && c.res.status !== 401 && c.res.status !== 403) countApiCall(ws);
+  })
   .use("/v1/*", rateLimiter)
   .route("/v1", mcpOAuthAdminRoutes)
   .route("/v1", workspaceRoutes)
@@ -87,7 +97,19 @@ export const app = new Hono()
   .route("/v1", webhookEndpointRoutes)
   .route("/v1", dispatchRoutes)
   .route("/v1", assistRoutes)
+  .route("/v1", usageRoutes)
   .onError((err, c) => {
+    if (err instanceof PlanLimitError) {
+      // machine-readable so agents, the CLI and MCP clients can say which
+      // limit was hit and what to do (PLAN-059)
+      return c.json(
+        { error: { code: err.code, message: err.message, ...err.detail } },
+        402,
+      );
+    }
+    if (err instanceof PublicPlanLimitError) {
+      return c.json({ error: { code: err.code, message: err.message, plan: err.plan } }, 402);
+    }
     if (err instanceof HttpError) {
       return apiError(c, err.status, err.code, err.message);
     }
@@ -122,6 +144,14 @@ if (process.env.NODE_ENV !== "test") {
   void sweepExpiredCycles().catch((err) =>
     console.error("cycle sweep failed", err),
   );
+  // usage metering: API-call counters every minute, daily rollup hourly
+  setInterval(() => {
+    void flushApiCalls().catch((err) => console.error("usage flush failed", err));
+  }, 60_000).unref();
+  setInterval(() => {
+    void rollupTick().catch((err) => console.error("usage rollup failed", err));
+  }, 3_600_000).unref();
+  void rollupTick().catch((err) => console.error("usage rollup failed", err));
   serve({ fetch: app.fetch, port: config_.port }, (info) => {
     console.log(`api listening on http://localhost:${info.port}`);
   });

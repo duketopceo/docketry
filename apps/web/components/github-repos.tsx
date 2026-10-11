@@ -99,7 +99,7 @@ export function GithubRepoPanel({
       </div>
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-lining-faint text-left font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+          <tr className="border-b border-lining-faint text-left font-mono text-[11px] uppercase tracking-wider text-ink-tertiary">
             <th className="pb-2 font-normal">Repository</th>
             <th className="pb-2 font-normal">Sync</th>
             <th className="pb-2 font-normal" />

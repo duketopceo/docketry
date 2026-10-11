@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { LegalLinks } from "@/components/legal-links";
 import { TallyMark } from "@/components/tally-mark";
 
 interface Provider {
@@ -18,6 +19,7 @@ const ERROR_COPY: Record<string, string> = {
   invite_required: "this workspace requires an invite",
   link_disabled: "account linking is disabled on this instance",
   no_workspace: "your account has no workspace — ask an admin for an invite",
+  plan_limit: "this workspace has no free member seats on its plan — ask an admin to free a seat or move to the Team plan",
   auth: "sign-in failed — try again",
 };
 
@@ -93,7 +95,7 @@ function LoginInner() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6">
+    <main className="flex min-h-screen flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm rounded-md border border-lining bg-surface-1 p-6">
         <div className="flex items-center gap-2">
           <TallyMark size={24} />
@@ -171,6 +173,7 @@ function LoginInner() {
           </form>
         )}
       </div>
+      <LegalLinks className="mt-4 text-[12px] text-ink-tertiary" />
     </main>
   );
 }

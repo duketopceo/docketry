@@ -4,6 +4,7 @@ import type { IssueState } from "@tallyline/types";
 import { legalTransitions } from "@tallyline/types";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
+import { failureMessage } from "@/lib/plan-limit";
 
 const NEXT_LABEL: Partial<Record<IssueState, string>> = {
   backlog: "→ backlog",
@@ -152,7 +153,7 @@ export function CommentComposer({ issueKey }: { issueKey: string }) {
     });
     setSubmitting(false);
     if (!res.ok) {
-      setError("comment failed to post — retry");
+      setError(await failureMessage(res, "comment failed to post — retry"));
       return;
     }
     setBody("");
