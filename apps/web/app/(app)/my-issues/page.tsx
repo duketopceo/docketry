@@ -3,6 +3,7 @@ import {
   type ListIssue,
 } from "@/components/issue-list-client";
 import { api } from "@/lib/api";
+import { TallyMark } from "@/components/tally-mark";
 
 interface Me {
   workspaceSlug: string;
@@ -43,11 +44,7 @@ export default async function MyIssuesPage() {
       </header>
       {rows.length === 0 ? (
         <div className="flex flex-col items-center px-8 py-12 text-center">
-          <svg width="40" height="40" viewBox="0 0 32 32" aria-hidden>
-            <rect x="4" y="7" width="24" height="19" rx="3" fill="none" stroke="#39404c" strokeWidth="1.5" />
-            <path d="M8.5 7h15" stroke="#c9cdd4" strokeWidth="1.6" strokeLinecap="round" />
-            <rect x="8.5" y="11.5" width="10" height="2.6" rx="1.3" fill="#39404c" />
-          </svg>
+          <TallyMark size={40} quiet />
           <p className="mt-4 text-sm font-medium text-ink">
             Nothing assigned to you
           </p>

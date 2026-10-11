@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TallyMark } from "./tally-mark";
 
 const NAV = [
   { href: "/my-issues", label: "My Issues", hint: "g i" },
@@ -27,7 +28,7 @@ export function Sidebar({
   return (
     <aside className="flex w-52 shrink-0 flex-col border-r border-lining bg-surface-1">
       <div className="flex h-12 items-center gap-2 border-b border-lining-faint px-4">
-        <img src="/brand/mark-small-dark.svg" width={16} height={16} alt="" />
+        <TallyMark size={16} />
         <span className="text-sm font-semibold tracking-tight">tallyline</span>
         <span className="ml-auto font-mono text-[10px] text-ink-tertiary">
           {workspace}

@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { TallyMark } from "@/components/tally-mark";
 
 export default function BootstrapPage() {
   return (
@@ -92,7 +93,7 @@ function BootstrapInner() {
           className="w-full max-w-md rounded-md border border-lining bg-surface-1 p-6"
         >
           <div className="flex items-center gap-2">
-            <img src="/brand/mark-small-dark.svg" width={24} height={24} alt="" />
+            <TallyMark size={24} />
             <span className="text-[15px] font-semibold tracking-tight">tallyline</span>
           </div>
           <h1 className="mt-2 text-lg font-semibold">Name your workspace</h1>
@@ -162,7 +163,7 @@ function BootstrapInner() {
         className="w-full max-w-md rounded-md border border-lining bg-surface-1 p-6"
       >
         <div className="flex items-center gap-2">
-          <img src="/brand/mark-small-dark.svg" width={24} height={24} alt="" />
+          <TallyMark size={24} />
           <span className="text-[15px] font-semibold tracking-tight">tallyline</span>
         </div>
         <h1 className="mt-2 text-lg font-semibold">First-run setup</h1>

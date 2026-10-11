@@ -92,11 +92,11 @@ for (const vp of VIEWPORTS) {
   }
 }
 
-test.describe("axe login", () => {
+test.describe("axe logged-out", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
-  for (const theme of THEMES) {
-    test(`/login ${theme}`, async ({ page }) => {
-      await page.goto("/login");
+  for (const [theme, path] of THEMES.flatMap((t) => ["/", "/login"].map((p) => [t, p] as const))) {
+    test(`${path} ${theme}`, async ({ page }) => {
+      await page.goto(path);
       await page.waitForLoadState("networkidle");
       await setTheme(page, theme);
       const violations = await scan(page);
