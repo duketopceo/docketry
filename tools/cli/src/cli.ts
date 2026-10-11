@@ -3,7 +3,7 @@ import { ApiClient, ApiError } from "./client.js";
 import { commands, CliError, type CliIo, type CmdCtx } from "./commands.js";
 import { resolveConfig } from "./config.js";
 
-export const VERSION = "0.0.0";
+export const VERSION = "0.1.0";
 
 const GLOBAL_OPTIONS: ParseArgsOptionsConfig = {
   json: { type: "boolean" },

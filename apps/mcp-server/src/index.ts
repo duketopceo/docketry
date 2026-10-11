@@ -10,7 +10,7 @@ import {
   httpAuthMode,
   loadConfig,
 } from "./env.js";
-import { createMcpServer } from "./server.js";
+import { SERVER_INFO, createMcpServer } from "./server.js";
 import { toolDefs } from "./tools.js";
 
 // stdio is the default — what local MCP clients (Claude Code, Cursor,
@@ -25,7 +25,30 @@ function httpPort(argv: string[]): number | null {
   return null;
 }
 
-const port = httpPort(process.argv.slice(2));
+const args = process.argv.slice(2);
+if (args.includes("--help") || args.includes("-h")) {
+  process.stdout.write(
+    [
+      "tallyline-mcp — Tallyline MCP server",
+      "",
+      "usage: tallyline-mcp [--http[=PORT]] [--help] [--version]",
+      "",
+      "  (default)      serve MCP over stdio",
+      "  --http[=PORT]  serve stateless Streamable HTTP at /mcp (default 3101)",
+      "",
+      "env: TALLYLINE_TOKEN, TALLYLINE_WORKSPACE (required for stdio),",
+      "     TALLYLINE_API_URL (default http://localhost:4000)",
+      "",
+    ].join("\n"),
+  );
+  process.exit(0);
+}
+if (args.includes("--version") || args.includes("-v")) {
+  process.stdout.write(`${SERVER_INFO.version}\n`);
+  process.exit(0);
+}
+
+const port = httpPort(args);
 
 if (port === null) {
   let config: ReturnType<typeof loadConfig>;
