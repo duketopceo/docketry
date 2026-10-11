@@ -1,0 +1,36 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const TABS = [
+  { href: "/settings/members", label: "Members" },
+  { href: "/settings/invites", label: "Invites" },
+  { href: "/settings/integrations", label: "Integrations" },
+  { href: "/settings/providers", label: "Providers" },
+];
+
+export function SettingsTabs() {
+  const pathname = usePathname();
+  return (
+    <nav aria-label="Settings" className="flex items-center gap-1">
+      {TABS.map((t) => {
+        const active = pathname.startsWith(t.href);
+        return (
+          <Link
+            key={t.href}
+            href={t.href}
+            aria-current={active ? "page" : undefined}
+            className={`flex h-7 items-center rounded-sm px-2 text-[12px] ${
+              active
+                ? "bg-surface-2 text-ink"
+                : "text-ink-subtle hover:bg-surface-2 hover:text-ink"
+            }`}
+          >
+            {t.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}

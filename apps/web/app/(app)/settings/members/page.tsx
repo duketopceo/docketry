@@ -1,5 +1,6 @@
 import { api, type Me } from "@/lib/api";
 import { MemberList, type MemberRow } from "@/components/member-list";
+import { SettingsTabs } from "@/components/settings-tabs";
 
 interface MembersResponse {
   members?: MemberRow[];
@@ -20,7 +21,8 @@ export default async function MembersPage() {
     <main className="flex min-h-0 flex-1 flex-col">
       <header className="flex h-12 shrink-0 items-center border-b border-lining-faint px-4">
         <h1 className="text-sm font-semibold">Members</h1>
-        <span className="ml-2 font-mono text-[11px] text-ink-tertiary">
+        <SettingsTabs />
+        <span className="ml-auto font-mono text-[11px] text-ink-tertiary">
           {rows.length} on this workspace
         </span>
       </header>
