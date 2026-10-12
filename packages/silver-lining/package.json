@@ -1,0 +1,40 @@
+{
+  "name": "@tallyline/silver-lining",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Silver Lining design tokens: OKLCH theme generator, generated CSS/JSON/TS outputs, design gates.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./silver-lining.css": "./silver-lining.css",
+    "./tokens.json": "./tokens.json",
+    "./eslint": "./eslint/index.mjs"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.build.json",
+    "generate": "node scripts/generate.ts",
+    "lint:design": "node scripts/lint-design.ts",
+    "test:contrast": "node scripts/contrast.ts",
+    "test:token-parity": "node scripts/token-parity.ts",
+    "sync:open-computer": "node scripts/sync-open-computer.ts"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "silver-lining.css",
+    "tokens.json",
+    "eslint"
+  ],
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "fast-check": "^4.10.2",
+    "postcss": "^8.5.29"
+  }
+}

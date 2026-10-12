@@ -6,6 +6,7 @@ import { db } from "../db/client.js";
 import { webhookDeliveries, webhookEndpoints } from "../db/schema.js";
 import { HttpError } from "../lib/errors.js";
 import { assertSafeOutboundUrl } from "../lib/net-guard.js";
+import { requireRole } from "../services/members.js";
 import { generateEndpointSecret } from "../services/outbound.js";
 import { requireWorkspace } from "./workspaces.js";
 
@@ -41,6 +42,7 @@ function mask(row: typeof webhookEndpoints.$inferSelect) {
 export const webhookEndpointRoutes = new Hono()
   .get("/workspaces/:ws/webhook-endpoints", async (c) => {
     const ws = await requireWorkspace(c);
+    requireRole(c, "admin");
     const rows = await db
       .select()
       .from(webhookEndpoints)
@@ -52,6 +54,7 @@ export const webhookEndpointRoutes = new Hono()
     zValidator("json", createSchema),
     async (c) => {
       const ws = await requireWorkspace(c);
+      requireRole(c, "admin");
       const body = c.req.valid("json");
       await checkUrl(body.url);
       const secret = body.secret ?? generateEndpointSecret();
@@ -73,6 +76,7 @@ export const webhookEndpointRoutes = new Hono()
     zValidator("json", patchSchema),
     async (c) => {
       const ws = await requireWorkspace(c);
+      requireRole(c, "admin");
       const body = c.req.valid("json");
       if (body.url) await checkUrl(body.url);
       const [row] = await db
@@ -91,6 +95,7 @@ export const webhookEndpointRoutes = new Hono()
   )
   .delete("/workspaces/:ws/webhook-endpoints/:id", async (c) => {
     const ws = await requireWorkspace(c);
+    requireRole(c, "admin");
     const [row] = await db
       .delete(webhookEndpoints)
       .where(
@@ -105,6 +110,7 @@ export const webhookEndpointRoutes = new Hono()
   })
   .get("/workspaces/:ws/webhook-endpoints/:id/deliveries", async (c) => {
     const ws = await requireWorkspace(c);
+    requireRole(c, "admin");
     const rows = await db
       .select()
       .from(webhookDeliveries)

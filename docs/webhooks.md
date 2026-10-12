@@ -6,6 +6,12 @@ on.
 
 ## Managing endpoints
 
+Every route below requires workspace **owner or admin** (a human session, or a
+PAT of an owner/admin; writes need `write` scope). Members and agent keys get
+`403 FORBIDDEN_ROLE`. Listing and the delivery log are admin-only too: endpoint
+URLs can embed credentials and deliveries hold receiver responses. There is no
+secret-rotation route; to rotate, delete and recreate the endpoint.
+
 ```
 POST   /v1/:ws/webhook-endpoints        { url, events?, secret? }
 GET    /v1/:ws/webhook-endpoints        (secret masked to last4)

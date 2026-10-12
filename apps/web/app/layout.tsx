@@ -1,5 +1,12 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import {
+  APPEARANCE_COOKIE,
+  generateCustom,
+  parseAppearance,
+  themeToStyle,
+} from "@tallyline/silver-lining";
+import { cookies } from "next/headers";
+import type { CSSProperties, ReactNode } from "react";
 import "./globals.css";
 
 // CSP nonces are per-request, so every page must render dynamically
@@ -18,9 +25,25 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: "Tallyline", description },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+// Per-device appearance (Settings > Appearance) lives in a cookie so the first
+// paint already has the right theme: no flash, no reload. "system" sets no
+// data-theme and lets prefers-color-scheme in silver-lining.css decide.
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const appearance = parseAppearance((await cookies()).get(APPEARANCE_COOKIE)?.value);
+  const themeProps =
+    appearance.theme === "system"
+      ? {}
+      : appearance.theme === "custom"
+        ? (() => {
+            const { mode, tokens } = generateCustom(appearance.custom);
+            return {
+              "data-theme": "custom",
+              style: themeToStyle(tokens, mode) as CSSProperties,
+            };
+          })()
+        : { "data-theme": appearance.theme };
   return (
-    <html lang="en" className="dark">
+    <html lang="en" {...themeProps}>
       <body className="antialiased">{children}</body>
     </html>
   );

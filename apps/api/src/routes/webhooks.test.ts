@@ -243,9 +243,10 @@ describe("installation binding + repo connect", () => {
   });
 
   it("setup callback binds installation to workspace and backfills repos", async () => {
-    const { status, body } = await req(
-      `/v1/workspaces/${SLUG}/github/setup?installation_id=777`,
-    );
+    const { status, body } = await req(`/v1/workspaces/${SLUG}/github/setup`, {
+      method: "POST",
+      body: JSON.stringify({ installationId: 777 }),
+    });
     expect(status).toBe(200);
     expect(body.installationId).toBe(777);
 

@@ -485,7 +485,9 @@ export const toolDefs: ToolDef[] = [
         backlog: ["todo", "in_progress"],
         todo: ["in_progress"],
         in_progress: [],
-        in_review: ["in_progress"],
+        // sending a review item back is a human decision (PLAN-056); the API
+        // refuses it for agent credentials, so do not offer the hop to them
+        ...(me.type === "agent" ? {} : { in_review: ["in_progress"] as IssueState[] }),
       };
       const path = hops[issue.state];
       if (path === undefined) {

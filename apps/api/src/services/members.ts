@@ -62,6 +62,20 @@ export function requireRole(c: Context, min: MemberRole): MemberRole {
   return role;
 }
 
+// Approving or sending back a review item (PLAN-056) is a human decision:
+// agent credentials (read or write) never pass, whatever they are scoped to.
+// Humans need at least the member role (sessions, PATs and OAuth JWTs alike).
+export function requireHumanReviewer(c: Context): MemberRole {
+  if (c.get("agentAuth")) {
+    throw new HttpError(
+      403,
+      "FORBIDDEN_AGENT",
+      "agent credentials cannot approve or send back review items — a human member must",
+    );
+  }
+  return requireRole(c, "member");
+}
+
 // Instance admin: AUTH_ADMIN_EMAILS allowlist by verified email, or — when
 // unset — the bootstrap owner (owner of the first-created workspace) so a
 // clean install always has an admin path (KTD10).

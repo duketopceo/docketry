@@ -697,6 +697,37 @@ describe("remote MCP endpoint over Streamable HTTP", () => {
     expect(agent!.harness).toBe("mcp-connector");
   });
 
+  it("PLAN-056: an OAuth/MCP connector (agent identity) cannot approve or send back a review item", async () => {
+    const t = await connect();
+    const call = (name: string, args: Record<string, unknown>) =>
+      mcp(t.tokens.access_token, "tools/call", { name, arguments: args });
+    const created = await call("create_issue", { title: "needs review" });
+    const key = JSON.parse(created.body.result.content[0].text).key as string;
+    // agents may submit work for review
+    for (const state of ["todo", "in_progress", "in_review"]) {
+      const r = await call("update_issue", { key, state });
+      expect(r.body.result.isError, state).toBeFalsy();
+    }
+    // but not approve (-> done) or send back (-> in_progress)
+    for (const state of ["done", "in_progress"]) {
+      const r = await call("update_issue", { key, state });
+      expect(r.body.result.isError, state).toBe(true);
+      expect(JSON.stringify(r.body.result.content)).toContain("FORBIDDEN_AGENT");
+    }
+    const c = await call("claim", { key });
+    expect(c.body.result.isError).toBe(true);
+    const [row] = await db.select().from(issues).where(eq(issues.key, key));
+    expect(row!.state).toBe("in_review");
+    // the underlying REST route is refused for the same token via the internal dispatch only,
+    // and a bare OAuth token on /v1 is 401 (audience-bound)
+    const direct = await get(`/v1/workspaces/mcp-a/issues/${key}/review`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${t.tokens.access_token}`, "content-type": "application/json" },
+      body: JSON.stringify({ action: "approve" }),
+    });
+    expect(direct.status).toBe(401);
+  });
+
   it("is stateless: GET/DELETE are 405 and no session id is minted", async () => {
     const t = await connect();
     const init = await mcp(t.tokens.access_token, "initialize", INIT);

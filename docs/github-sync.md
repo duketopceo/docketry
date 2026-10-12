@@ -15,8 +15,16 @@ the App on GitHub, that public route exchanges the one-time `code` for the
 App's credentials and shows them **once** (nothing is stored). Copy them into
 the env vars below, restart the API, then install the App.
 
-Binding an installation (`GET /v1/workspaces/:ws/github/setup?installation_id=`)
-first asks GitHub (`GET /app/installations/{id}`, App JWT) whether the
+Binding an installation is `POST /v1/workspaces/:ws/github/setup` with JSON
+body `{"installationId": 12345}`. It changes state, so it is POST-only (the old
+`GET .../github/setup?installation_id=` is gone and now 404s) and requires a
+human **owner or admin** (`403 FORBIDDEN_ROLE` for members, agent keys and
+read-only credentials; `400 MALFORMED_SETUP` for a bad body). GitHub's
+"Setup URL" must point at a **web page**, not the API: the page reads
+`installation_id` from GitHub's redirect and POSTs it to the API with the
+signed-in user's session, behind CSRF protection (same-origin check or token;
+the API itself only accepts `application/json` and SameSite=Lax cookies). On
+success it returns `{ok, installationId, workspace}`. The API first asks GitHub (`GET /app/installations/{id}`, App JWT) whether the
 installation belongs to this App: unknown id is `404`, an installation already
 bound to another workspace is `409`, App credentials missing is `503`.
 Webhook deliveries route by installation: the installation selects the

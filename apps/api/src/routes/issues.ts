@@ -46,6 +46,7 @@ import {
 import { createIssue, transitionIssue, type Actor } from "../services/issues.js";
 import { queueDeliveries } from "../services/outbound.js";
 import { createSlack } from "../services/slack.js";
+import { requireHumanReviewer } from "../services/members.js";
 import { requireWorkspace } from "./workspaces.js";
 import { track } from "../services/background.js";
 import { clock } from "../services/clock.js";
@@ -439,6 +440,17 @@ export const issueRoutes = new Hono()
           await validateProject(ws.id, issue.teamId, body.projectId);
       }
       if (body.state !== undefined) {
+        // approving (-> done) or sending back (-> in_progress) a review item
+        // is a human decision; agents may only move work INTO in_review
+        if (c.get("agentAuth")) {
+          const current = await findIssue(ws.id, key);
+          if (
+            current.state === "in_review" &&
+            (body.state === "done" || body.state === "in_progress")
+          ) {
+            requireHumanReviewer(c);
+          }
+        }
         await transitionIssue(ws.id, key, body.state as IssueState, actor);
         // terminal transition → resolution reply in the linked slack thread
         if (["done", "canceled", "duplicate"].includes(body.state)) {
@@ -631,6 +643,7 @@ export const issueRoutes = new Hono()
     ),
     async (c) => {
       const ws = await requireWorkspace(c);
+      requireHumanReviewer(c);
       const actor = actorFromHeaders(c);
       const { action, feedback } = c.req.valid("json");
       const issue = await findIssue(ws.id, c.req.param("key"));

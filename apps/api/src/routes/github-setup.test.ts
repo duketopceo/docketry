@@ -24,7 +24,10 @@ beforeAll(async () => {
 afterAll(() => resetGithubSync());
 
 const setup = (ws: string, id: number | string) =>
-  api(cookie, `/v1/workspaces/${ws}/github/setup?installation_id=${id}&account_login=attacker`);
+  api(cookie, `/v1/workspaces/${ws}/github/setup`, {
+    method: "POST",
+    body: JSON.stringify({ installationId: Number(id), account_login: "attacker" }),
+  });
 
 describe("installation binding (PLAN-006)", () => {
   it("binds an installation the App owns, using GitHub's account login", async () => {

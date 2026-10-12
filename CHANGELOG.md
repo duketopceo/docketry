@@ -6,6 +6,19 @@ semver until stated otherwise.
 
 ## [Unreleased] — go-live security hardening
 
+### Changed (breaking — authorization fixes from the permission matrix)
+
+- **Agent keys can no longer approve or send back review items** (PLAN-056):
+  `POST /issues/:key/review` and `PATCH` state `in_review → done|in_progress`
+  return `403 FORBIDDEN_AGENT` for agent credentials. Agents can still move
+  work into `in_review`. `tallyline done` with an agent key now stops at
+  `in_review`.
+- **Webhook endpoints are owner/admin only**: create, update, delete, list and
+  delivery log return `403 FORBIDDEN_ROLE` to members and agent keys.
+- **`GET /v1/workspaces/:ws/github/setup` is replaced by
+  `POST /v1/workspaces/:ws/github/setup`** with body `{"installationId": n}`,
+  owner/admin only. GitHub's Setup URL must be a web page that POSTs it.
+
 ### Changed (defaults — review before upgrading an internet-facing install)
 
 - **`AUTH_AUTO_JOIN_SINGLE_WORKSPACE` now defaults to off** (was on). Set `1`

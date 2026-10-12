@@ -302,8 +302,17 @@ describe("tallyline cli (in-process api)", () => {
     ]);
     expect(commented.code).toBe(0);
 
-    // done chains in_progress -> in_review -> done behind one command
-    const done = await cli(["done", issue.key, "--json"]);
+    // PLAN-056: an agent key can submit for review but never approve, so
+    // `done` as the agent stops at in_review (final hop is 403 FORBIDDEN_AGENT)
+    const agentDone = await cli(["done", issue.key, "--json"]);
+    expect(agentDone.code).not.toBe(0);
+    const inReview = await cli(["show", issue.key, "--json"]);
+    expect((inReview.json() as { issue: SlimIssue }).issue.state).toBe("in_review");
+
+    // a human PAT approves; `done` from in_review is a single hop
+    const done = await cli(["done", issue.key, "--json"], {
+      env: { TALLYLINE_TOKEN: patToken, TALLYLINE_AGENT_ID: undefined, TALLYLINE_USER_ID: userId },
+    });
     expect(done.code).toBe(0);
     expect((done.json() as SlimIssue).state).toBe("done");
 

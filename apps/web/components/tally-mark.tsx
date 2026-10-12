@@ -28,8 +28,8 @@ export function TallyMark({
     >
       <defs>
         <mask id={id} maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16">
-          <rect width="16" height="16" fill="#fff" />
-          <path d="M1.2 12.8L14.8 3.4" stroke="#000" strokeWidth="5" strokeLinecap="round" />
+          <rect width="16" height="16" fill="white" />
+          <path d="M1.2 12.8L14.8 3.4" stroke="black" strokeWidth="5" strokeLinecap="round" />
         </mask>
       </defs>
       <g mask={`url(#${id})`} stroke={stroke} strokeWidth="2">
