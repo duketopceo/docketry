@@ -39,11 +39,11 @@ describe("test database guard", () => {
   });
 
   it.each([
-    "postgresql://postgres:postgres@localhost:5432/docketry",
-    "postgresql://postgres:postgres@127.0.0.1:5432/docketry",
-    "postgresql://postgres:postgres@localhost/docketry", // implicit 5432
-    "postgresql://postgres:postgres@[::1]:5432/docketry",
-    "postgresql://postgres:postgres@0.0.0.0:5432/docketry?sslmode=disable",
+    "postgresql://postgres:postgres@localhost:5432/tallyline",
+    "postgresql://postgres:postgres@127.0.0.1:5432/tallyline",
+    "postgresql://postgres:postgres@localhost/tallyline", // implicit 5432
+    "postgresql://postgres:postgres@[::1]:5432/tallyline",
+    "postgresql://postgres:postgres@0.0.0.0:5432/tallyline?sslmode=disable",
   ])("refuses the default dev database %s", (url) => {
     expect(isDefaultDevPostgres(url)).toBe(true);
     expect(() => assertSafeTestEnv({ ...SAFE, DATABASE_URL: url })).toThrow(
@@ -52,9 +52,9 @@ describe("test database guard", () => {
   });
 
   it.each([
-    "postgresql://postgres:postgres@localhost:5433/docketry",
+    "postgresql://postgres:postgres@localhost:5433/tallyline",
     "postgresql://postgres:postgres@localhost:5432/other",
-    "postgresql://postgres:postgres@db.internal:5432/docketry",
+    "postgresql://postgres:postgres@db.internal:5432/tallyline",
   ])("does not flag %s as the default dev database", (url) => {
     expect(isDefaultDevPostgres(url)).toBe(false);
   });
@@ -80,7 +80,7 @@ describe("test database guard", () => {
     expect(() =>
       assertSafeTestEnv({
         [OVERRIDE_VAR]: "1",
-        DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/docketry",
+        DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/tallyline",
         REDIS_URL: "redis://localhost:6380",
       }),
     ).not.toThrow();

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { HeroField, AgentPanel } from "./three-islands";
 
-const REPO = "https://github.com/duketopceo/docketry";
+const REPO = "https://github.com/duketopceo/tallyline";
 
 function Mark({ size = 20 }: { size?: number }) {
   return (
@@ -370,7 +370,7 @@ export function LandingPage() {
           </div>
           <div className="rounded-md border border-lining bg-canvas p-4 font-mono text-[12px] leading-6 text-ink-muted">
             <p className="text-ink-tertiary">
-              $ git clone https://github.com/duketopceo/docketry
+              $ git clone https://github.com/duketopceo/tallyline
             </p>
             <p className="text-ink-tertiary">
               $ docker compose -f docker-compose.selfhost.yml up -d

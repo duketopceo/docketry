@@ -35,12 +35,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/duketopceo/docketry.git",
+    "url": "git+https://github.com/duketopceo/tallyline.git",
     "directory": "apps/mcp-server"
   },
-  "homepage": "https://github.com/duketopceo/docketry#readme",
+  "homepage": "https://github.com/duketopceo/tallyline#readme",
   "bugs": {
-    "url": "https://github.com/duketopceo/docketry/issues"
+    "url": "https://github.com/duketopceo/tallyline/issues"
   },
   "engines": {
     "node": ">=20"

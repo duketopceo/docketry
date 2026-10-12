@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "n8n community nodes for tallyline — issue ops plus a signed outbound-webhook trigger",
   "license": "MIT",
-  "homepage": "https://github.com/duketopceo/docketry",
+  "homepage": "https://github.com/duketopceo/tallyline",
   "author": "duketopceo",
   "keywords": [
     "n8n-community-node-package",
@@ -13,7 +13,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/duketopceo/docketry.git",
+    "url": "https://github.com/duketopceo/tallyline.git",
     "directory": "integrations/n8n"
   },
   "type": "module",

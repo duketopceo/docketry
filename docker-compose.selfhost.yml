@@ -9,9 +9,9 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
-      POSTGRES_DB: ${POSTGRES_DB:-docketry}
+      POSTGRES_DB: ${POSTGRES_DB:-tallyline}
     volumes:
-      - docketry-postgres:/var/lib/postgresql/data
+      - tallyline-postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -21,7 +21,7 @@ services:
   redis:
     image: redis:7-alpine
     volumes:
-      - docketry-redis:/data
+      - tallyline-redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -35,7 +35,7 @@ services:
     environment:
       NODE_ENV: production
       API_PORT: "4000"
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-docketry}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-tallyline}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?}
       API_BASE_URL: ${API_BASE_URL:-http://localhost:4000}
@@ -119,5 +119,8 @@ services:
     restart: unless-stopped
 
 volumes:
-  docketry-postgres:
-  docketry-redis:
+  tallyline-postgres:
+    # pinned physical name — survives compose-project/dir renames
+    name: tallyline-postgres
+  tallyline-redis:
+    name: tallyline-redis

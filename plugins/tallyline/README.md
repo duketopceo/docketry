@@ -4,7 +4,7 @@ Bundles the Tallyline MCP server (`@tallyline/mcp-server`, launched with `npx`)
 and the `tallyline` agent skill.
 
 ```
-claude plugin marketplace add duketopceo/docketry
+claude plugin marketplace add duketopceo/tallyline
 claude plugin install tallyline@tallyline
 ```
 

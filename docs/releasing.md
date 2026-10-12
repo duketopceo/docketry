@@ -8,7 +8,7 @@ One-time owner steps (not done by the repo):
 1. Create the `tallyline` npm org/scope (or claim the scope with a user) and
    confirm `@tallyline/mcp-server` and `@tallyline/cli` are free.
 2. Preferred: after the first publish, configure each package's npm
-   "Trusted Publisher" (GitHub repo `duketopceo/docketry`, workflow
+   "Trusted Publisher" (GitHub repo `duketopceo/tallyline`, workflow
    `publish.yml`, environment `npm`). The first publish of a new package needs a token.
 3. First publish: create a granular automation token limited to the
    `@tallyline` scope, store it as the `NPM_TOKEN` secret of a GitHub

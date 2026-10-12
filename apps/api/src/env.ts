@@ -25,7 +25,7 @@ export const config_ = {
   port: Number(env("API_PORT", "4000")),
   databaseUrl: env(
     "DATABASE_URL",
-    "postgresql://postgres:postgres@localhost:5432/docketry",
+    "postgresql://postgres:postgres@localhost:5432/tallyline",
   ),
   redisUrl: env("REDIS_URL", "redis://localhost:6380"),
   jwtSecret: env("JWT_SECRET", DEV_JWT_SECRET),

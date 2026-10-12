@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "description": "Work the Tallyline issue board from Claude Code: MCP tools plus an agent skill for claiming, commenting on and closing issues",
   "author": { "name": "duketopceo", "url": "https://github.com/duketopceo" },
-  "homepage": "https://github.com/duketopceo/docketry",
-  "repository": "https://github.com/duketopceo/docketry",
+  "homepage": "https://github.com/duketopceo/tallyline",
+  "repository": "https://github.com/duketopceo/tallyline",
   "license": "MIT",
   "keywords": ["issues", "mcp", "agents", "project-management"],
   "userConfig": {

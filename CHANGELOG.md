@@ -173,4 +173,4 @@ through the same system of record.
   agents (Devin, Cursor, Codex) under human direction, per the repo's
   disclosure conventions.
 
-[1.0.0]: https://github.com/duketopceo/docketry/releases/tag/v1.0.0
+[1.0.0]: https://github.com/duketopceo/tallyline/releases/tag/v1.0.0

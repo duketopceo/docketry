@@ -50,7 +50,7 @@ useFrozenClock();
 
 const SECRET = "test-webhook-secret";
 const SLUG = "gs";
-const REPO = { full_name: "duketopceo/docketry" };
+const REPO = { full_name: "duketopceo/tallyline" };
 const INSTALLATION_ID = 4242;
 const APP_ID = "99999";
 const APP_BOT = "tallyline-test[bot]"; // vitest.config GITHUB_APP_SLUG + [bot]

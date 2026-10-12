@@ -1,6 +1,6 @@
 # n8n-nodes-tallyline
 
-n8n community nodes for [tallyline](https://github.com/duketopceo/docketry) —
+n8n community nodes for [tallyline](https://github.com/duketopceo/tallyline) —
 issue operations plus a signed outbound-webhook trigger, for self-hosted
 and cloud n8n.
 
@@ -24,7 +24,7 @@ Create **tallyline API** credentials:
 | API Key | `tly_agt_*` agent key or `tly_pat_*` personal access token |
 
 Mint a key from a browser session or curl (see
-[`docs/agents.md`](https://github.com/duketopceo/docketry/blob/main/docs/agents.md)):
+[`docs/agents.md`](https://github.com/duketopceo/tallyline/blob/main/docs/agents.md)):
 
 ```bash
 curl -X POST $API/v1/workspaces/$WS/agents/$AGENT_ID/keys \

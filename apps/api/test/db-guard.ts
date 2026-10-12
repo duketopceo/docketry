@@ -2,7 +2,7 @@
 // (api, mcp-server, cli, e2e) calls assertSafeTestEnv() before doing anything.
 //
 // Why: the api falls back to the default dev stack
-// (postgresql://postgres:postgres@localhost:5432/docketry, redis :6380) when
+// (postgresql://postgres:postgres@localhost:5432/tallyline, redis :6380) when
 // DATABASE_URL / REDIS_URL are unset, and several suites run migrations and
 // wipe tables. Running tests against that stack destroys the owner's dev data.
 //
@@ -14,7 +14,7 @@ export const OVERRIDE_VAR = "TALLYLINE_TEST_ALLOW_DEFAULT_DB";
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]", "0.0.0.0"]);
 
 // the docker-compose.yml dev stack
-const DEFAULT_PG = { port: "5432", db: "docketry" };
+const DEFAULT_PG = { port: "5432", db: "tallyline" };
 const DEFAULT_REDIS_PORT = "6380";
 
 export class UnsafeTestDatabaseError extends Error {
@@ -64,7 +64,7 @@ export function assertSafeTestEnv(env: Env = process.env): void {
   }
   if (isDefaultDevPostgres(dbUrl)) {
     throw new UnsafeTestDatabaseError(
-      "DATABASE_URL is the default dev database (localhost:5432/docketry).",
+      "DATABASE_URL is the default dev database (localhost:5432/tallyline).",
     );
   }
   const redisUrl = env.REDIS_URL;

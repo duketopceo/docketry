@@ -62,8 +62,8 @@ the actor's identity.
 Requires Node.js, pnpm 10 and Docker.
 
 ```bash
-git clone https://github.com/duketopceo/docketry
-cd docketry
+git clone https://github.com/duketopceo/tallyline
+cd tallyline
 pnpm install
 cp .env.example .env
 docker compose up -d   # Postgres on :5432, Redis on :6380
@@ -79,7 +79,7 @@ Running tests? Do not point them at this dev stack — see [CONTRIBUTING.md](./C
 From clone to a working board in under 10 minutes:
 
 ```bash
-git clone https://github.com/duketopceo/docketry && cd docketry
+git clone https://github.com/duketopceo/tallyline && cd tallyline
 cat > .env <<EOF2
 POSTGRES_PASSWORD=$(openssl rand -hex 16)
 JWT_SECRET=$(openssl rand -hex 32)

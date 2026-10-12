@@ -7,8 +7,8 @@ Thanks for helping build tallyline — a self-hostable, agent-native issue track
 Requirements: Node.js, pnpm 10, and Docker (for Postgres + Redis).
 
 ```bash
-git clone https://github.com/duketopceo/docketry
-cd docketry
+git clone https://github.com/duketopceo/tallyline
+cd tallyline
 pnpm install
 cp .env.example .env
 docker compose up -d   # Postgres on :5432, Redis on :6380
@@ -28,7 +28,7 @@ pnpm turbo run test --filter='!@tallyline/e2e' --concurrency=1   # needs a throw
 
 ## Testing against real Postgres
 
-Tests run against a real Postgres database — do not mock the database layer. But **never point tests at the dev stack** from `docker-compose.yml` (Postgres `:5432`, db `docketry`; Redis `:6380`): several suites run migrations and wipe tables.
+Tests run against a real Postgres database — do not mock the database layer. But **never point tests at the dev stack** from `docker-compose.yml` (Postgres `:5432`, db `tallyline`; Redis `:6380`): several suites run migrations and wipe tables.
 
 Every harness that touches the database (api, mcp-server, cli, e2e) runs a guard (`apps/api/test/db-guard.ts`) and refuses to start unless `DATABASE_URL` **and** `REDIS_URL` are explicitly set and are not the default dev stack. Use a throwaway stack on non-default ports:
 

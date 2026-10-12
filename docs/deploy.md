@@ -8,7 +8,7 @@ creates your workspace, team, and admin user, then you're on the board.
 ## Quickstart — Docker Compose (target: < 10 min)
 
 ```bash
-git clone https://github.com/duketopceo/docketry.git && cd docketry
+git clone https://github.com/duketopceo/tallyline.git && cd tallyline
 
 # required: a db password and a JWT secret
 cat > .env <<EOF
@@ -167,7 +167,7 @@ before the losers delete, but that is data surgery, not a rollback path.
 
 ## Backup & restore
 
-Everything durable lives in the `docketry-postgres` volume (redis is
+Everything durable lives in the `tallyline-postgres` volume (redis is
 ephemeral queue state — safe to lose).
 
 ```bash
@@ -184,7 +184,7 @@ docker compose -f docker-compose.selfhost.yml exec postgres \
 docker compose -f docker-compose.selfhost.yml exec postgres \
   psql -U postgres -c "CREATE DATABASE tallyline;"
 cat backup-YYYY-MM-DD.dump | docker compose -f docker-compose.selfhost.yml \
-  exec -T postgres pg_restore -U postgres -d docketry --clean --if-exists
+  exec -T postgres pg_restore -U postgres -d tallyline --clean --if-exists
 docker compose -f docker-compose.selfhost.yml start api web
 ```
 
@@ -227,10 +227,10 @@ target all fail closed):
 # 1. stop writers on a live box
 docker compose -f docker-compose.selfhost.yml stop api web
 # 2. create an empty target database (never restore over a database you can't lose)
-docker compose -f docker-compose.selfhost.yml exec postgres psql -U postgres -c "CREATE DATABASE docketry_restore;"
+docker compose -f docker-compose.selfhost.yml exec postgres psql -U postgres -c "CREATE DATABASE tallyline_restore;"
 # 3. fetch + verify checksum + decrypt + restore (target is explicit: no default)
 BACKUP_AGE_IDENTITY=./tallyline-backup.key \
-RESTORE_PG_CONTAINER=<postgres-container> RESTORE_PG_DB=docketry_restore \
+RESTORE_PG_CONTAINER=<postgres-container> RESTORE_PG_DB=tallyline_restore \
 BACKUP_S3_BUCKET=... BACKUP_S3_ENDPOINT=... AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... \
 ./ops/restore.sh tallyline-YYYYMMDDTHHMMSSZ.dump.gz.age     # or a local file path
 # 4. sanity-check row counts, then point DATABASE_URL/POSTGRES_DB at it and start api/web
@@ -238,7 +238,7 @@ BACKUP_S3_BUCKET=... BACKUP_S3_ENDPOINT=... AWS_ACCESS_KEY_ID=... AWS_SECRET_ACC
 
 **Rehearse it** — restore the latest backup into a scratch database at
 least monthly; an untested backup is not a backup. The database name in the
-compose file is `docketry` (kept so existing volumes work); the older manual
+compose file is `tallyline` (kept so existing volumes work); the older manual
 snippet above says `tallyline` — use whatever `POSTGRES_DB` is on your box.
 
 ## Hardening checklist
