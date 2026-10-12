@@ -22,7 +22,7 @@ export default async function ConsentPage({
           <ConsentForm view={view.data} />
         ) : (
           <>
-            <h1 className="mt-2 text-lg font-semibold">This request is no longer valid</h1>
+            <h1 className="mt-2 text-[17px] font-semibold">This request is no longer valid</h1>
             <p className="mt-2 text-sm text-ink-subtle">
               The authorization request expired or was already used. Go back to the
               app that sent you here and connect again.
