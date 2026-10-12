@@ -90,11 +90,17 @@ nothing below requires a database migration or re-issuing credentials.
 - **n8n / Composio** — node and credential types are now `Tallyline*`,
   Composio tool slugs `TALLYLINE_*`; workflows using the old node types need
   to be re-pointed.
-- **Deliberately unchanged** — Postgres database/user (`docketry`/`postgres`)
-  and the `docketry-postgres` / `docketry-redis` volume names, session
-  cookie names (`dok_session`, `dok_ws`, …), the default dev `JWT_SECRET`,
-  and the GitHub repository URL. Changing them would orphan existing data or
-  sign everyone out; they are follow-ups.
+- **Repo/database rename (follow-up)** — the GitHub repository moved to
+  `duketopceo/tallyline`, the default Postgres database is now `tallyline`,
+  and compose volumes are pinned as `tallyline-postgres` / `tallyline-redis`.
+  Existing deployments keep their data by renaming the database
+  (`ALTER DATABASE docketry RENAME TO tallyline`) and copying or
+  re-pointing the old `docketry_*` volumes.
+- **Deliberately unchanged** — session cookie names (`dok_session`,
+  `dok_ws`, …), `dok_*` token/wire formats, `x-docketry-*` header
+  fallbacks, `DOCKETRY_*` env fallbacks, and legacy `.docketry` CLI config
+  paths. Changing them would sign everyone out or break existing
+  integrations; they are follow-ups.
 
 ### Brand
 
