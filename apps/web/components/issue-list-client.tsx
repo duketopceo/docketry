@@ -265,7 +265,7 @@ export function IssueListClient({
           ...Object.values(actors).map((a) => ({
             value: `${a.kind}:${a.id}`,
             label: a.name,
-            hint: a.kind === "agent" ? "✦" : undefined,
+            ...(a.kind === "agent" ? { hint: "✦" } : {}),
           })),
         ];
         return (

@@ -67,7 +67,7 @@ describe("runColonCommand", () => {
     expect(add.ok).toBe(true);
     expect(patchCalls().at(-1)?.body).toEqual({ labelIds: ["L1", "L2"] });
 
-    const rm = await runColonCommand("label TLY-3 remove bug");
+    await runColonCommand("label TLY-3 remove bug");
     expect(patchCalls().at(-1)?.body).toEqual({ labelIds: [] });
 
     const miss = await runColonCommand("label TLY-3 add nope");
