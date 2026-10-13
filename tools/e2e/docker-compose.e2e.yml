@@ -1,7 +1,7 @@
 # Dedicated, disposable e2e stack. Own compose project (`tallyline-e2e`), own
 # volumes (none: tmpfs), and non-default host ports so it can never collide
 # with, or be mistaken for, the dev stack in the repo-root docker-compose.yml
-# (Postgres :5432 / Redis :6380).
+# (Postgres :5432).
 name: tallyline-e2e
 
 services:
@@ -21,12 +21,4 @@ services:
       timeout: 5s
       retries: 15
 
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "127.0.0.1:${E2E_REDIS_PORT:-56380}:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 2s
-      timeout: 5s
-      retries: 15
+

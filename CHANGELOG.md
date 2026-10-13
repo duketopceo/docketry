@@ -4,6 +4,18 @@ All notable changes to Tallyline (formerly docketry). Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); this project is pre-1.x
 semver until stated otherwise.
 
+## [Unreleased] — Postgres-only stack
+
+### Changed (breaking — ops)
+
+- **Redis removed.** Nothing consumed it (health ping only). The dev and
+  self-host compose files, the e2e stack, CI service containers, and the
+  `ioredis` dependency are gone. `REDIS_URL` is no longer read — remove it
+  from your `.env` when convenient; a stale value is ignored, not an error.
+- **`GET /health` shape**: `{ status, postgres, uptimeSeconds }` — the
+  `redis` field is gone. Update any external healthcheck parsers.
+- **Test guard**: `assertSafeTestEnv` now requires only `DATABASE_URL`.
+
 ## [Unreleased] — go-live security hardening
 
 ### Changed (breaking — authorization fixes from the permission matrix)

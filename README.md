@@ -66,7 +66,7 @@ git clone https://github.com/duketopceo/tallyline
 cd tallyline
 pnpm install
 cp .env.example .env
-docker compose up -d   # Postgres on :5432, Redis on :6380
+docker compose up -d   # Postgres on :5432
 pnpm dev               # web on :3100, API on :4000
 ```
 

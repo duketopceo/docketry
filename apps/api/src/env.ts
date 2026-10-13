@@ -27,7 +27,6 @@ export const config_ = {
     "DATABASE_URL",
     "postgresql://postgres:postgres@localhost:5432/tallyline",
   ),
-  redisUrl: env("REDIS_URL", "redis://localhost:6380"),
   jwtSecret: env("JWT_SECRET", DEV_JWT_SECRET),
   rateLimitPerMin: Number(env("RATE_LIMIT_PER_MIN", "600")),
   // unauthenticated traffic per client IP (and failed-credential attempts)

@@ -57,7 +57,7 @@ export const app = new Hono()
   .use("*", securityHeaders)
   .use("*", anonymousLimiter)
   .get("/health", async (c) => {
-    const report = await checkHealth(config_.databaseUrl, config_.redisUrl);
+    const report = await checkHealth(config_.databaseUrl);
     return c.json(report, report.status === "ok" ? 200 : 503);
   })
   .get("/openapi.json", (c) => c.json(openApiDoc))

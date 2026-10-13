@@ -3,7 +3,7 @@
 // local API with a real HTTP listener, then lists and calls tools over
 // Streamable HTTP. No external network, no paid calls.
 //
-//   DATABASE_URL=postgresql://…throwaway… REDIS_URL=… \
+//   DATABASE_URL=postgresql://…throwaway… \
 //     pnpm --filter @tallyline/api exec tsx scripts/mcp-sdk-conformance.ts
 //
 // Refuses to run against the default dev database port (5432).

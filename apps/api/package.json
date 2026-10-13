@@ -20,7 +20,6 @@
     "dotenv": "^18.0.6",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",
-    "ioredis": "^6.0.0",
     "openid-client": "^6.8.8",
     "papaparse": "^5.7.0",
     "pg": "^8.23.1",

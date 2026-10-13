@@ -2,14 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   assertSafeTestEnv,
   isDefaultDevPostgres,
-  isDefaultDevRedis,
   OVERRIDE_VAR,
   UnsafeTestDatabaseError,
 } from "./db-guard.js";
 
 const SAFE = {
   DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:55432/tallyline_test",
-  REDIS_URL: "redis://127.0.0.1:56380",
 };
 
 describe("test database guard", () => {
@@ -21,21 +19,12 @@ describe("test database guard", () => {
     expect(() =>
       assertSafeTestEnv({
         DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/tallyline_test",
-        REDIS_URL: "redis://localhost:6379",
       }),
     ).not.toThrow();
   });
 
   it("refuses when DATABASE_URL is unset", () => {
-    expect(() => assertSafeTestEnv({ REDIS_URL: SAFE.REDIS_URL })).toThrow(
-      UnsafeTestDatabaseError,
-    );
-  });
-
-  it("refuses when REDIS_URL is unset", () => {
-    expect(() => assertSafeTestEnv({ DATABASE_URL: SAFE.DATABASE_URL })).toThrow(
-      /REDIS_URL is not set/,
-    );
+    expect(() => assertSafeTestEnv({})).toThrow(UnsafeTestDatabaseError);
   });
 
   it.each([
@@ -59,16 +48,6 @@ describe("test database guard", () => {
     expect(isDefaultDevPostgres(url)).toBe(false);
   });
 
-  it.each(["redis://localhost:6380", "redis://127.0.0.1:6380/2"])(
-    "refuses the default dev redis %s",
-    (url) => {
-      expect(isDefaultDevRedis(url)).toBe(true);
-      expect(() => assertSafeTestEnv({ ...SAFE, REDIS_URL: url })).toThrow(
-        /default dev Redis/,
-      );
-    },
-  );
-
   it("rejects an unparseable DATABASE_URL", () => {
     expect(() => assertSafeTestEnv({ ...SAFE, DATABASE_URL: "not a url" })).toThrow(
       UnsafeTestDatabaseError,
@@ -81,7 +60,6 @@ describe("test database guard", () => {
       assertSafeTestEnv({
         [OVERRIDE_VAR]: "1",
         DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/tallyline",
-        REDIS_URL: "redis://localhost:6380",
       }),
     ).not.toThrow();
   });

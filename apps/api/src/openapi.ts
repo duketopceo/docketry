@@ -25,7 +25,7 @@ function jsonBody(schema: Record<string, unknown>) {
 const basePaths = {
     "/health": {
       get: {
-        summary: "Liveness + dependency check (postgres, redis)",
+        summary: "Liveness + dependency check (postgres)",
         responses: {
           "200": { description: "All dependencies healthy" },
           "503": { description: "One or more dependencies down" },

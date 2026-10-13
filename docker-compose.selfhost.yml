@@ -1,6 +1,6 @@
 # tallyline self-host stack — `docker compose -f docker-compose.selfhost.yml up -d`
 # builds the app from source and gives you a working board at :3100.
-# postgres + redis stay on the internal network; only web (and optionally
+# postgres stays on the internal network; only web (and optionally
 # api) are published.
 
 services:
@@ -18,16 +18,6 @@ services:
       timeout: 5s
       retries: 12
 
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - tallyline-redis:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-
   api:
     build:
       context: .
@@ -36,7 +26,6 @@ services:
       NODE_ENV: production
       API_PORT: "4000"
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-tallyline}
-      REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?}
       API_BASE_URL: ${API_BASE_URL:-http://localhost:4000}
       RATE_LIMIT_PER_MIN: ${RATE_LIMIT_PER_MIN:-600}
@@ -77,8 +66,6 @@ services:
       - "${API_PUBLISH_PORT:-4000}:4000"
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     restart: unless-stopped
 
@@ -122,5 +109,3 @@ volumes:
   tallyline-postgres:
     # pinned physical name — survives compose-project/dir renames
     name: tallyline-postgres
-  tallyline-redis:
-    name: tallyline-redis
