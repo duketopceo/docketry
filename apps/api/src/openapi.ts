@@ -936,6 +936,31 @@ const basePaths = {
         responses: { "201": { description: "Label created" } },
       },
     },
+    "/v1/workspaces/{ws}/labels/{id}": {
+      patch: {
+        summary: "Update label name/color",
+        parameters: [wsParam, idParam],
+        requestBody: jsonBody({
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            color: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+          },
+        }),
+        responses: {
+          "200": { description: "Label updated" },
+          "404": { description: "Not found" },
+        },
+      },
+      delete: {
+        summary: "Delete label (detaches from issues via cascade)",
+        parameters: [wsParam, idParam],
+        responses: {
+          "200": { description: "Deleted" },
+          "404": { description: "Not found" },
+        },
+      },
+    },
 } as const;
 
 function packageVersion(): string {

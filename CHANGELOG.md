@@ -70,6 +70,13 @@ semver until stated otherwise.
 
 ### Added
 
+- **Settings admin surfaces for labels, projects, and cycles**: three new
+  pages under Settings tabs. Labels can be created (name + swatch),
+  renamed/recolored inline, and deleted — backed by new
+  `PATCH`/`DELETE /v1/workspaces/:ws/labels/:id` routes (previously the API
+  had create/list only; delete detaches via `issue_labels` cascade).
+  Projects get create + status transitions + delete; cycles get create
+  (team, window, active flag), activate, complete, and delete.
 - **Notification inbox** (`/notifications`, `g n`): a `notifications` table
   plus four workspace routes — `GET /notifications` (cursor-paginated,
   joined issue key/title), `GET /notifications/unread-count`,

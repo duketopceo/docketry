@@ -849,6 +849,46 @@ export const issueRoutes = new Hono()
       .where(eq(labels.workspaceId, ws.id));
     return c.json({ labels: rows });
   })
+  .patch(
+    "/workspaces/:ws/labels/:id",
+    zValidator(
+      "json",
+      z.object({
+        name: z.string().min(1).max(60).optional(),
+        color: z
+          .string()
+          .regex(/^#[0-9a-fA-F]{6}$/)
+          .optional(),
+      }),
+    ),
+    async (c) => {
+      const ws = await requireWorkspace(c);
+      const body = c.req.valid("json");
+      const [row] = await db
+        .update(labels)
+        .set({
+          ...(body.name !== undefined ? { name: body.name } : {}),
+          ...(body.color !== undefined ? { color: body.color } : {}),
+        })
+        .where(
+          and(eq(labels.id, c.req.param("id")), eq(labels.workspaceId, ws.id)),
+        )
+        .returning();
+      if (!row) throw new HttpError(404, "NOT_FOUND", "label not found");
+      return c.json(row);
+    },
+  )
+  .delete("/workspaces/:ws/labels/:id", async (c) => {
+    const ws = await requireWorkspace(c);
+    const [row] = await db
+      .delete(labels)
+      .where(
+        and(eq(labels.id, c.req.param("id")), eq(labels.workspaceId, ws.id)),
+      )
+      .returning({ id: labels.id });
+    if (!row) throw new HttpError(404, "NOT_FOUND", "label not found");
+    return c.json({ ok: true });
+  })
   .get("/workspaces/:ws/issues/:key/slack-link", async (c) => {
     const ws = await requireWorkspace(c);
     const issue = await findIssue(ws.id, c.req.param("key"));

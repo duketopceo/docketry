@@ -9,6 +9,7 @@ import {
   mkEndpoint,
   mkInvite,
   mkIssue,
+  mkLabel,
   mkMember,
   mkMilestone,
   mkNotification,
@@ -116,6 +117,13 @@ const viewOp =
   async (t, who) => {
     const v = await mkView(t, who.userId ?? t.people.owner.id);
     return { method, path: `${base(t)}/views/${v.id}`, ...(body === undefined ? {} : { body }) };
+  };
+
+const labelOp =
+  (method: string, body?: unknown): Builder =>
+  async (t) => {
+    const l = await mkLabel(t);
+    return { method, path: `${base(t)}/labels/${l.id}`, ...(body === undefined ? {} : { body }) };
   };
 
 // notifications are per-user: the row belongs to the calling user so
@@ -300,6 +308,8 @@ export const OPERATIONS: Record<string, Builder> = {
     path: `${base(t)}/labels`,
     body: { name: `label-${u()}`, color: "#112233" },
   }),
+  "PATCH /v1/workspaces/{ws}/labels/{id}": labelOp("PATCH", { name: `renamed-${u()}` }),
+  "DELETE /v1/workspaces/{ws}/labels/{id}": labelOp("DELETE"),
 
   // ── agents ─────────────────────────────────────────────────────────────────
   "GET /v1/workspaces/{ws}/agents": get((t) => `${base(t)}/agents`),

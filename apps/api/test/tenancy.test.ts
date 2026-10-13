@@ -91,7 +91,14 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
       "POST /v1/workspaces/{ws}/issues/{key}/review",
     ],
   },
-  labels: { ops: ["GET /v1/workspaces/{ws}/labels", "POST /v1/workspaces/{ws}/labels"] },
+  labels: {
+    ops: [
+      "GET /v1/workspaces/{ws}/labels",
+      "POST /v1/workspaces/{ws}/labels",
+      "PATCH /v1/workspaces/{ws}/labels/{id}",
+      "DELETE /v1/workspaces/{ws}/labels/{id}",
+    ],
+  },
   oauth_grants: {
     ops: ["GET /v1/workspaces/{ws}/oauth/grants", "DELETE /v1/workspaces/{ws}/oauth/grants/{id}"],
   },

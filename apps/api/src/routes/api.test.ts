@@ -339,6 +339,38 @@ describe("api routes (real postgres)", () => {
     const list = await req(`/v1/workspaces/${SLUG}/labels`);
     expect(list.body.labels).toHaveLength(1);
 
+    const renamed = await req(`/v1/workspaces/${SLUG}/labels/${label.body.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name: "defect", color: "#22c55e" }),
+    });
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.name).toBe("defect");
+    expect(renamed.body.color).toBe("#22c55e");
+
+    const badPatch = await req(
+      `/v1/workspaces/${SLUG}/labels/${label.body.id}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ color: "not-hex" }),
+      },
+    );
+    expect(badPatch.status).toBe(400);
+
+    const missingPatch = await req(
+      `/v1/workspaces/${SLUG}/labels/00000000-0000-0000-0000-000000000000`,
+      { method: "PATCH", body: JSON.stringify({ name: "x" }) },
+    );
+    expect(missingPatch.status).toBe(404);
+
+    const del = await req(`/v1/workspaces/${SLUG}/labels/${label.body.id}`, {
+      method: "DELETE",
+    });
+    expect(del.status).toBe(200);
+    const gone = await req(`/v1/workspaces/${SLUG}/labels/${label.body.id}`, {
+      method: "DELETE",
+    });
+    expect(gone.status).toBe(404);
+
     const missing = await req(`/v1/workspaces/${SLUG}/issues/ENG-999`);
     expect(missing.status).toBe(404);
     expect(missing.body.error!.code).toBe("NOT_FOUND");
