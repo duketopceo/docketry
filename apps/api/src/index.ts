@@ -11,6 +11,7 @@ import { securityHeaders } from "./lib/security-headers.js";
 import { openApiDoc } from "./openapi.js";
 import { sweepExpiredCycles } from "./services/cycles.js";
 import { sweepDeliveries } from "./services/outbound.js";
+import { sweepStaleDispatches } from "./services/dispatch.js";
 import { agentRoutes } from "./routes/agents.js";
 import { authRoutes, requireSession } from "./routes/auth.js";
 import { assistRoutes } from "./routes/assist.js";
@@ -113,6 +114,12 @@ if (process.env.NODE_ENV !== "test") {
       console.error("webhook sweep failed", err),
     );
   }, 30_000).unref();
+  // dispatch ack sweep: fail dispatches that never got acknowledged
+  setInterval(() => {
+    void sweepStaleDispatches().catch((err) =>
+      console.error("dispatch sweep failed", err),
+    );
+  }, 30_000).unref();
   // cycle boundary sweep: complete expired active cycles unattended
   setInterval(() => {
     void sweepExpiredCycles().catch((err) =>
@@ -121,6 +128,9 @@ if (process.env.NODE_ENV !== "test") {
   }, 60_000).unref();
   void sweepExpiredCycles().catch((err) =>
     console.error("cycle sweep failed", err),
+  );
+  void sweepStaleDispatches().catch((err) =>
+    console.error("dispatch sweep failed", err),
   );
   serve({ fetch: app.fetch, port: config_.port }, (info) => {
     console.log(`api listening on http://localhost:${info.port}`);

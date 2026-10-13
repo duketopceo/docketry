@@ -1,5 +1,5 @@
 import { createServer, type Server } from "node:http";
-import { eq, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { app } from "../index.js";
 import { closeDb, db } from "../db/client.js";
@@ -400,5 +400,86 @@ describe("dispatch router (#23)", () => {
 
     const bodies = await thread();
     expect(bodies.some((b) => b.includes("dispatch_failed"))).toBe(true);
+  });
+
+  it("ack timeout: a stale queued dispatch fails loudly", async () => {
+    const { sweepStaleDispatches } = await import("./dispatch.js");
+    const [ws] = await db
+      .select()
+      .from(workspaces)
+      .where(eq(workspaces.slug, SLUG));
+
+    // a dispatch that has sat queued beyond the ack window
+    const [stale] = await db
+      .insert(dispatches)
+      .values({
+        workspaceId: ws!.id,
+        issueId,
+        agentId,
+        trigger: "assign",
+        status: "queued",
+        createdAt: new Date(NOW - 700_000),
+        updatedAt: new Date(NOW - 700_000),
+      })
+      .returning();
+
+    const swept = await sweepStaleDispatches(600_000);
+    expect(swept).toBe(1);
+
+    const [after] = await db
+      .select()
+      .from(dispatches)
+      .where(eq(dispatches.id, stale!.id));
+    expect(after!.status).toBe("dispatch_failed");
+    expect(after!.reason).toContain("no acknowledgement");
+
+    const bodies = await thread();
+    expect(
+      bodies.some((b) => b.includes("dispatch_failed: no acknowledgement")),
+    ).toBe(true);
+
+    const [evt] = await db
+      .select()
+      .from(events)
+      .where(eq(events.action, "dispatch_failed"))
+      .orderBy(desc(events.id))
+      .limit(1);
+    expect(evt).toBeTruthy();
+  });
+
+  it("ack timeout leaves fresh-queued and claimed dispatches alone", async () => {
+    const { sweepStaleDispatches } = await import("./dispatch.js");
+    const [ws] = await db
+      .select()
+      .from(workspaces)
+      .where(eq(workspaces.slug, SLUG));
+
+    // fresh queued — inside the window
+    await db.insert(dispatches).values({
+      workspaceId: ws!.id,
+      issueId,
+      agentId,
+      trigger: "assign",
+      status: "queued",
+      createdAt: new Date(NOW - 60_000), // 1 min < 10 min window
+    });
+    // old but already claimed — claiming is the ack
+    await db.insert(dispatches).values({
+      workspaceId: ws!.id,
+      issueId,
+      agentId,
+      trigger: "assign",
+      status: "claimed",
+      createdAt: new Date(NOW - 7_000_000),
+    });
+
+    expect(await sweepStaleDispatches(600_000)).toBe(0);
+
+    // window=0 disables the sweep entirely
+    await db
+      .update(dispatches)
+      .set({ createdAt: new Date(NOW - 7_000_000) })
+      .where(eq(dispatches.status, "queued"));
+    expect(await sweepStaleDispatches(0)).toBe(0);
   });
 });

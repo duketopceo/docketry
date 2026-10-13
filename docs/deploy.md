@@ -47,6 +47,7 @@ Set these in `.env` next to the compose file (it reads `.env` automatically):
 | `RATE_LIMIT_PER_MIN` | no | `600` | Authenticated requests/minute per token/session (`0` disables — don't, on public instances) |
 | `RATE_LIMIT_ANON_PER_MIN` | no | `120` | **New.** Unauthenticated requests (and failed-credential attempts) per client IP, counted before auth. `/health` and signed provider webhooks are exempt. Needs `TRUSTED_PROXY=1` behind a proxy/Cloudflare or every visitor shares one bucket |
 | `RATE_LIMIT_AUTH_PER_MIN` | no | `30` | **New.** Login, bootstrap, invite-accept and OAuth start/callback per client IP |
+| `DISPATCH_ACK_TIMEOUT_MS` | no | `600000` | **New.** A dispatch still `queued` after this window is failed loudly on the issue thread (delivery wedged without writeback). Keep above the ~7.5 min webhook retry budget. `0` disables |
 | `DATABASE_URL` | no | compose-internal | Override only for an external Postgres |
 | `GITHUB_APP_*`, `GITHUB_WEBHOOK_SECRET` | no | — | GitHub App sync — see [github-sync.md](./github-sync.md); all empty = feature off |
 | `WEB_URL` | no | `http://localhost:3100` | Public web origin — OAuth callbacks bounce here after exchange; set to your real web hostname behind a tunnel |

@@ -91,6 +91,11 @@ semver until stated otherwise.
   endpoint to `issue.state_changed`, filter in your consumer, trigger by
   assigning the issue to an agent or `@mention`ing it — including the
   loop-prevention rules. No in-app rule engine.
+- **Dispatch acknowledgement timeout** (U3): a dispatch still `queued` after
+  `DISPATCH_ACK_TIMEOUT_MS` (default 10 min — beyond the ~7.5 min webhook
+  retry budget) is failed loudly on the issue thread and in the activity
+  stream instead of hanging forever. `claimed` dispatches are never swept —
+  claiming is the acknowledgement. `0` disables the sweep.
 
 ## [Unreleased] — renamed: docketry → Tallyline
 

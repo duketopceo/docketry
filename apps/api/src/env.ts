@@ -33,6 +33,9 @@ export const config_ = {
   rateLimitAnonPerMin: Number(env("RATE_LIMIT_ANON_PER_MIN", "120")),
   // login / bootstrap / invite-accept / OAuth start+callback per client IP
   rateLimitAuthPerMin: Number(env("RATE_LIMIT_AUTH_PER_MIN", "30")),
+  // dispatch ack window: a dispatch still `queued` this long is dead —
+  // delivery retries (max ~7.5 min) must finish inside it. 0 disables.
+  dispatchAckTimeoutMs: Number(env("DISPATCH_ACK_TIMEOUT_MS", "600000")),
   apiBaseUrl,
   // MCP remote endpoint + OAuth authorization server (PLAN-010/011). The
   // issuer is apiBaseUrl; the resource is the canonical MCP endpoint URL that
