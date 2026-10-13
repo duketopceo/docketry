@@ -173,7 +173,7 @@ let EB: Entities;
 let tenantTables: string[] = [];
 
 async function authFor(t: Tenant, kind: Attacker): Promise<Record<string, string>> {
-  if (kind === "owner") return { cookie: `dok_session=${await newSession(t, "owner")}` };
+  if (kind === "owner") return { cookie: `tly_session=${await newSession(t, "owner")}` };
   if (kind === "agent_write") return { authorization: `Bearer ${t.agentKeys.write}` };
   return { authorization: `Bearer ${t.pats.write}` };
 }

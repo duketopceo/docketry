@@ -63,7 +63,7 @@ async function api(
     }),
   );
   const sc = res.headers.get("set-cookie");
-  if (sc?.startsWith("dok_session=")) cookie = sc.split(";")[0]!;
+  if (sc?.startsWith("tly_session=")) cookie = sc.split(";")[0]!;
   return { status: res.status, body: (await res.json()) as TestBody };
 }
 
@@ -211,7 +211,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // dedicated test DB (docketry_cli) — wiping everything is safe here
+  // dedicated test DB (tallyline_cli) — wiping everything is safe here
   for (const t of ALL_TABLES) {
     await db.delete(t);
   }

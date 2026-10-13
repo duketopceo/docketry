@@ -74,7 +74,7 @@ async function req(
     }),
   );
   const setCookie = res.headers.get("set-cookie");
-  if (setCookie?.startsWith("dok_session=")) {
+  if (setCookie?.startsWith("tly_session=")) {
     sessionCookie = setCookie.split(";")[0]!;
   }
   return { status: res.status, body: (await res.json()) as TestBody };
@@ -174,7 +174,7 @@ describe("api routes (real postgres)", () => {
       }),
     });
     expect(boot.status).toBe(201);
-    expect(sessionCookie).toContain("dok_session=");
+    expect(sessionCookie).toContain("tly_session=");
 
     const bootAgain = await req("/v1/auth/bootstrap", {
       method: "POST",
@@ -456,8 +456,8 @@ describe("api routes (real postgres)", () => {
     expect(agentMint.status).toBe(403);
   });
 
-  it("legacy dok_agt_/dok_pat_ credentials issued before the rename still authenticate", async () => {
-    // simulate a pre-rename credential: same hash-at-rest scheme, old prefix
+  it("legacy dok_agt_/dok_pat_ credentials issued before the rename are now rejected", async () => {
+    // pre-rename credential: valid hash at rest, retired prefix — must 401
     const agent = await req(`/v1/workspaces/${SLUG}/agents`, {
       method: "POST",
       body: JSON.stringify({ name: "legacy-agent", harness: "x" }),
@@ -475,11 +475,7 @@ describe("api routes (real postgres)", () => {
     const viaKey = await req(`/v1/workspaces/${SLUG}/issues`, {
       headers: { authorization: `Bearer ${legacyKey}` },
     });
-    expect(viaKey.status).toBe(200);
-    const me = await req("/v1/auth/me", {
-      headers: { authorization: `Bearer ${legacyKey}` },
-    });
-    expect(me.body.type).toBe("agent");
+    expect(viaKey.status).toBe(401);
 
     const mint = await req(`/v1/workspaces/${SLUG}/tokens`, {
       method: "POST",
@@ -494,13 +490,7 @@ describe("api routes (real postgres)", () => {
     const viaPat = await req(`/v1/workspaces/${SLUG}/issues`, {
       headers: { authorization: `Bearer ${legacyPat}` },
     });
-    expect(viaPat.status).toBe(200);
-
-    // an unknown dok_ token is still rejected (never tried as a JWT)
-    const bogus = await req(`/v1/workspaces/${SLUG}/issues`, {
-      headers: { authorization: "Bearer dok_agt_nope" },
-    });
-    expect(bogus.status).toBe(401);
+    expect(viaPat.status).toBe(401);
 
     // clean up so later token-listing assertions see only their own rows
     await req(`/v1/workspaces/${SLUG}/tokens/${mint.body.id as string}`, {

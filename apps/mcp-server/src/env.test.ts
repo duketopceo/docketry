@@ -171,47 +171,27 @@ describe("configFromHeaders", () => {
   });
 });
 
-describe("legacy docketry names (deprecated, still accepted)", () => {
-  it("loadConfig reads DOCKETRY_* env when TALLYLINE_* is unset", () => {
-    const cfg = loadConfig({
-      DOCKETRY_TOKEN: "dok_agt_old",
-      DOCKETRY_WORKSPACE: "acme",
-      DOCKETRY_API_URL: "https://api.example.com/",
-    });
-    expect(cfg).toEqual({
-      apiUrl: "https://api.example.com",
-      token: "dok_agt_old",
-      workspace: "acme",
-    });
+describe("legacy docketry names (retired)", () => {
+  it("ignores DOCKETRY_* env entirely", () => {
+    expect(() =>
+      loadConfig({
+        DOCKETRY_TOKEN: "dok_agt_old",
+        DOCKETRY_WORKSPACE: "acme",
+        DOCKETRY_API_URL: "https://api.example.com/",
+      }),
+    ).toThrow();
   });
 
-  it("TALLYLINE_* wins over DOCKETRY_* when both are set", () => {
-    const cfg = loadConfig({
-      TALLYLINE_TOKEN: "tly_agt_new",
-      DOCKETRY_TOKEN: "dok_agt_old",
-      TALLYLINE_WORKSPACE: "new-ws",
-      DOCKETRY_WORKSPACE: "old-ws",
-    });
-    expect(cfg.token).toBe("tly_agt_new");
-    expect(cfg.workspace).toBe("new-ws");
-  });
-
-  it("httpAuthMode honors the legacy override flag", () => {
-    const on = httpAuthMode({ DOCKETRY_ALLOW_API_URL_OVERRIDE: "1" });
-    expect(on.mode === "passthrough" && on.allowApiUrlOverride).toBe(true);
-  });
-
-  it("configFromHeaders accepts legacy x-docketry-* headers and dok_ tokens", () => {
-    const cfg = configFromHeaders(
-      {
-        authorization: "Bearer dok_agt_old",
-        "x-docketry-workspace": "acme",
-        "x-docketry-api-url": "https://api.example.com",
-      },
-      { apiUrl: "http://localhost:4000", allowApiUrlOverride: true },
-    );
-    expect(cfg.workspace).toBe("acme");
-    expect(cfg.token).toBe("dok_agt_old");
-    expect(cfg.apiUrl).toBe("https://api.example.com");
+  it("rejects a request carrying only legacy x-docketry-* headers", () => {
+    expect(() =>
+      configFromHeaders(
+        {
+          authorization: "Bearer dok_agt_old",
+          "x-docketry-workspace": "acme",
+          "x-docketry-api-url": "https://api.example.com",
+        },
+        { apiUrl: "http://localhost:4000", allowApiUrlOverride: true },
+      ),
+    ).toThrow(PassthroughAuthError);
   });
 });

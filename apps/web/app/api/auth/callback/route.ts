@@ -59,7 +59,7 @@ export async function GET(req: Request) {
   await forwardSessionCookies(upstream, req, data.workspaceSlug);
   const destination = safeReturnTo(data.returnTo);
 
-  // multi-membership: the session's bound workspace may not match dok_ws —
+  // multi-membership: the session's bound workspace may not match tly_ws —
   // send the user through the chooser when there's a real choice to make
   const memberships = data.memberships ?? [];
   if (memberships.length > 1 && destination === "/my-issues") {

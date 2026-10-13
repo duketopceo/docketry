@@ -60,7 +60,7 @@ workspace memberships, provider sign-in, invites, credential-class gates)
   TTL; `return_to` same-origin-relative only (else `/`); `invite` rides
   the state cookie, never the authorize URL.
 - One-time codes are purpose-scoped and atomically claimed; the web
-  exchange binds `dok_login_nonce` (login-CSRF).
+  exchange binds `tly_login_nonce` (login-CSRF).
 - Identity resolution is subject-keyed; verified-email matching is
   governed by `AUTH_ACCOUNT_LINKING`; `login` mode's pending-link proof
   never mints a session itself. IdPs without `email_verified` are

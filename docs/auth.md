@@ -126,9 +126,9 @@ single-use token, default 7-day expiry. Options: `email` binding,
 
 ## Sessions, workspaces, and the chooser
 
-- `dok_session` — HttpOnly cookie session, `Secure` in production,
+- `tly_session` — HttpOnly cookie session, `Secure` in production,
   sha256-hashed at rest.
-- `dok_ws` — active-workspace cookie the web bridges read; the chooser
+- `tly_ws` — active-workspace cookie the web bridges read; the chooser
   at `/workspaces` sets it (and re-binds the session server-side).
 - Cookie sessions roam all member workspaces per request — membership
   is checked on every call, so removal is effective immediately.
@@ -157,7 +157,7 @@ single-use token, default 7-day expiry. Options: `email` binding,
 - One-time exchange codes: 60s TTL for `login`, 10min for
   `pending-bootstrap`/`pending-link` (a human has to fill a form);
   claimed atomically — discovery reads never consume them.
-- `dok_login_nonce` binds the browser that clicked the provider button
+- `tly_login_nonce` binds the browser that clicked the provider button
   to the session minted from the exchanged code (login-CSRF fix).
 - `return_to` is same-origin-relative only; anything else falls back
   to `/`.

@@ -33,15 +33,14 @@ export function verifyTallylineSignature(
 }
 
 /**
- * Reads a delivery header by its `x-tallyline-*` name, falling back to the
- * legacy `x-docketry-*` name. (This package is published standalone, so it
- * cannot import the shared helper from @tallyline/types.)
+ * Reads a delivery header by its `x-tallyline-*` name. (This package is
+ * published standalone, so it cannot import the shared helper from
+ * @tallyline/types.)
  */
 export function deliveryHeader(
 	headers: Record<string, unknown>,
 	name: string,
 ): string | undefined {
-	const v =
-		headers[name] ?? headers[name.replace(/^x-tallyline-/, "x-docketry-")];
+	const v = headers[name];
 	return typeof v === "string" ? v : undefined;
 }

@@ -28,7 +28,7 @@ Mint a key from a browser session or curl (see
 
 ```bash
 curl -X POST $API/v1/workspaces/$WS/agents/$AGENT_ID/keys \
-  -H "content-type: application/json" -b dok_session=… \
+  -H "content-type: application/json" -b tly_session=… \
   -d '{"name":"n8n","scopes":["read","write"]}'
 ```
 

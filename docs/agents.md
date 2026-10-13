@@ -10,18 +10,18 @@ Agent registration and key minting require a human session with the
 **admin or owner** workspace role — delegated credentials (`tly_pat_`,
 JWTs, other agent keys) cannot mint agents or keys.
 
-From a browser session (cookie-authed), or curl with your `dok_session`
+From a browser session (cookie-authed), or curl with your `tly_session`
 cookie:
 
 ```bash
 WS=acme
 curl -sX POST $API/v1/workspaces/$WS/agents \
-  -H "content-type: application/json" -b dok_session=… \
+  -H "content-type: application/json" -b tly_session=… \
   -d '{"name":"claude-work","harness":"claude-code","capabilities":["code","review"]}'
 # → {"id":"<agent-uuid>", …}
 
 curl -sX POST $API/v1/workspaces/$WS/agents/<agent-uuid>/keys \
-  -H "content-type: application/json" -b dok_session=… \
+  -H "content-type: application/json" -b tly_session=… \
   -d '{"name":"default","scopes":["read","write"]}'
 # → {"key":"tly_agt_…","scopes":["read","write"]}  ← shown ONCE, store it
 ```

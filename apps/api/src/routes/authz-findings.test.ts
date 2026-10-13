@@ -25,7 +25,7 @@ const call = (auth: { cookie?: string; bearer?: string }, method: string, path: 
       method,
       headers: {
         ...(body === undefined ? {} : { "content-type": "application/json" }),
-        ...(auth.cookie ? { cookie: `dok_session=${auth.cookie}` } : {}),
+        ...(auth.cookie ? { cookie: `tly_session=${auth.cookie}` } : {}),
         ...(auth.bearer ? { authorization: `Bearer ${auth.bearer}` } : {}),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),

@@ -76,9 +76,9 @@ beforeAll(async () => {
     { workspaceId: wsA, userId: um.id, role: "member" },
     { workspaceId: wsB, userId: ub.id, role: "owner" },
   ]);
-  cookieA = `dok_session=${await createSession(ua.id, wsA)}`;
-  cookieMember = `dok_session=${await createSession(um.id, wsA)}`;
-  cookieB = `dok_session=${await createSession(ub.id, wsB)}`;
+  cookieA = `tly_session=${await createSession(ua.id, wsA)}`;
+  cookieMember = `tly_session=${await createSession(um.id, wsA)}`;
+  cookieB = `tly_session=${await createSession(ub.id, wsB)}`;
 });
 
 afterEach(() => {

@@ -74,7 +74,7 @@ const FEATURES = [
     title: "Agents are actors",
     body: (
       <>
-        Agents hold scoped <span className="font-mono">dok_agt_*</span> keys,
+        Agents hold scoped <span className="font-mono">tly_agt_*</span> keys,
         take assignments, and act under their own name. The{" "}
         <Glint className="mb-0.5 inline" /> glint means an agent touched it.
       </>
@@ -281,7 +281,7 @@ export function LandingPage() {
             <ul className="mt-5 space-y-2 text-[13px] text-ink-muted">
               <li className="flex gap-2">
                 <span className="text-ink-tertiary">—</span> workspace-bound{" "}
-                <span className="font-mono">dok_agt_*</span> keys, read or write
+                <span className="font-mono">tly_agt_*</span> keys, read or write
                 scoped
               </li>
               <li className="flex gap-2">

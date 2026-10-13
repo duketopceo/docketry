@@ -76,7 +76,7 @@ async function req(
     }),
   );
   const setCookie = res.headers.get("set-cookie");
-  if (setCookie?.startsWith("dok_session=")) {
+  if (setCookie?.startsWith("tly_session=")) {
     sessionCookie = setCookie.split(";")[0]!;
   }
   return { status: res.status, body: (await res.json()) as TestBody };

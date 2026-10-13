@@ -49,7 +49,7 @@ const [user] = await db
   .values({ email: `${slug}@conf.test`, name: "Conf User", passwordHash: hashPassword("password-1234") })
   .returning();
 await db.insert(workspaceMembers).values({ workspaceId: ws!.id, userId: user!.id, role: "owner" });
-const cookie = `dok_session=${await createSession(user!.id, ws!.id)}`;
+const cookie = `tly_session=${await createSession(user!.id, ws!.id)}`;
 
 const server = serve({ fetch: app.fetch, port, hostname: "127.0.0.1" });
 

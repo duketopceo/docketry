@@ -3,58 +3,51 @@ import {
   hasApiTokenPrefix,
   isAgentToken,
   isPatToken,
-  legacyEnvName,
   readEnv,
   readHeader,
 } from "./compat.js";
 
-describe("readEnv (TALLYLINE_* with DOCKETRY_* fallback)", () => {
-  it("prefers the new name", () => {
-    expect(
-      readEnv({ TALLYLINE_TOKEN: "new", DOCKETRY_TOKEN: "old" }, "TALLYLINE_TOKEN"),
-    ).toBe("new");
+describe("readEnv", () => {
+  it("reads the set name", () => {
+    expect(readEnv({ TALLYLINE_TOKEN: "t" }, "TALLYLINE_TOKEN")).toBe("t");
   });
-  it("falls back to the legacy name when the new one is unset or empty", () => {
-    expect(readEnv({ DOCKETRY_TOKEN: "old" }, "TALLYLINE_TOKEN")).toBe("old");
-    expect(
-      readEnv({ TALLYLINE_TOKEN: "", DOCKETRY_TOKEN: "old" }, "TALLYLINE_TOKEN"),
-    ).toBe("old");
+  it("treats empty string as unset", () => {
+    expect(readEnv({ TALLYLINE_TOKEN: "" }, "TALLYLINE_TOKEN")).toBeUndefined();
   });
-  it("returns undefined when neither is set", () => {
+  it("returns undefined when unset", () => {
     expect(readEnv({}, "TALLYLINE_TOKEN")).toBeUndefined();
+  });
+  it("ignores legacy DOCKETRY_* names entirely", () => {
+    expect(readEnv({ DOCKETRY_TOKEN: "old" }, "TALLYLINE_TOKEN")).toBeUndefined();
   });
   it("passes non-TALLYLINE names through untouched", () => {
     expect(readEnv({ JWT_SECRET: "s" }, "JWT_SECRET")).toBe("s");
-    expect(legacyEnvName("JWT_SECRET")).toBeUndefined();
-    expect(legacyEnvName("TALLYLINE_LLM_MODEL")).toBe("DOCKETRY_LLM_MODEL");
   });
 });
 
 describe("token prefixes", () => {
-  it("accepts new and legacy agent keys / PATs", () => {
+  it("accepts tly_ agent keys and PATs only", () => {
     expect(isAgentToken("tly_agt_x")).toBe(true);
-    expect(isAgentToken("dok_agt_x")).toBe(true);
+    expect(isAgentToken("dok_agt_x")).toBe(false);
     expect(isAgentToken("tly_pat_x")).toBe(false);
     expect(isPatToken("tly_pat_x")).toBe(true);
-    expect(isPatToken("dok_pat_x")).toBe(true);
+    expect(isPatToken("dok_pat_x")).toBe(false);
     expect(isPatToken(undefined)).toBe(false);
   });
-  it("treats both namespaces as opaque (never JWT)", () => {
+  it("treats only the tly_ namespace as opaque (never JWT)", () => {
     expect(hasApiTokenPrefix("tly_inv_x")).toBe(true);
-    expect(hasApiTokenPrefix("dok_agt_x")).toBe(true);
+    expect(hasApiTokenPrefix("dok_agt_x")).toBe(false);
     expect(hasApiTokenPrefix("eyJhbGciOi")).toBe(false);
   });
 });
 
 describe("readHeader", () => {
-  it("reads new header names, falling back to legacy x-docketry-*", () => {
+  it("reads x-tallyline-* header names", () => {
     expect(readHeader({ "x-tallyline-workspace": "a" }, "x-tallyline-workspace")).toBe("a");
-    expect(readHeader({ "x-docketry-workspace": "b" }, "x-tallyline-workspace")).toBe("b");
+  });
+  it("ignores legacy x-docketry-* names", () => {
     expect(
-      readHeader(
-        { "x-tallyline-workspace": "a", "x-docketry-workspace": "b" },
-        "x-tallyline-workspace",
-      ),
-    ).toBe("a");
+      readHeader({ "x-docketry-workspace": "b" }, "x-tallyline-workspace"),
+    ).toBeUndefined();
   });
 });
