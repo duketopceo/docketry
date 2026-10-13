@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { app } from "../index.js";
 import { closeDb, db } from "../db/client.js";
 import { runMigrations } from "../db/migrate.js";
+import { getPollCount } from "../services/event-hub.js";
 import {
   agentKeys,
   agents,
@@ -327,6 +328,50 @@ describe("workspace events feed + SSE stream", () => {
       await reader.cancel();
     }
   });
+
+  it(
+    "fans one event out to N connections on a single shared poller",
+    async () => {
+      // newest event so far — each stream resumes after it
+      const latest = await req(`/v1/workspaces/${SLUG}/events?limit=1`);
+      const lastId = latest.body.events![0]!.id;
+
+      const open = () =>
+        raw(`/v1/workspaces/${SLUG}/events/stream`, {
+          headers: { "last-event-id": lastId },
+        });
+      const [s1, s2, s3] = await Promise.all([open(), open(), open()]);
+      const readers = [s1, s2, s3].map((r) => {
+        expect(r.status).toBe(200);
+        return r.body!.getReader();
+      });
+
+      try {
+        const pollsBefore = getPollCount();
+
+        const comment = await req(
+          `/v1/workspaces/${SLUG}/issues/${issueKey}/comments`,
+          { method: "POST", body: JSON.stringify({ body: "fan-out" }) },
+        );
+        expect(comment.status).toBe(201);
+
+        // all three connections receive the same event
+        for (const reader of readers) {
+          const evt = frameData(await readSSEFrame(reader));
+          expect(evt.action).toBe("commented");
+          expect(evt.issueKey).toBe(issueKey);
+        }
+
+        // three connections for ~1 poll window must not triple the poll rate:
+        // the whole point is ≤1 query/sec process-wide
+        await new Promise((r) => setTimeout(r, 1_600));
+        expect(getPollCount() - pollsBefore).toBeLessThanOrEqual(3);
+      } finally {
+        for (const reader of readers) await reader.cancel();
+      }
+    },
+    20_000,
+  );
 
   it("lets a read-scoped agent key open the stream", async () => {
     const agent = await req(`/v1/workspaces/${SLUG}/agents`, {
