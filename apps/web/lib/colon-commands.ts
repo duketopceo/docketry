@@ -30,6 +30,20 @@ interface MemberLite {
   email: string;
 }
 
+interface LabelLite {
+  id: string;
+  name: string;
+}
+
+const PRIORITIES = ["none", "low", "medium", "high", "urgent"] as const;
+
+async function getLabels(): Promise<LabelLite[]> {
+  const res = await fetch("/api/labels");
+  if (!res.ok) return [];
+  const d = (await res.json()) as { labels?: LabelLite[] };
+  return d.labels ?? [];
+}
+
 async function getIssue(key: string): Promise<IssueDetailLite | null> {
   const res = await fetch(`/api/issues/${encodeURIComponent(key)}`);
   if (!res.ok) return null;
@@ -142,6 +156,94 @@ export async function runColonCommand(line: string): Promise<CommandResult> {
         ? { ok: true, message: `${arg0} assigned to ${who}` }
         : { ok: false, message: r.message ?? "assign failed" };
     }
+    case "priority":
+    case "p": {
+      const p = rest[1]?.toLowerCase();
+      if (!arg0 || !p) {
+        return { ok: false, message: `usage: :priority KEY ${PRIORITIES.join("|")}` };
+      }
+      if (!(PRIORITIES as readonly string[]).includes(p)) {
+        return { ok: false, message: `priority must be one of ${PRIORITIES.join(", ")}` };
+      }
+      const r = await patchIssue(arg0, { priority: p });
+      return r.ok
+        ? { ok: true, message: `${arg0} → ${p}` }
+        : { ok: false, message: r.message ?? "priority failed" };
+    }
+    case "unassign": {
+      if (!arg0) return { ok: false, message: "usage: :unassign KEY" };
+      const r = await patchIssue(arg0, { assigneeType: null, assigneeId: null });
+      return r.ok
+        ? { ok: true, message: `${arg0} unassigned` }
+        : { ok: false, message: r.message ?? "unassign failed" };
+    }
+    case "label": {
+      const op = rest[1]?.toLowerCase();
+      const name = rest.slice(2).join(" ").trim();
+      if (!arg0 || !op || (op !== "clear" && !name)) {
+        return { ok: false, message: "usage: :label KEY add|remove|clear NAME…" };
+      }
+      const issue = (await fetch(`/api/issues/${encodeURIComponent(arg0)}`)
+        .then((r) => (r.ok ? r.json() : null))) as {
+        labels?: LabelLite[];
+      } | null;
+      if (!issue) return { ok: false, message: `${arg0} not found` };
+      const current = new Set((issue.labels ?? []).map((l) => l.id));
+      if (op === "clear") {
+        const r = await patchIssue(arg0, { labelIds: [] });
+        return r.ok
+          ? { ok: true, message: `${arg0} labels cleared` }
+          : { ok: false, message: r.message ?? "failed" };
+      }
+      const labels = await getLabels();
+      const match = labels.find((l) => l.name.toLowerCase() === name.toLowerCase());
+      if (!match) {
+        return { ok: false, message: `label '${name}' not found` };
+      }
+      if (op === "add") current.add(match.id);
+      else if (op === "remove") current.delete(match.id);
+      else {
+        return { ok: false, message: "usage: :label KEY add|remove|clear NAME…" };
+      }
+      const r = await patchIssue(arg0, { labelIds: [...current] });
+      return r.ok
+        ? { ok: true, message: `${arg0} ${op === "add" ? "+" : "−"}${match.name}` }
+        : { ok: false, message: r.message ?? "failed" };
+    }
+    case "due": {
+      const when = rest[1];
+      if (!arg0 || !when) {
+        return { ok: false, message: "usage: :due KEY YYYY-MM-DD|none" };
+      }
+      const dueDate =
+        when === "none"
+          ? null
+          : /^\d{4}-\d{2}-\d{2}$/.test(when)
+            ? new Date(`${when}T00:00:00Z`).toISOString()
+            : undefined;
+      if (dueDate === undefined) {
+        return { ok: false, message: "date must be YYYY-MM-DD or 'none'" };
+      }
+      const r = await patchIssue(arg0, { dueDate });
+      return r.ok
+        ? { ok: true, message: `${arg0} due ${when}` }
+        : { ok: false, message: r.message ?? "due failed" };
+    }
+    case "estimate": {
+      const n = rest[1];
+      if (!arg0 || !n) {
+        return { ok: false, message: "usage: :estimate KEY points|none" };
+      }
+      const estimate =
+        n === "none" ? null : /^\d{1,2}$/.test(n) ? Number(n) : undefined;
+      if (estimate === undefined) {
+        return { ok: false, message: "estimate must be 0-99 or 'none'" };
+      }
+      const r = await patchIssue(arg0, { estimate });
+      return r.ok
+        ? { ok: true, message: `${arg0} estimate ${n}` }
+        : { ok: false, message: r.message ?? "estimate failed" };
+    }
     case "comment": {
       const text = rest.slice(1).join(" ").trim();
       if (!arg0 || !text) {
@@ -159,7 +261,7 @@ export async function runColonCommand(line: string): Promise<CommandResult> {
     default:
       return {
         ok: false,
-        message: `unknown command '${verb}' — try :state :done :start :assign :comment :open`,
+        message: `unknown command '${verb}' — try :state :done :start :assign :unassign :priority :label :due :estimate :comment :open`,
       };
   }
 }
@@ -176,11 +278,22 @@ export function colonHint(line: string): string {
       return `move ${rest[0]?.toUpperCase() ?? "KEY"} to in_progress`;
     case "assign":
       return `assign ${rest[0]?.toUpperCase() ?? "KEY"} to ${rest[1] ?? "…"}`;
+    case "unassign":
+      return `unassign ${rest[0]?.toUpperCase() ?? "KEY"}`;
+    case "priority":
+    case "p":
+      return `set ${rest[0]?.toUpperCase() ?? "KEY"} priority ${rest[1] ?? "…"}`;
+    case "label":
+      return `${rest[1] ?? "add|remove|clear"} label on ${rest[0]?.toUpperCase() ?? "KEY"}`;
+    case "due":
+      return `set ${rest[0]?.toUpperCase() ?? "KEY"} due ${rest[1] ?? "YYYY-MM-DD"}`;
+    case "estimate":
+      return `set ${rest[0]?.toUpperCase() ?? "KEY"} estimate ${rest[1] ?? "…"}`;
     case "comment":
       return `comment on ${rest[0]?.toUpperCase() ?? "KEY"}`;
     case "open":
       return `open ${rest[0]?.toUpperCase() ?? "KEY"}`;
     default:
-      return "commands: state done start assign comment open";
+      return "commands: state done start assign unassign priority label due estimate comment open";
   }
 }

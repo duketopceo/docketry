@@ -1,8 +1,14 @@
 "use client";
 
-import type { IssueState, Priority } from "@tallyline/types";
+import {
+  findPath,
+  legalTransitions,
+  type IssueState,
+  type Priority,
+} from "@tallyline/types";
 import { useRouter } from "next/navigation";
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -17,6 +23,7 @@ import {
   Sparkle,
   StateDot,
 } from "@/components/primitives";
+import { RowPicker, type PickerOption } from "@/components/row-picker";
 import type { ActorDirectory } from "@/lib/actors";
 
 export interface ListLabel {
@@ -44,6 +51,28 @@ export interface IssueGroup {
   issues: ListIssue[];
 }
 
+type PickerKind = "priority" | "assignee" | "label" | "state";
+
+const PRIORITY_OPTIONS: PickerOption[] = [
+  { value: "none", label: "no priority", hint: "0" },
+  { value: "urgent", label: "urgent", hint: "1" },
+  { value: "high", label: "high", hint: "2" },
+  { value: "medium", label: "medium", hint: "3" },
+  { value: "low", label: "low", hint: "4" },
+];
+
+async function patchIssue(
+  key: string,
+  body: Record<string, unknown>,
+): Promise<boolean> {
+  const res = await fetch(`/api/issues/${key}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.ok;
+}
+
 function isTypingTarget(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
   return (
@@ -67,6 +96,8 @@ export function IssueListClient({
   const [cursor, setCursor] = useState(0);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
+  const [picker, setPicker] = useState<PickerKind | null>(null);
+  const [allLabels, setAllLabels] = useState<ListLabel[] | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
   // grouped rendering is a view concern only — selection/navigation always
@@ -95,10 +126,72 @@ export function IssueListClient({
     [router],
   );
 
+  // bulk PATCH across the selection (or cursor row) for property pickers
+  const applyToTargets = useCallback(
+    async (body: Record<string, unknown>) => {
+      const issue = flat[cursor];
+      const targets =
+        selected.size > 0 ? [...selected] : issue ? [issue.key] : [];
+      await Promise.all(
+        targets.map((key) => {
+          setBusy(key);
+          return patchIssue(key, body);
+        }),
+      );
+      setSelected(new Set());
+      setBusy(null);
+      setPicker(null);
+      router.refresh();
+    },
+    [flat, cursor, selected, router],
+  );
+
+  // state moves walk each target along its own legal path
+  const applyState = useCallback(
+    async (target: IssueState) => {
+      const issue = flat[cursor];
+      const targets =
+        selected.size > 0 ? [...selected] : issue ? [issue.key] : [];
+      const byKey = new Map(flat.map((i) => [i.key, i]));
+      await Promise.all(
+        targets.map(async (key) => {
+          setBusy(key);
+          const from = byKey.get(key)?.state;
+          const path = from ? findPath(from, target) : null;
+          if (path) {
+            for (const step of path) {
+              if (!(await patchIssue(key, { state: step }))) break;
+            }
+          }
+        }),
+      );
+      setSelected(new Set());
+      setBusy(null);
+      setPicker(null);
+      router.refresh();
+    },
+    [flat, cursor, selected, router],
+  );
+
+  const openPicker = useCallback(
+    (kind: PickerKind) => {
+      if (kind === "label" && allLabels === null) {
+        void fetch("/api/labels")
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d: { labels?: ListLabel[] } | null) =>
+            setAllLabels(d?.labels ?? []),
+          );
+      }
+      setPicker(kind);
+    },
+    [allLabels],
+  );
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (isTypingTarget(e.target) || e.metaKey || e.ctrlKey || e.altKey)
         return;
+      if (picker) return; // RowPicker owns keys while open (capture phase)
       const issue = flat[cursor];
       const targets = selected.size > 0 ? selected : new Set(issue ? [issue.key] : []);
       switch (e.key) {
@@ -129,21 +222,99 @@ export function IssueListClient({
           break;
         case "a":
           if (triage) void transition(targets, "backlog");
+          else if (issue) openPicker("assignee");
           break;
         case "d":
           if (triage) void transition(targets, "canceled");
+          break;
+        case "p":
+          if (issue) openPicker("priority");
+          break;
+        case "s":
+          if (issue) openPicker("state");
+          break;
+        case "l":
+          if (issue) openPicker("label");
           break;
       }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [cursor, flat, router, selected, transition, triage]);
+  }, [cursor, flat, router, selected, transition, triage, picker, openPicker]);
 
   useEffect(() => {
     listRef.current
       ?.querySelector(`[data-index="${cursor}"]`)
       ?.scrollIntoView({ block: "nearest" });
   }, [cursor]);
+
+  const renderPicker = (issue: ListIssue) => {
+    switch (picker) {
+      case "priority":
+        return (
+          <RowPicker
+            title={`priority — ${issue.key}`}
+            options={PRIORITY_OPTIONS}
+            onSelect={(v) => void applyToTargets({ priority: v })}
+            onClose={() => setPicker(null)}
+          />
+        );
+      case "assignee": {
+        const options: PickerOption[] = [
+          { value: "", label: "unassigned" },
+          ...Object.values(actors).map((a) => ({
+            value: `${a.kind}:${a.id}`,
+            label: a.name,
+            hint: a.kind === "agent" ? "✦" : undefined,
+          })),
+        ];
+        return (
+          <RowPicker
+            title={`assignee — ${issue.key}`}
+            options={options}
+            onSelect={(v) =>
+              void applyToTargets(
+                v
+                  ? {
+                      assigneeType: v.split(":")[0],
+                      assigneeId: v.split(":")[1],
+                    }
+                  : { assigneeType: null, assigneeId: null },
+              )
+            }
+            onClose={() => setPicker(null)}
+          />
+        );
+      }
+      case "state":
+        return (
+          <RowPicker
+            title={`state — ${issue.key}`}
+            options={legalTransitions(issue.state).map((s) => ({
+              value: s,
+              label: s.replace(/_/g, " "),
+            }))}
+            onSelect={(v) => void applyState(v as IssueState)}
+            onClose={() => setPicker(null)}
+          />
+        );
+      case "label":
+        return (
+          <RowPicker
+            title={`labels — ${issue.key}`}
+            options={(allLabels ?? []).map((l) => ({
+              value: l.id,
+              label: l.name,
+              swatch: l.color,
+            }))}
+            multi
+            initialChecked={new Set(issue.labels?.map((l) => l.id) ?? [])}
+            onApply={(ids) => void applyToTargets({ labelIds: ids })}
+            onClose={() => setPicker(null)}
+          />
+        );
+    }
+  };
 
   const renderRow = (issue: ListIssue, i: number) => {
     const agentTouched =
@@ -154,8 +325,8 @@ export function IssueListClient({
       // content-visibility virtualizes rows past ~100 — the browser skips
       // layout/paint for off-screen rows while keeping them in the DOM for
       // j/k nav and find-in-page (R10 list budget)
+      <Fragment key={issue.key}>
       <li
-        key={issue.key}
         className="[content-visibility:auto] [contain-intrinsic-size:36px]"
       >
         <button
@@ -196,6 +367,8 @@ export function IssueListClient({
           )}
         </button>
       </li>
+      {isCursor && picker && renderPicker(issue)}
+      </Fragment>
     );
   };
 
@@ -228,9 +401,18 @@ export function IssueListClient({
           <kbd>⏎</kbd> open
         </span>
         <span>
+          <kbd>p</kbd> priority
+        </span>
+        <span>
+          <kbd>s</kbd> state
+        </span>
+        <span>
+          <kbd>l</kbd> labels
+        </span>
+        <span>
           <kbd>c</kbd> create
         </span>
-        {triage && (
+        {triage ? (
           <>
             <span className="text-attention">
               <kbd>a</kbd> accept → backlog
@@ -239,6 +421,10 @@ export function IssueListClient({
               <kbd>d</kbd> decline
             </span>
           </>
+        ) : (
+          <span>
+            <kbd>a</kbd> assign
+          </span>
         )}
         {selected.size > 0 && (
           <span className="ml-auto text-ink-muted">
