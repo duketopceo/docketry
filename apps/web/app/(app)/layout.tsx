@@ -21,14 +21,20 @@ export default async function AppLayout({
   if (!memberships.some((m) => m.workspaceSlug === me.data!.workspaceSlug)) {
     redirect("/workspaces");
   }
-  const unread = await api<{ count: number }>(
-    `/v1/workspaces/${me.data.workspaceSlug}/notifications/unread-count`,
-  );
+  const [unread, reviewQueue] = await Promise.all([
+    api<{ count: number }>(
+      `/v1/workspaces/${me.data.workspaceSlug}/notifications/unread-count`,
+    ),
+    api<{ count: number }>(
+      `/v1/workspaces/${me.data.workspaceSlug}/review-queue/count`,
+    ),
+  ]);
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar
         workspace={me.data.workspaceSlug}
         unread={unread.data?.count ?? 0}
+        reviewCount={reviewQueue.data?.count ?? 0}
         role={
           me.data.memberships.find(
             (m) => m.workspaceSlug === me.data!.workspaceSlug,

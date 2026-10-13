@@ -18,10 +18,12 @@ export function Sidebar({
   workspace,
   role,
   unread = 0,
+  reviewCount = 0,
 }: {
   workspace: string;
   role: string | undefined;
   unread?: number;
+  reviewCount?: number;
 }) {
   const items =
     role === "owner" || role === "admin"
@@ -56,6 +58,14 @@ export function Sidebar({
                       className="min-w-4 rounded-full bg-accent px-1 text-center font-mono text-[11px] leading-4 text-on-accent"
                     >
                       {unread}
+                    </span>
+                  )}
+                  {item.href === "/review" && reviewCount > 0 && (
+                    <span
+                      aria-label={`${reviewCount} waiting for review`}
+                      className="min-w-4 rounded-full bg-accent px-1 text-center font-mono text-[11px] leading-4 text-on-accent"
+                    >
+                      {reviewCount}
                     </span>
                   )}
                   <kbd className="font-mono text-[10px] text-ink-tertiary">

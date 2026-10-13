@@ -204,6 +204,13 @@ export const extraPaths: Record<string, PathItem> = {
       responses: { "200": { description: "Review queue" } },
     },
   },
+  "/v1/workspaces/{ws}/review-queue/count": {
+    get: {
+      summary: "Count of in_review issues that carry at least one dispatch (nav badge)",
+      parameters: [wsParam],
+      responses: { "200": { description: "Queue depth" } },
+    },
+  },
   "/v1/workspaces/{ws}/dispatches/{id}/report": {
     post: {
       summary: "Agent session lifecycle report (completed / failed, optional branch + PR URL)",

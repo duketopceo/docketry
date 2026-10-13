@@ -389,6 +389,7 @@ export const OPERATIONS: Record<string, Builder> = {
   // ── dispatches / review ────────────────────────────────────────────────────
   "GET /v1/workspaces/{ws}/dispatches": get((t) => `${base(t)}/dispatches`),
   "GET /v1/workspaces/{ws}/review-queue": get((t) => `${base(t)}/review-queue`),
+  "GET /v1/workspaces/{ws}/review-queue/count": get((t) => `${base(t)}/review-queue/count`),
   "POST /v1/workspaces/{ws}/dispatches/{id}/report": dispatchOp("POST", "/report", { outcome: "completed" }),
   "GET /v1/workspaces/{ws}/dispatches/{id}/events": dispatchOp("GET", "/events"),
   "POST /v1/workspaces/{ws}/dispatches/{id}/events": dispatchOp("POST", "/events", {

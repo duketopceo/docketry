@@ -70,6 +70,10 @@ semver until stated otherwise.
 
 ### Added
 
+- **Review-queue nav badge**: `GET /v1/workspaces/:ws/review-queue/count`
+  returns the number of `in_review` issues carrying at least one dispatch —
+  the sidebar Review row shows it as an accent badge, fetched server-side in
+  the app layout.
 - **Settings admin surfaces for labels, projects, and cycles**: three new
   pages under Settings tabs. Labels can be created (name + swatch),
   renamed/recolored inline, and deleted — backed by new

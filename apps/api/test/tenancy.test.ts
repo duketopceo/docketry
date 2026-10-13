@@ -44,6 +44,7 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
       "GET /v1/workspaces/{ws}/dispatches",
       "POST /v1/workspaces/{ws}/dispatches/{id}/report",
       "GET /v1/workspaces/{ws}/review-queue",
+      "GET /v1/workspaces/{ws}/review-queue/count",
       "GET /v1/workspaces/{ws}/issues/{key}/sessions",
     ],
   },

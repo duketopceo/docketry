@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { db } from "../db/client.js";
@@ -120,6 +120,17 @@ export const dispatchRoutes = new Hono()
       if (!byIssue.has(r.id)) byIssue.set(r.id, r);
     }
     return c.json({ queue: [...byIssue.values()] });
+  })
+  // nav badge — same queue definition, count only (distinct in_review issues
+  // that carry at least one dispatch)
+  .get("/workspaces/:ws/review-queue/count", async (c) => {
+    const ws = await requireWorkspace(c);
+    const [row] = await db
+      .select({ count: sql<number>`count(distinct ${issues.id})::int` })
+      .from(issues)
+      .innerJoin(dispatches, eq(dispatches.issueId, issues.id))
+      .where(and(eq(issues.workspaceId, ws.id), eq(issues.state, "in_review")));
+    return c.json({ count: row?.count ?? 0 });
   })
   // session lifecycle report — agent keys report only their own dispatches
   .post(
