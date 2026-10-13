@@ -86,6 +86,11 @@ semver until stated otherwise.
   (see docs/deploy.md).
 - `RateStore` seam in the API rate limiter (in-memory default) for a future
   shared store.
+- **Event-driven dispatch recipe** (U4): `docs/adapters.md` now documents
+  transition-triggered dispatch over the existing seams — subscribe a webhook
+  endpoint to `issue.state_changed`, filter in your consumer, trigger by
+  assigning the issue to an agent or `@mention`ing it — including the
+  loop-prevention rules. No in-app rule engine.
 
 ## [Unreleased] — renamed: docketry → Tallyline
 
