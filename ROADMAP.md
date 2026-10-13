@@ -18,6 +18,7 @@ Current program plan (2026-10-10): [plans/2026-10-10-program-roadmap-plan.md](./
 | Later | U12 OAuth agent install | hard |
 | Later | U13 Multi-workspace hardening | hard |
 | Later | U14 Trim unused integrations | medium |
+| Later | U15 iOS app — SwiftUI, OAuth sign-in, TestFlight ([docs/plans/2026-10-12-2107-feat-ios-app-plan.md](./docs/plans/2026-10-12-2107-feat-ios-app-plan.md)) | hard |
 
 Research behind this: [docs/research/2026-10-10-landscape.md](./docs/research/2026-10-10-landscape.md).
 
