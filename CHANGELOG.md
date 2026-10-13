@@ -96,11 +96,11 @@ nothing below requires a database migration or re-issuing credentials.
   Existing deployments keep their data by renaming the database
   (`ALTER DATABASE docketry RENAME TO tallyline`) and copying or
   re-pointing the old `docketry_*` volumes.
-- **Deliberately unchanged** — session cookie names (`dok_session`,
-  `dok_ws`, …), `dok_*` token/wire formats, `x-docketry-*` header
-  fallbacks, `DOCKETRY_*` env fallbacks, and legacy `.docketry` CLI config
-  paths. Changing them would sign everyone out or break existing
-  integrations; they are follow-ups.
+- **Compat layer retired** — `DOCKETRY_*` env fallbacks, `x-docketry-*`
+  headers, `dok_agt_`/`dok_pat_` tokens, `dok_*` cookies, and `.docketry`
+  CLI paths are no longer accepted anywhere. On upgrade: rename env vars
+  to `TALLYLINE_*`, re-mint `dok_` API keys as `tly_`, and expect all
+  sessions to sign out once.
 
 ### Brand
 
