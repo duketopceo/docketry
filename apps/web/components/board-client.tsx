@@ -28,6 +28,12 @@ import {
   StateDot,
 } from "@/components/primitives";
 import type { ActorDirectory } from "@/lib/actors";
+import {
+  readColumnPrefs,
+  resolveCollapsed,
+  writeColumnPrefs,
+  type ColumnPrefs,
+} from "@/lib/board";
 
 type BoardState = (typeof ACTIVE_STATES)[number];
 
@@ -163,26 +169,63 @@ function BoardColumn({
   cards,
   dragging,
   reachable,
+  collapsed,
   cursor,
   pending,
   actors,
   onOpen,
   onHover,
   onFocusCard,
+  onToggleCollapse,
 }: {
   state: BoardState;
   cards: ListIssue[];
   dragging: boolean;
   reachable: boolean;
+  collapsed: boolean;
   cursor: string | null;
   pending: ReadonlySet<string>;
   actors: ActorDirectory;
   onOpen: (key: string) => void;
   onHover: (key: string) => void;
   onFocusCard: (key: string) => void;
+  onToggleCollapse: (state: BoardState) => void;
 }) {
   const blocked = dragging && !reachable;
   const { isOver, setNodeRef } = useDroppable({ id: state, disabled: blocked });
+
+  // Collapsed strip: still a drop target, still shows state + count — click
+  // expands. Drags force-expand every column (see BoardClient) so drop zones
+  // stay full-size; this branch only renders when no drag is active.
+  if (collapsed && !dragging) {
+    return (
+      <section
+        ref={setNodeRef}
+        aria-label={`${COLUMN_LABEL[state]} column (collapsed)`}
+        className="flex w-11 shrink-0 flex-col items-center rounded-lg border border-lining-faint py-2"
+      >
+        <button
+          type="button"
+          onClick={() => onToggleCollapse(state)}
+          aria-expanded="false"
+          aria-label={`Expand ${COLUMN_LABEL[state]} column`}
+          className="flex flex-1 flex-col items-center gap-2 rounded-sm px-1 focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          <StateDot state={state} />
+          <span
+            className="font-mono text-[11px] uppercase tracking-wider text-ink-subtle"
+            style={{ writingMode: "vertical-rl" }}
+          >
+            {COLUMN_LABEL[state]}
+          </span>
+          <span className="font-mono text-[11px] text-ink-tertiary">
+            {cards.length}
+          </span>
+        </button>
+      </section>
+    );
+  }
+
   return (
     <section
       ref={setNodeRef}
@@ -203,6 +246,15 @@ function BoardColumn({
         <span className="ml-auto font-mono text-[11px] text-ink-tertiary">
           {cards.length}
         </span>
+        <button
+          type="button"
+          onClick={() => onToggleCollapse(state)}
+          aria-expanded="true"
+          aria-label={`Collapse ${COLUMN_LABEL[state]} column`}
+          className="rounded-sm px-1 font-mono text-[11px] text-ink-tertiary hover:text-ink-subtle focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          ‹
+        </button>
       </header>
       <div className="flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto p-2">
         {cards.map((issue) => (
@@ -250,6 +302,11 @@ export function BoardClient({
   const [error, setError] = useState<string | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const [drag, setDrag] = useState<DragInfo | null>(null);
+  // Column visibility: manual user choices; absent = auto (empty collapses,
+  // non-empty expands) per DESIGN "hide empty board columns by default".
+  const [collapsePref, setCollapsePref] = useState<ColumnPrefs>(() =>
+    readColumnPrefs(),
+  );
   const dragRef = useRef<DragInfo | null>(null);
   const pendingRef = useRef<Set<string>>(new Set());
   const lastDragEndRef = useRef(0);
@@ -583,24 +640,43 @@ export function BoardClient({
           aria-busy={pending.size > 0}
           tabIndex={0}
         >
-          {ACTIVE_STATES.map((state) => (
-            <BoardColumn
-              key={state}
-              state={state}
-              cards={columns[state]}
-              dragging={drag !== null}
-              reachable={drag?.reachable.has(state) ?? false}
-              cursor={cursor}
-              pending={pending}
-              actors={actors}
-              onOpen={open}
-              onHover={(key) => {
-                kbdNavRef.current = false;
-                setCursor(key);
-              }}
-              onFocusCard={setCursor}
-            />
-          ))}
+          {ACTIVE_STATES.map((state) => {
+            const collapsed = resolveCollapsed(
+              collapsePref[state],
+              columns[state].length === 0,
+            );
+            return (
+              <BoardColumn
+                key={state}
+                state={state}
+                cards={columns[state]}
+                dragging={drag !== null}
+                reachable={drag?.reachable.has(state) ?? false}
+                collapsed={collapsed}
+                cursor={cursor}
+                pending={pending}
+                actors={actors}
+                onOpen={open}
+                onHover={(key) => {
+                  kbdNavRef.current = false;
+                  setCursor(key);
+                }}
+                onFocusCard={setCursor}
+                onToggleCollapse={(s) =>
+                  setCollapsePref((m) => {
+                    const next = {
+                      ...m,
+                      [s]: resolveCollapsed(m[s], columns[s].length === 0)
+                        ? "expanded"
+                        : "collapsed",
+                    };
+                    writeColumnPrefs(next);
+                    return next;
+                  })
+                }
+              />
+            );
+          })}
         </div>
         <DragOverlay>
           {dragIssue ? (

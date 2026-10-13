@@ -96,6 +96,12 @@ semver until stated otherwise.
   retry budget) is failed loudly on the issue thread and in the activity
   stream instead of hanging forever. `claimed` dispatches are never swept —
   claiming is the acknowledgement. `0` disables the sweep.
+- **Board collapses empty columns by default** (U5): per DESIGN, empty board
+  columns now render as slim labelled strips (dot + count, click to expand)
+  instead of 300px of dead space — a typical board fits 1440px instead of
+  overflowing at ~1760px. Columns force-expand during drags so drop zones
+  stay full-size; any column can be pinned collapsed/expanded and the choice
+  persists per device (`localStorage`).
 
 ## [Unreleased] — renamed: docketry → Tallyline
 
