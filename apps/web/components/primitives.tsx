@@ -92,7 +92,7 @@ export function PriorityIcon({
         <rect width="12" height="12" rx="3" />
         <path
           d="M6 2.5v4.2M6 9.4v.1"
-          stroke="#07090d"
+          stroke="var(--sl-on-accent)"
           strokeWidth="1.6"
           strokeLinecap="round"
         />
@@ -131,7 +131,7 @@ export function LabelChip({
   label: { id: string; name: string; color: string };
 }) {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-lining-faint bg-surface-2 px-1.5 py-px font-mono text-[10px] text-ink-subtle">
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-lining-faint bg-surface-2 px-1.5 py-px font-mono text-[11px] text-ink-subtle">
       <span
         className="h-1.5 w-1.5 rounded-full"
         style={{ backgroundColor: label.color }}
@@ -155,7 +155,7 @@ export function Avatar({ actor }: { actor?: ActorRef | undefined }) {
   }
   return (
     <span className="relative inline-flex shrink-0" title={actor.name}>
-      <span className="flex h-5 w-5 items-center justify-center rounded-full border border-lining bg-surface-3 font-mono text-[9px] text-ink-muted">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full border border-lining bg-surface-3 font-mono text-[11px] text-ink-muted">
         {actor.initials}
       </span>
       {actor.kind === "agent" && (
@@ -183,7 +183,7 @@ export function relativeTime(iso: string): string {
 export function RelativeTime({ iso }: { iso: string }) {
   return (
     <span
-      className="shrink-0 font-mono text-[10px] text-ink-tertiary"
+      className="shrink-0 font-mono text-[11px] text-ink-tertiary"
       title={new Date(iso).toLocaleString()}
     >
       {relativeTime(iso)}

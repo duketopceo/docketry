@@ -177,7 +177,7 @@ export function IssueListClient({
             <LabelChip key={l.id} label={l} />
           ))}
           {(issue.labels?.length ?? 0) > 2 && (
-            <span className="shrink-0 font-mono text-[10px] text-ink-tertiary">
+            <span className="shrink-0 font-mono text-[11px] text-ink-tertiary">
               +{issue.labels!.length - 2}
             </span>
           )}
@@ -206,7 +206,7 @@ export function IssueListClient({
         {groups
           ? groups.map((g) => (
               <li key={g.key}>
-                <div className="flex h-7 items-center gap-2 border-b border-lining-faint bg-surface-1 px-4 font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+                <div className="flex h-7 items-center gap-2 border-b border-lining-faint bg-surface-1 px-4 font-mono text-[11px] uppercase tracking-wider text-ink-tertiary">
                   {g.label}
                   <span>{g.issues.length}</span>
                 </div>
@@ -217,7 +217,7 @@ export function IssueListClient({
             ))
           : flat.map((issue, idx) => renderRow(issue, idx))}
       </ul>
-      <footer className="flex h-8 shrink-0 items-center gap-4 border-t border-lining-faint px-4 font-mono text-[10px] text-ink-tertiary">
+      <footer className="flex h-8 shrink-0 items-center gap-4 border-t border-lining-faint px-4 font-mono text-[11px] text-ink-tertiary">
         <span>
           <kbd>j</kbd>/<kbd>k</kbd> move
         </span>

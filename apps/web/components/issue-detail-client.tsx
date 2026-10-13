@@ -222,7 +222,7 @@ export function LabelPicker({
           title={`remove ${l.name}`}
           disabled={pending}
           onClick={() => void set([...currentIds].filter((id) => id !== l.id))}
-          className="inline-flex items-center gap-1 rounded-full border border-lining-faint bg-surface-2 px-1.5 py-px font-mono text-[10px] text-ink-subtle hover:border-urgent hover:text-urgent disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-full border border-lining-faint bg-surface-2 px-1.5 py-px font-mono text-[11px] text-ink-subtle hover:border-urgent hover:text-urgent disabled:opacity-50"
         >
           <span
             className="h-1.5 w-1.5 rounded-full"
@@ -252,7 +252,7 @@ export function LabelPicker({
         </select>
       )}
       {all.length === 0 && (
-        <span className="font-mono text-[10px] text-ink-tertiary">
+        <span className="font-mono text-[11px] text-ink-tertiary">
           no labels — create them in settings
         </span>
       )}
@@ -344,7 +344,7 @@ export function FiledBy({
     day: "numeric",
   });
   return (
-    <span className="inline-flex items-center gap-1 font-mono text-[10px] text-ink-tertiary">
+    <span className="inline-flex items-center gap-1 font-mono text-[11px] text-ink-tertiary">
       {creatorType === "agent" && (
         <Sparkle size={12} label={`filed by ${creatorName ?? "an agent"}`} />
       )}
@@ -393,7 +393,7 @@ export function SummarizeButton({ issueKey }: { issueKey: string }) {
           }
           setSummary(body.summary);
         }}
-        className="h-6 rounded-sm border border-control px-2 font-mono text-[10px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
+        className="h-6 rounded-sm border border-control px-2 font-mono text-[11px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
       >
         {busy ? "summarizing…" : "✦ summarize"}
       </button>
@@ -460,7 +460,7 @@ export function CommentComposer({ issueKey }: { issueKey: string }) {
         </p>
       )}
       <div className="mt-2 flex items-center justify-between">
-        <span className="font-mono text-[10px] text-ink-tertiary">
+        <span className="font-mono text-[11px] text-ink-tertiary">
           <kbd>⌘⏎</kbd> to comment
         </span>
         <button
