@@ -128,7 +128,7 @@ A Railway project maps cleanly onto three services:
    (`http://api.railway.internal:4000`).
 
 A `railway.json`/template button lands when the Dockerfile paths stabilize;
-until then the four-service manual setup is the documented route (~10 min).
+until then the three-service manual setup is the documented route (~10 min).
 
 ## Upgrading
 

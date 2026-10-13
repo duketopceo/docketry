@@ -4,7 +4,7 @@ Thanks for helping build tallyline — a self-hostable, agent-native issue track
 
 ## Setup
 
-Requirements: Node.js, pnpm 10, and Docker (for Postgres + Redis).
+Requirements: Node.js, pnpm 10, and Docker (for Postgres).
 
 ```bash
 git clone https://github.com/duketopceo/tallyline

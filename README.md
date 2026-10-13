@@ -27,10 +27,10 @@
 - **Web:** Next.js App Router + Tailwind CSS + shadcn/ui + cmdk (`apps/web`)
 - **API:** Node + Hono + Postgres via Drizzle (`apps/api`)
 - **MCP server:** Model Context Protocol server for AI agents (`apps/mcp-server`)
-- **Dispatch:** agent-routing worker on BullMQ (`services/dispatch`)
+- **Dispatch:** agent-routing worker, Postgres-backed (`services/dispatch`)
 - **CLI:** `tallyline` command-line tool (`tools/cli`)
 - **Shared packages:** `packages/ui`, `packages/types`, `packages/config`
-- **Infra:** Docker Compose (Postgres + Redis) for dev and self-host
+- **Infra:** Docker Compose (Postgres only) for dev and self-host
 
 ## What it is
 
