@@ -3,6 +3,7 @@ import {
   type ListIssue,
 } from "@/components/issue-list-client";
 import { api } from "@/lib/api";
+import { getActorDirectory } from "@/lib/actors";
 import { TallyMark } from "@/components/tally-mark";
 
 interface Me {
@@ -22,6 +23,7 @@ export default async function TriagePage() {
     `/v1/workspaces/${me.data.workspaceSlug}/issues?state=triage&limit=200`,
   );
   const rows = res.data?.issues ?? [];
+  const actors = await getActorDirectory(me.data.workspaceSlug);
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
@@ -41,7 +43,7 @@ export default async function TriagePage() {
           </p>
         </div>
       ) : (
-        <IssueListClient issues={rows} triage />
+        <IssueListClient issues={rows} triage actors={actors} />
       )}
     </main>
   );

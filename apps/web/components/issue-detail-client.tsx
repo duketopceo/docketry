@@ -1,9 +1,31 @@
 "use client";
 
-import type { IssueState } from "@tallyline/types";
-import { legalTransitions } from "@tallyline/types";
+import type { IssueState, Priority } from "@tallyline/types";
+import { legalTransitions, PRIORITIES } from "@tallyline/types";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
+import type { ActorRef } from "@/lib/actors";
+import type { ListLabel } from "@/components/issue-list-client";
+import { Avatar, Sparkle } from "@/components/primitives";
+
+const SELECT_CLS =
+  "h-6 rounded-sm border border-control bg-surface-2 px-1 font-mono text-[11px] text-ink-muted focus:border-accent focus:outline-none disabled:opacity-50";
+
+async function patchIssue(
+  issueKey: string,
+  body: Record<string, unknown>,
+): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/issues/${issueKey}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
 
 const NEXT_LABEL: Partial<Record<IssueState, string>> = {
   backlog: "→ backlog",
@@ -74,6 +96,261 @@ export function StateActions({
         </span>
       )}
     </div>
+  );
+}
+
+export function AssigneeSelect({
+  issueKey,
+  actors,
+  currentType,
+  currentId,
+}: {
+  issueKey: string;
+  actors: ActorRef[];
+  currentType: "human" | "agent" | null;
+  currentId: string | null;
+}) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const value = currentType && currentId ? `${currentType}:${currentId}` : "";
+  const current = currentId ? actors.find((a) => a.id === currentId) : undefined;
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <Avatar actor={current} />
+      <select
+        aria-label="Assignee"
+        value={value}
+        disabled={pending}
+        onChange={async (e) => {
+          const v = e.target.value;
+          setPending(true);
+          setError(null);
+          const body = v
+            ? {
+                assigneeType: v.split(":")[0],
+                assigneeId: v.split(":")[1],
+              }
+            : { assigneeType: null, assigneeId: null };
+          const ok = await patchIssue(issueKey, body);
+          setPending(false);
+          if (!ok) {
+            setError("assignee change rejected");
+            return;
+          }
+          router.refresh();
+        }}
+        className={SELECT_CLS}
+      >
+        <option value="">unassigned</option>
+        {actors.map((a) => (
+          <option key={`${a.kind}:${a.id}`} value={`${a.kind}:${a.id}`}>
+            {a.kind === "agent" ? "✦ " : ""}
+            {a.name}
+          </option>
+        ))}
+      </select>
+      {error && (
+        <span className="text-[11px] text-urgent" role="alert">
+          {error}
+        </span>
+      )}
+    </span>
+  );
+}
+
+export function PrioritySelect({
+  issueKey,
+  current,
+}: {
+  issueKey: string;
+  current: Priority;
+}) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+
+  return (
+    <select
+      aria-label="Priority"
+      value={current}
+      disabled={pending}
+      onChange={async (e) => {
+        setPending(true);
+        const ok = await patchIssue(issueKey, { priority: e.target.value });
+        setPending(false);
+        if (ok) router.refresh();
+      }}
+      className={SELECT_CLS}
+    >
+      {PRIORITIES.map((p) => (
+        <option key={p} value={p}>
+          {p === "none" ? "no priority" : p}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+export function LabelPicker({
+  issueKey,
+  all,
+  current,
+}: {
+  issueKey: string;
+  all: ListLabel[];
+  current: ListLabel[];
+}) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const currentIds = new Set(current.map((l) => l.id));
+  const available = all.filter((l) => !currentIds.has(l.id));
+
+  async function set(labelIds: string[]) {
+    setPending(true);
+    const ok = await patchIssue(issueKey, { labelIds });
+    setPending(false);
+    if (ok) router.refresh();
+  }
+
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      {current.map((l) => (
+        <button
+          key={l.id}
+          type="button"
+          title={`remove ${l.name}`}
+          disabled={pending}
+          onClick={() => void set([...currentIds].filter((id) => id !== l.id))}
+          className="inline-flex items-center gap-1 rounded-full border border-lining-faint bg-surface-2 px-1.5 py-px font-mono text-[10px] text-ink-subtle hover:border-urgent hover:text-urgent disabled:opacity-50"
+        >
+          <span
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: l.color }}
+          />
+          {l.name}
+          <span aria-hidden>×</span>
+        </button>
+      ))}
+      {available.length > 0 && (
+        <select
+          aria-label="Add label"
+          value=""
+          disabled={pending}
+          onChange={(e) => {
+            if (!e.target.value) return;
+            void set([...currentIds, e.target.value]);
+          }}
+          className={SELECT_CLS}
+        >
+          <option value="">+ label</option>
+          {available.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name}
+            </option>
+          ))}
+        </select>
+      )}
+      {all.length === 0 && (
+        <span className="font-mono text-[10px] text-ink-tertiary">
+          no labels — create them in settings
+        </span>
+      )}
+    </span>
+  );
+}
+
+export function EstimateEdit({
+  issueKey,
+  current,
+}: {
+  issueKey: string;
+  current: number | null;
+}) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+
+  return (
+    <select
+      aria-label="Estimate"
+      value={current === null ? "" : String(current)}
+      disabled={pending}
+      onChange={async (e) => {
+        setPending(true);
+        const v = e.target.value;
+        const ok = await patchIssue(issueKey, {
+          estimate: v === "" ? null : Number(v),
+        });
+        setPending(false);
+        if (ok) router.refresh();
+      }}
+      className={SELECT_CLS}
+    >
+      <option value="">no estimate</option>
+      {[1, 2, 3, 5, 8, 13].map((n) => (
+        <option key={n} value={n}>
+          {n}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+export function DueEdit({
+  issueKey,
+  current,
+}: {
+  issueKey: string;
+  current: string | null;
+}) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+
+  return (
+    <input
+      type="date"
+      aria-label="Due date"
+      defaultValue={current ? current.slice(0, 10) : ""}
+      disabled={pending}
+      onChange={async (e) => {
+        setPending(true);
+        const v = e.target.value;
+        const ok = await patchIssue(issueKey, {
+          dueDate: v ? new Date(`${v}T00:00:00Z`).toISOString() : null,
+        });
+        setPending(false);
+        if (ok) router.refresh();
+      }}
+      className={`${SELECT_CLS} [color-scheme:dark]`}
+    />
+  );
+}
+
+// provenance line per DESIGN.md — the glint precedes the actor name when
+// an agent filed the issue; the words carry the fact, the glyph the mark
+export function FiledBy({
+  creatorName,
+  creatorType,
+  source,
+  createdAt,
+}: {
+  creatorName: string | null;
+  creatorType: string;
+  source: string;
+  createdAt: string;
+}) {
+  const when = new Date(createdAt).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+  return (
+    <span className="inline-flex items-center gap-1 font-mono text-[10px] text-ink-tertiary">
+      {creatorType === "agent" && (
+        <Sparkle size={12} label={`filed by ${creatorName ?? "an agent"}`} />
+      )}
+      {creatorName ? `filed by ${creatorName}` : "filed"} · via {source} ·{" "}
+      {when}
+    </span>
   );
 }
 

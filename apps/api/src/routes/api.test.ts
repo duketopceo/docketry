@@ -40,7 +40,13 @@ const SLUGS = [SLUG, `${SLUG}-2`];
 
 interface TestBody {
   error?: { code: string; message: string };
-  issues?: { key: string; title: string; state: string; priority: string }[];
+  issues?: {
+    key: string;
+    title: string;
+    state: string;
+    priority: string;
+    labels?: { id: string; name: string; color: string }[];
+  }[];
   labels?: { id: string; name: string }[];
   events?: { action: string; actorType: string; actorId?: string | null }[];
   comments?: { body: string }[];
@@ -339,6 +345,54 @@ describe("api routes (real postgres)", () => {
 
     const badWs = await req(`/v1/workspaces/nonexistent/issues`);
     expect(badWs.status).toBe(404);
+  });
+
+  it("PATCH labelIds replaces the set atomically and validates ids", async () => {
+    const mk = async (name: string) => {
+      const r = await req(`/v1/workspaces/${SLUG}/labels`, {
+        method: "POST",
+        body: JSON.stringify({ name, color: "#339fee" }),
+      });
+      return r.body.id as string;
+    };
+    const [a, b] = [await mk("backend"), await mk("frontend")];
+    const created = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({ teamKey: "ENG", title: "label swap target" }),
+    });
+    const key = created.body.key as string;
+
+    const set = await req(`/v1/workspaces/${SLUG}/issues/${key}`, {
+      method: "PATCH",
+      body: JSON.stringify({ labelIds: [a, b] }),
+    });
+    expect(set.status).toBe(200);
+    let detail = await req(`/v1/workspaces/${SLUG}/issues/${key}`);
+    expect(detail.body.labels).toHaveLength(2);
+
+    // replace semantics — removing b leaves only a
+    await req(`/v1/workspaces/${SLUG}/issues/${key}`, {
+      method: "PATCH",
+      body: JSON.stringify({ labelIds: [a] }),
+    });
+    detail = await req(`/v1/workspaces/${SLUG}/issues/${key}`);
+    expect(detail.body.labels).toHaveLength(1);
+    expect(detail.body.labels![0]!.name).toBe("backend");
+
+    // unknown label id → 422, existing labels untouched
+    const bad = await req(`/v1/workspaces/${SLUG}/issues/${key}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        labelIds: ["00000000-0000-0000-0000-000000000000"],
+      }),
+    });
+    expect(bad.status).toBe(422);
+    detail = await req(`/v1/workspaces/${SLUG}/issues/${key}`);
+    expect(detail.body.labels).toHaveLength(1);
+
+    // list rows carry labels for chip rendering
+    const list = await req(`/v1/workspaces/${SLUG}/issues?search=label swap target`);
+    expect(list.body.issues![0]!.labels).toHaveLength(1);
   });
 
   it("rejects invalid payloads at the boundary", async () => {

@@ -20,7 +20,14 @@ import { ACTIVE_STATES, findPath, type IssueState } from "@tallyline/types";
 import { useRouter } from "next/navigation";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import type { ListIssue } from "@/components/issue-list-client";
-import { Sparkle, StateDot } from "@/components/primitives";
+import {
+  Avatar,
+  LabelChip,
+  PriorityIcon,
+  Sparkle,
+  StateDot,
+} from "@/components/primitives";
+import type { ActorDirectory } from "@/lib/actors";
 
 type BoardState = (typeof ACTIVE_STATES)[number];
 
@@ -30,11 +37,6 @@ const COLUMN_LABEL: Record<BoardState, string> = {
   todo: "Todo",
   in_progress: "In Progress",
   in_review: "In Review",
-};
-
-const PRIORITY_BADGE: Partial<Record<ListIssue["priority"], string>> = {
-  urgent: "text-urgent",
-  high: "text-attention",
 };
 
 interface DragInfo {
@@ -51,7 +53,15 @@ function isTypingTarget(el: EventTarget | null): boolean {
   );
 }
 
-function CardFace({ issue, busy = false }: { issue: ListIssue; busy?: boolean }) {
+function CardFace({
+  issue,
+  busy = false,
+  actors = {},
+}: {
+  issue: ListIssue;
+  busy?: boolean;
+  actors?: ActorDirectory;
+}) {
   const agentTouched =
     issue.creatorType === "agent" || issue.assigneeType === "agent";
   return (
@@ -65,17 +75,36 @@ function CardFace({ issue, busy = false }: { issue: ListIssue; busy?: boolean })
           <span className="ml-auto font-mono text-[11px] text-ink-tertiary">
             …
           </span>
-        ) : issue.priority !== "none" ? (
-          <span
-            className={`ml-auto font-mono text-[11px] ${PRIORITY_BADGE[issue.priority] ?? "text-ink-tertiary"}`}
-          >
-            {issue.priority}
-          </span>
-        ) : null}
+        ) : (
+          <PriorityIcon priority={issue.priority} />
+        )}
       </span>
       <span className="mt-1 line-clamp-2 text-left text-[13px] leading-snug text-ink-muted">
         {issue.title}
       </span>
+      {issue.labels && issue.labels.length > 0 && (
+        <span className="mt-1.5 flex flex-wrap gap-1">
+          {issue.labels.map((l) => (
+            <LabelChip key={l.id} label={l} />
+          ))}
+        </span>
+      )}
+      {(issue.assigneeId || issue.dueDate) && (
+        <span className="mt-1.5 flex items-center gap-2">
+          <span className="ml-auto" />
+          {issue.dueDate && (
+            <span className="font-mono text-[10px] text-ink-tertiary">
+              {new Date(issue.dueDate).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })}
+            </span>
+          )}
+          {issue.assigneeId && (
+            <Avatar actor={actors[issue.assigneeId]} />
+          )}
+        </span>
+      )}
     </>
   );
 }
@@ -84,6 +113,7 @@ function BoardCard({
   issue,
   isCursor,
   busy,
+  actors,
   onOpen,
   onHover,
   onFocusCard,
@@ -91,6 +121,7 @@ function BoardCard({
   issue: ListIssue;
   isCursor: boolean;
   busy: boolean;
+  actors: ActorDirectory;
   onOpen: (key: string) => void;
   onHover: (key: string) => void;
   onFocusCard: (key: string) => void;
@@ -122,7 +153,7 @@ function BoardCard({
         isDragging ? "opacity-40" : ""
       } ${isCursor ? "border-accent" : "border-lining"}`}
     >
-      <CardFace issue={issue} busy={busy} />
+      <CardFace issue={issue} busy={busy} actors={actors} />
     </button>
   );
 }
@@ -134,6 +165,7 @@ function BoardColumn({
   reachable,
   cursor,
   pending,
+  actors,
   onOpen,
   onHover,
   onFocusCard,
@@ -144,6 +176,7 @@ function BoardColumn({
   reachable: boolean;
   cursor: string | null;
   pending: ReadonlySet<string>;
+  actors: ActorDirectory;
   onOpen: (key: string) => void;
   onHover: (key: string) => void;
   onFocusCard: (key: string) => void;
@@ -178,6 +211,7 @@ function BoardColumn({
             issue={issue}
             isCursor={cursor === issue.key}
             busy={pending.has(issue.key)}
+            actors={actors}
             onOpen={onOpen}
             onHover={onHover}
             onFocusCard={onFocusCard}
@@ -202,7 +236,13 @@ const announcements: Announcements = {
   onDragCancel: ({ active }) => `Move cancelled — ${String(active.id)} returned`,
 };
 
-export function BoardClient({ issues }: { issues: ListIssue[] }) {
+export function BoardClient({
+  issues,
+  actors = {},
+}: {
+  issues: ListIssue[];
+  actors?: ActorDirectory;
+}) {
   const router = useRouter();
   // Optimistic column membership: key -> state the server is being asked for.
   const [overrides, setOverrides] = useState<Readonly<Record<string, IssueState>>>({});
@@ -552,6 +592,7 @@ export function BoardClient({ issues }: { issues: ListIssue[] }) {
               reachable={drag?.reachable.has(state) ?? false}
               cursor={cursor}
               pending={pending}
+              actors={actors}
               onOpen={open}
               onHover={(key) => {
                 kbdNavRef.current = false;
@@ -564,7 +605,7 @@ export function BoardClient({ issues }: { issues: ListIssue[] }) {
         <DragOverlay>
           {dragIssue ? (
             <div className="w-[284px] rounded-md border border-accent bg-surface-2 p-3">
-              <CardFace issue={dragIssue} />
+              <CardFace issue={dragIssue} actors={actors} />
             </div>
           ) : null}
         </DragOverlay>

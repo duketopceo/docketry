@@ -220,6 +220,11 @@ const basePaths = {
             cycleId: { type: ["string", "null"], format: "uuid" },
             projectId: { type: ["string", "null"], format: "uuid" },
             parentId: { type: ["string", "null"], format: "uuid" },
+            labelIds: {
+              type: "array",
+              maxItems: 10,
+              items: { type: "string", format: "uuid" },
+            },
           },
         }),
         responses: {

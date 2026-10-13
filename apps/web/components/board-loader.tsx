@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import type { ActorDirectory } from "@/lib/actors";
 import { LoadingState } from "./primitives";
 import type { ListIssue } from "./issue-list-client";
 
@@ -14,6 +15,12 @@ const BoardClient = dynamic(
   },
 );
 
-export function BoardLoader({ issues }: { issues: ListIssue[] }) {
-  return <BoardClient issues={issues} />;
+export function BoardLoader({
+  issues,
+  actors = {},
+}: {
+  issues: ListIssue[];
+  actors?: ActorDirectory;
+}) {
+  return <BoardClient issues={issues} actors={actors} />;
 }

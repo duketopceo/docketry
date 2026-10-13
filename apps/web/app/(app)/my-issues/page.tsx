@@ -3,6 +3,7 @@ import {
   type ListIssue,
 } from "@/components/issue-list-client";
 import { api } from "@/lib/api";
+import { getActorDirectory } from "@/lib/actors";
 import { TallyMark } from "@/components/tally-mark";
 
 interface Me {
@@ -28,7 +29,7 @@ export default async function MyIssuesPage() {
     return <main className="p-8 text-sm text-ink-subtle">Not signed in.</main>;
   }
   const res = await api<IssueList>(
-    `/v1/workspaces/${me.data.workspaceSlug}/issues?state=todo,in_progress,in_review&limit=100`,
+    `/v1/workspaces/${me.data.workspaceSlug}/issues?state=todo,in_progress,in_review&assignee=${me.data.userId}&limit=100`,
   );
   const rows = [...(res.data?.issues ?? [])].sort(
     (a, b) => (PRIORITY_RANK[a.priority] ?? 4) - (PRIORITY_RANK[b.priority] ?? 4),
@@ -55,7 +56,10 @@ export default async function MyIssuesPage() {
           </p>
         </div>
       ) : (
-        <IssueListClient issues={rows} />
+        <IssueListClient
+          issues={rows}
+          actors={await getActorDirectory(me.data.workspaceSlug)}
+        />
       )}
     </main>
   );

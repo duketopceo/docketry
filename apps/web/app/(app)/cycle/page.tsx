@@ -10,6 +10,7 @@ import {
   type ListIssue,
 } from "@/components/issue-list-client";
 import { api } from "@/lib/api";
+import { getActorDirectory } from "@/lib/actors";
 import { TallyMark } from "@/components/tally-mark";
 
 interface Me {
@@ -99,6 +100,7 @@ export default async function CyclePage({
       )
     : null;
   const rows = issuesRes?.data?.issues ?? [];
+  const actors = await getActorDirectory(slug);
 
   const groups: IssueGroup[] = STATE_ORDER.map((state) => ({
     key: state,
@@ -169,7 +171,7 @@ export default async function CyclePage({
           No issues in this cycle — assign from an issue&apos;s detail page.
         </p>
       ) : (
-        <IssueListClient groups={groups} />
+        <IssueListClient groups={groups} actors={actors} />
       )}
 
       <CycleManager

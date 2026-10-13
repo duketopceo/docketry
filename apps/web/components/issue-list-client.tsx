@@ -9,12 +9,21 @@ import {
   useRef,
   useState,
 } from "react";
-import { Sparkle, StateDot } from "@/components/primitives";
+import {
+  Avatar,
+  LabelChip,
+  PriorityIcon,
+  RelativeTime,
+  Sparkle,
+  StateDot,
+} from "@/components/primitives";
+import type { ActorDirectory } from "@/lib/actors";
 
-const PRIORITY_BADGE: Partial<Record<Priority, string>> = {
-  urgent: "text-urgent",
-  high: "text-attention",
-};
+export interface ListLabel {
+  id: string;
+  name: string;
+  color: string;
+}
 
 export interface ListIssue {
   key: string;
@@ -23,6 +32,10 @@ export interface ListIssue {
   priority: Priority;
   creatorType?: string;
   assigneeType?: string | null;
+  assigneeId?: string | null;
+  dueDate?: string | null;
+  updatedAt?: string;
+  labels?: ListLabel[];
 }
 
 export interface IssueGroup {
@@ -43,10 +56,12 @@ export function IssueListClient({
   issues,
   groups,
   triage = false,
+  actors = {},
 }: {
   issues?: ListIssue[];
   groups?: IssueGroup[] | undefined;
   triage?: boolean;
+  actors?: ActorDirectory;
 }) {
   const router = useRouter();
   const [cursor, setCursor] = useState(0);
@@ -158,15 +173,25 @@ export function IssueListClient({
           </span>
           <span className="truncate text-ink-muted">{issue.title}</span>
           {agentTouched && <Sparkle size={12} />}
+          {issue.labels?.slice(0, 2).map((l) => (
+            <LabelChip key={l.id} label={l} />
+          ))}
+          {(issue.labels?.length ?? 0) > 2 && (
+            <span className="shrink-0 font-mono text-[10px] text-ink-tertiary">
+              +{issue.labels!.length - 2}
+            </span>
+          )}
           {busy === issue.key ? (
             <span className="ml-auto font-mono text-[11px] text-ink-tertiary">
               …
             </span>
           ) : (
-            <span
-              className={`ml-auto font-mono text-[11px] ${PRIORITY_BADGE[issue.priority] ?? "text-ink-tertiary"}`}
-            >
-              {issue.priority !== "none" ? issue.priority : ""}
+            <span className="ml-auto flex shrink-0 items-center gap-2.5">
+              <PriorityIcon priority={issue.priority} />
+              {issue.assigneeId && (
+                <Avatar actor={actors[issue.assigneeId]} />
+              )}
+              {issue.updatedAt && <RelativeTime iso={issue.updatedAt} />}
             </span>
           )}
         </button>

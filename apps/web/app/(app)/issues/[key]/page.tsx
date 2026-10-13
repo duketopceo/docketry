@@ -1,4 +1,4 @@
-import type { IssueState } from "@tallyline/types";
+import type { IssueState, Priority } from "@tallyline/types";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -10,13 +10,20 @@ import {
   type ProjectOption,
 } from "@/components/project-select";
 import {
+  AssigneeSelect,
   CommentComposer,
+  DueEdit,
+  EstimateEdit,
+  FiledBy,
+  LabelPicker,
+  PrioritySelect,
   StateActions,
   SummarizeButton,
 } from "@/components/issue-detail-client";
-import { Sparkle, StatePill } from "@/components/primitives";
+import { PriorityIcon, Sparkle, StatePill } from "@/components/primitives";
 import { SessionTimeline } from "@/components/session-timeline";
 import { api } from "@/lib/api";
+import { getActorDirectory } from "@/lib/actors";
 
 interface Me {
   workspaceSlug: string;
@@ -56,7 +63,10 @@ interface IssueDetail {
   priority: string;
   estimate: number | null;
   dueDate: string | null;
+  assigneeType: "human" | "agent" | null;
+  assigneeId: string | null;
   creatorType: string;
+  creatorId: string | null;
   source: string;
   teamId: string;
   cycleId: string | null;
@@ -99,23 +109,23 @@ export default async function IssuePage({
   if (!me.data) {
     return <main className="p-8 text-sm text-ink-subtle">Not signed in.</main>;
   }
-  const base = `/v1/workspaces/${me.data.workspaceSlug}/issues/${key}`;
-  const [issueRes, commentsRes, eventsRes, cyclesRes, projectsRes] =
+  const slug = me.data.workspaceSlug;
+  const base = `/v1/workspaces/${slug}/issues/${key}`;
+  const [issueRes, commentsRes, eventsRes, cyclesRes, projectsRes, labelsRes] =
     await Promise.all([
       api<IssueDetail>(base),
       api<{ comments: Comment[] }>(`${base}/comments`),
       api<{ events: Event[] }>(`${base}/events`),
-      api<{ cycles: CycleRow[] }>(
-        `/v1/workspaces/${me.data.workspaceSlug}/cycles`,
-      ),
-      api<{ projects: ProjectRow[] }>(
-        `/v1/workspaces/${me.data.workspaceSlug}/projects`,
-      ),
+      api<{ cycles: CycleRow[] }>(`/v1/workspaces/${slug}/cycles`),
+      api<{ projects: ProjectRow[] }>(`/v1/workspaces/${slug}/projects`),
+      api<{ labels: Label[] }>(`/v1/workspaces/${slug}/labels`),
     ]);
   if (!issueRes.data) notFound();
   const issue = issueRes.data;
   const comments = commentsRes.data?.comments ?? [];
   const events = eventsRes.data?.events ?? [];
+  const actors = await getActorDirectory(slug);
+  const actorList = Object.values(actors);
   // cycles are team-scoped — only offer ones from the issue's own team
   const cycleOptions: CycleOption[] = (cyclesRes.data?.cycles ?? [])
     .filter((c) => c.teamId === issue.teamId)
@@ -156,42 +166,68 @@ export default async function IssuePage({
       <div className="mx-auto max-w-3xl px-8 py-8">
         <h1 className="text-xl font-semibold leading-snug">{issue.title}</h1>
 
-        <div className="mt-2 flex items-center gap-4 font-mono text-[11px] text-ink-tertiary">
-          <span>priority: {issue.priority}</span>
-          {issue.estimate !== null && <span>est: {issue.estimate}</span>}
-          {issue.dueDate && <span>due: {ts(issue.dueDate)}</span>}
-          <span className="flex items-center gap-1">
-            cycle:
+        <div className="mt-1.5">
+          <FiledBy
+            creatorName={
+              issue.creatorId ? (actors[issue.creatorId]?.name ?? null) : null
+            }
+            creatorType={issue.creatorType}
+            source={issue.source}
+            createdAt={issue.createdAt}
+          />
+        </div>
+
+        <dl className="mt-4 grid grid-cols-[7rem_1fr] items-center gap-x-4 gap-y-2.5 rounded-md border border-lining-faint bg-surface-1 p-4 font-mono text-[11px]">
+          <dt className="text-ink-tertiary">assignee</dt>
+          <dd>
+            <AssigneeSelect
+              issueKey={issue.key}
+              actors={actorList}
+              currentType={issue.assigneeType}
+              currentId={issue.assigneeId}
+            />
+          </dd>
+          <dt className="text-ink-tertiary">priority</dt>
+          <dd className="flex items-center gap-2">
+            <PriorityIcon priority={issue.priority as Priority} />
+            <PrioritySelect
+              issueKey={issue.key}
+              current={issue.priority as Priority}
+            />
+          </dd>
+          <dt className="text-ink-tertiary">labels</dt>
+          <dd>
+            <LabelPicker
+              issueKey={issue.key}
+              all={labelsRes.data?.labels ?? []}
+              current={issue.labels}
+            />
+          </dd>
+          <dt className="text-ink-tertiary">estimate</dt>
+          <dd>
+            <EstimateEdit issueKey={issue.key} current={issue.estimate} />
+          </dd>
+          <dt className="text-ink-tertiary">due</dt>
+          <dd>
+            <DueEdit issueKey={issue.key} current={issue.dueDate} />
+          </dd>
+          <dt className="text-ink-tertiary">cycle</dt>
+          <dd>
             <CycleSelect
               issueKey={issue.key}
               cycles={cycleOptions}
               current={issue.cycleId}
             />
-          </span>
-          <span className="flex items-center gap-1">
-            project:
+          </dd>
+          <dt className="text-ink-tertiary">project</dt>
+          <dd>
             <ProjectSelect
               issueKey={issue.key}
               projects={projectOptions}
               current={issue.projectId}
             />
-          </span>
-          <span>created: {ts(issue.createdAt)}</span>
-        </div>
-
-        {issue.labels.length > 0 && (
-          <div className="mt-3 flex gap-1.5">
-            {issue.labels.map((l) => (
-              <span
-                key={l.id}
-                className="rounded-full border border-lining px-2 py-0.5 text-[11px] text-ink-muted"
-                style={{ borderColor: l.color }}
-              >
-                {l.name}
-              </span>
-            ))}
-          </div>
-        )}
+          </dd>
+        </dl>
 
         <div className="mt-5 rounded-md border border-lining bg-surface-1 p-4">
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-muted">

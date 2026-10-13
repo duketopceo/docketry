@@ -81,6 +81,7 @@ const patchSchema = z.object({
   cycleId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
   parentId: z.uuid().nullable().optional(),
+  labelIds: z.array(z.uuid()).max(10).optional(),
 });
 
 const listQuerySchema = z.object({
@@ -381,8 +382,34 @@ export const issueRoutes = new Hono()
       const hasMore = rows.length > q.limit;
       const page = hasMore ? rows.slice(0, q.limit) : rows;
       const last = page.at(-1);
+      // one batched label read per page — rows render chips without N+1
+      const pageIds = page.map((i) => i.id);
+      const labelRows = pageIds.length
+        ? await db
+            .select({
+              issueId: issueLabels.issueId,
+              id: labels.id,
+              name: labels.name,
+              color: labels.color,
+            })
+            .from(issueLabels)
+            .innerJoin(labels, eq(labels.id, issueLabels.labelId))
+            .where(inArray(issueLabels.issueId, pageIds))
+        : [];
+      const labelsByIssue = new Map<
+        string,
+        { id: string; name: string; color: string }[]
+      >();
+      for (const l of labelRows) {
+        const arr = labelsByIssue.get(l.issueId) ?? [];
+        arr.push({ id: l.id, name: l.name, color: l.color });
+        labelsByIssue.set(l.issueId, arr);
+      }
       return c.json({
-        issues: page,
+        issues: page.map((i) => ({
+          ...i,
+          labels: labelsByIssue.get(i.id) ?? [],
+        })),
         nextCursor:
           hasMore && last
             ? encodeCursor({
@@ -432,6 +459,24 @@ export const issueRoutes = new Hono()
         await validateAssignee(ws.id, body.assigneeType, body.assigneeId);
       }
       if (body.parentId) await validateParent(ws.id, body.parentId, key);
+      if (body.labelIds?.length) {
+        const found = await db
+          .select({ id: labels.id })
+          .from(labels)
+          .where(
+            and(
+              eq(labels.workspaceId, ws.id),
+              inArray(labels.id, body.labelIds),
+            ),
+          );
+        if (found.length !== new Set(body.labelIds).size) {
+          throw new HttpError(
+            422,
+            "INVALID_LABELS",
+            "label id not in workspace",
+          );
+        }
+      }
       if (body.cycleId || body.projectId) {
         const issue = await findIssue(ws.id, key);
         if (body.cycleId)
@@ -489,6 +534,9 @@ export const issueRoutes = new Hono()
         if (!issue) issue = await findIssue(ws.id, key);
       } else {
         issue = await findIssue(ws.id, key);
+      }
+      if (body.labelIds !== undefined && issue) {
+        await replaceIssueLabels(issue.id, ws.id, body.labelIds);
       }
       if (body.assigneeType === "agent" && body.assigneeId && issue) {
         await createDispatch({
@@ -775,4 +823,23 @@ async function setIssueLabels(
     .values(valid.map((l) => ({ issueId, labelId: l.id })));
   // best-effort GitHub mirror — no-ops for unlinked issues (#60)
   if (valid.length > 0) track(mirrorIssueLabels(issueId));
+}
+
+// PATCH label set — replace semantics, matching the web editor's chip model.
+// Ids are pre-validated against the workspace in the PATCH handler; the swap
+// is transactional so an insert failure can't strip the existing set.
+async function replaceIssueLabels(
+  issueId: string,
+  workspaceId: string,
+  labelIds: string[],
+) {
+  await db.transaction(async (tx) => {
+    await tx.delete(issueLabels).where(eq(issueLabels.issueId, issueId));
+    if (labelIds.length > 0) {
+      await tx
+        .insert(issueLabels)
+        .values(labelIds.map((labelId) => ({ issueId, labelId })));
+    }
+  });
+  if (labelIds.length > 0) track(mirrorIssueLabels(issueId));
 }

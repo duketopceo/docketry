@@ -5,6 +5,7 @@ import {
   type ListIssue,
 } from "@/components/issue-list-client";
 import { api } from "@/lib/api";
+import { getActorDirectory } from "@/lib/actors";
 
 interface Me {
   workspaceSlug: string;
@@ -43,6 +44,7 @@ export default async function AllIssuesPage({
     `/v1/workspaces/${slug}/issues?limit=200${cycleParam ? `&cycle=${encodeURIComponent(cycleParam)}` : ""}`,
   );
   const rows = res.data?.issues ?? [];
+  const actors = await getActorDirectory(slug);
 
   let groups: IssueGroup[] | undefined;
   if (group === "cycle") {
@@ -102,7 +104,7 @@ export default async function AllIssuesPage({
           No issues yet — press <kbd className="rounded-sm border border-lining px-1 font-mono text-[11px]">c</kbd> to create one.
         </p>
       ) : (
-        <IssueListClient issues={rows} groups={groups} />
+        <IssueListClient issues={rows} groups={groups} actors={actors} />
       )}
     </main>
   );

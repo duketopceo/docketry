@@ -47,6 +47,14 @@ semver until stated otherwise.
   was sent to an unreachable origin after signing in. All auth redirects now
   emit relative `Location` headers, which resolve against the public origin
   the browser actually requested — no config change needed for self-hosters.
+- **`/my-issues` ignored the assignee filter** and listed every active
+  issue; it now passes `assignee=<current user>` and sorts by priority.
+- **Web surface uplift toward the issue-row contract** (DESIGN.md): list
+  rows and board cards render priority glyphs, label chips, assignee
+  avatars, and relative timestamps; issue detail gains a property rail
+  with editable assignee, priority, labels, estimate, due date, cycle,
+  and project, plus the rendered description body and a "filed by" agent
+  attribution with the provenance glint on agent-created ids.
 
 ### Added
 

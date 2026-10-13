@@ -1,6 +1,7 @@
 import { BoardLoader } from "@/components/board-loader";
 import type { ListIssue } from "@/components/issue-list-client";
 import { api } from "@/lib/api";
+import { getActorDirectory } from "@/lib/actors";
 
 interface Me {
   workspaceSlug: string;
@@ -19,6 +20,7 @@ export default async function BoardPage() {
     `/v1/workspaces/${me.data.workspaceSlug}/issues?state=triage,backlog,todo,in_progress,in_review&limit=200`,
   );
   const rows = res.data?.issues ?? [];
+  const actors = await getActorDirectory(me.data.workspaceSlug);
 
   return (
     <main className="flex min-h-0 flex-1 flex-col">
@@ -28,7 +30,7 @@ export default async function BoardPage() {
           {rows.length} active
         </span>
       </header>
-      <BoardLoader issues={rows} />
+      <BoardLoader issues={rows} actors={actors} />
     </main>
   );
 }
