@@ -149,6 +149,7 @@ export function Avatar({ actor }: { actor?: ActorRef | undefined }) {
       <span
         className="inline-block h-5 w-5 shrink-0 rounded-full border border-dashed border-lining"
         title="unassigned"
+        role="img"
         aria-label="unassigned"
       />
     );

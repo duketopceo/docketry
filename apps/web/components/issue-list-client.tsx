@@ -178,7 +178,7 @@ export function IssueListClient({
           ))}
           {(issue.labels?.length ?? 0) > 2 && (
             <span className="shrink-0 font-mono text-[11px] text-ink-tertiary">
-              +{issue.labels!.length - 2}
+              +{(issue.labels?.length ?? 0) - 2}
             </span>
           )}
           {busy === issue.key ? (
