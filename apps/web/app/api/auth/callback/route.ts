@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { API_URL } from "@/lib/api";
+import { redirectTo } from "@/lib/redirect";
 import { upstreamFetch } from "@/lib/upstream";
 import {
   forwardSessionCookies,
@@ -31,7 +32,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   if (!code) {
-    return NextResponse.redirect(new URL("/login?error=exchange", req.url));
+    return redirectTo("/login?error=exchange");
   }
   const jar = await cookies();
   const loginNonce = jar.get(LOGIN_NONCE_COOKIE)?.value;
@@ -40,20 +41,15 @@ export async function GET(req: Request) {
 
   if (upstream.status === 409 && data?.purpose === "pending-link") {
     const provider = data.context?.linkProviderKey ?? "";
-    return NextResponse.redirect(
-      new URL(
-        `/link?code=${encodeURIComponent(code)}&provider=${encodeURIComponent(provider)}`,
-        req.url,
-      ),
+    return redirectTo(
+      `/link?code=${encodeURIComponent(code)}&provider=${encodeURIComponent(provider)}`,
     );
   }
   if (upstream.ok && data?.purpose === "pending-bootstrap") {
-    return NextResponse.redirect(
-      new URL(`/bootstrap?code=${encodeURIComponent(code)}`, req.url),
-    );
+    return redirectTo(`/bootstrap?code=${encodeURIComponent(code)}`);
   }
   if (!upstream.ok || !data || data.purpose !== "login") {
-    return NextResponse.redirect(new URL("/login?error=exchange", req.url));
+    return redirectTo("/login?error=exchange");
   }
 
   await forwardSessionCookies(upstream, req, data.workspaceSlug);
@@ -63,9 +59,9 @@ export async function GET(req: Request) {
   // send the user through the chooser when there's a real choice to make
   const memberships = data.memberships ?? [];
   if (memberships.length > 1 && destination === "/my-issues") {
-    return NextResponse.redirect(new URL("/workspaces", req.url));
+    return redirectTo("/workspaces");
   }
-  return NextResponse.redirect(new URL(destination, req.url));
+  return redirectTo(destination);
 }
 
 // POST: pending-bootstrap completion — the bootstrap page collected

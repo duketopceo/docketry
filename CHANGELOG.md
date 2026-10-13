@@ -38,6 +38,16 @@ semver until stated otherwise.
   so the real client IP is read from `CF-Connecting-IP` / last
   `X-Forwarded-For` hop.
 
+### Fixed
+
+- **Web app redirects no longer leak the upstream Host**: login/OAuth
+  callback, logout, and the middleware login redirect previously built
+  absolute `Location` targets from `req.url`. Behind a reverse proxy or
+  tunnel that forwards an internal Host (e.g. `localhost:3100`) the browser
+  was sent to an unreachable origin after signing in. All auth redirects now
+  emit relative `Location` headers, which resolve against the public origin
+  the browser actually requested — no config change needed for self-hosters.
+
 ### Added
 
 - **Remote MCP endpoint with OAuth 2.1** (PLAN-010/011): `POST /mcp`
