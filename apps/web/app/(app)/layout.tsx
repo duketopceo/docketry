@@ -21,10 +21,14 @@ export default async function AppLayout({
   if (!memberships.some((m) => m.workspaceSlug === me.data!.workspaceSlug)) {
     redirect("/workspaces");
   }
+  const unread = await api<{ count: number }>(
+    `/v1/workspaces/${me.data.workspaceSlug}/notifications/unread-count`,
+  );
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar
         workspace={me.data.workspaceSlug}
+        unread={unread.data?.count ?? 0}
         role={
           me.data.memberships.find(
             (m) => m.workspaceSlug === me.data!.workspaceSlug,

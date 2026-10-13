@@ -3,6 +3,7 @@ import { TallyMark } from "./tally-mark";
 
 const NAV = [
   { href: "/my-issues", label: "My Issues", hint: "g i" },
+  { href: "/notifications", label: "Inbox", hint: "g n" },
   { href: "/board", label: "Board", hint: "g b" },
   { href: "/triage", label: "Triage", hint: "g t" },
   { href: "/review", label: "Review", hint: "g r" },
@@ -16,9 +17,11 @@ const NAV = [
 export function Sidebar({
   workspace,
   role,
+  unread = 0,
 }: {
   workspace: string;
   role: string | undefined;
+  unread?: number;
 }) {
   const items =
     role === "owner" || role === "admin"
@@ -46,9 +49,19 @@ export function Sidebar({
                 className="flex h-8 items-center justify-between rounded-sm px-2 text-[13px] text-ink-muted hover:bg-surface-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
               >
                 {item.label}
-                <kbd className="font-mono text-[10px] text-ink-tertiary">
-                  {item.hint}
-                </kbd>
+                <span className="ml-auto flex items-center gap-1.5">
+                  {item.href === "/notifications" && unread > 0 && (
+                    <span
+                      aria-label={`${unread} unread notifications`}
+                      className="min-w-4 rounded-full bg-accent px-1 text-center font-mono text-[11px] leading-4 text-on-accent"
+                    >
+                      {unread}
+                    </span>
+                  )}
+                  <kbd className="font-mono text-[10px] text-ink-tertiary">
+                    {item.hint}
+                  </kbd>
+                </span>
               </Link>
             </li>
           ))}

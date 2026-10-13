@@ -2,6 +2,10 @@ import { and, eq, lt } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { config_ } from "../env.js";
 import {
+  dispatchFailureTargets,
+  notifyUsers,
+} from "./notifications.js";
+import {
   agents,
   comments,
   dispatches,
@@ -139,6 +143,12 @@ async function fail(
     dispatch.workspaceId,
     dispatch.issueId,
     `dispatch_failed: ${reason}`,
+  );
+  // a failed dispatch needs human eyes — assignee first, then creator, then staff
+  await notifyUsers(
+    dispatch.workspaceId,
+    await dispatchFailureTargets(dispatch.workspaceId, dispatch.issueId),
+    { kind: "dispatch_failed", issueId: dispatch.issueId },
   );
 }
 

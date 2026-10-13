@@ -11,6 +11,7 @@ import {
   mkIssue,
   mkMember,
   mkMilestone,
+  mkNotification,
   mkOauthGrant,
   mkProject,
   mkProvider,
@@ -115,6 +116,15 @@ const viewOp =
   async (t, who) => {
     const v = await mkView(t, who.userId ?? t.people.owner.id);
     return { method, path: `${base(t)}/views/${v.id}`, ...(body === undefined ? {} : { body }) };
+  };
+
+// notifications are per-user: the row belongs to the calling user so
+// mark-read resolves to a real target (200 for humans, 404 for cross-tenant ids)
+const notificationOp =
+  (method: string): Builder =>
+  async (t, who) => {
+    const n = await mkNotification(t, who.userId ?? t.people.owner.id);
+    return { method, path: `${base(t)}/notifications/${n.id}/read` };
   };
 
 const endpointOp =
@@ -400,6 +410,12 @@ export const OPERATIONS: Record<string, Builder> = {
     path: `${base(t)}/import/linear`,
     body: { teamKey: t.team.key, csv: "ID,Title,Status\nL-1,Imported,Todo\n" },
   }),
+
+  // ── notifications ──────────────────────────────────────────────────────────
+  "GET /v1/workspaces/{ws}/notifications": get((t) => `${base(t)}/notifications`),
+  "GET /v1/workspaces/{ws}/notifications/unread-count": get((t) => `${base(t)}/notifications/unread-count`),
+  "POST /v1/workspaces/{ws}/notifications/read-all": simple("POST", (t) => `${base(t)}/notifications/read-all`),
+  "POST /v1/workspaces/{ws}/notifications/{id}/read": notificationOp("POST"),
 
   // ── outbound webhooks ──────────────────────────────────────────────────────
   "GET /v1/workspaces/{ws}/webhook-endpoints": get((t) => `${base(t)}/webhook-endpoints`),

@@ -23,6 +23,7 @@ const GROUPS: { name: string; bindings: Binding[] }[] = [
     name: "Navigate (g-sequences)",
     bindings: [
       { keys: "g i", action: "my issues" },
+      { keys: "g n", action: "inbox" },
       { keys: "g t", action: "triage" },
       { keys: "g r", action: "review queue" },
       { keys: "g b", action: "board" },

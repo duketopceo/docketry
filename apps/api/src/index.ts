@@ -13,6 +13,7 @@ import { sweepExpiredCycles } from "./services/cycles.js";
 import { sweepDeliveries } from "./services/outbound.js";
 import { sweepStaleDispatches } from "./services/dispatch.js";
 import { agentRoutes } from "./routes/agents.js";
+import { notificationRoutes } from "./routes/notifications.js";
 import { authRoutes, requireSession } from "./routes/auth.js";
 import { assistRoutes } from "./routes/assist.js";
 import { dispatchRoutes } from "./routes/dispatches.js";
@@ -83,6 +84,7 @@ export const app = new Hono()
   .route("/v1", tokenRoutes)
   .route("/v1", memberRoutes)
   .route("/v1", inviteRoutes)
+  .route("/v1", notificationRoutes)
   .route("/v1", githubRoutes)
   .route("/v1", importRoutes)
   .route("/v1", webhookEndpointRoutes)

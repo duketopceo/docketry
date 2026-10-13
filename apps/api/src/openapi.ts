@@ -15,6 +15,13 @@ const keyParam = {
   schema: { type: "string", pattern: "^[A-Z][A-Z0-9]*-\\d+$" },
 } as const;
 
+const idParam = {
+  name: "id",
+  in: "path",
+  required: true,
+  schema: { type: "string" },
+} as const;
+
 function jsonBody(schema: Record<string, unknown>) {
   return {
     required: true,
@@ -309,6 +316,38 @@ const basePaths = {
         summary: "Activity/audit feed for an issue (append-only)",
         parameters: [wsParam, keyParam],
         responses: { "200": { description: "Events" } },
+      },
+    },
+    "/v1/workspaces/{ws}/notifications": {
+      get: {
+        summary:
+          "List the signed-in member's notifications, newest first, cursor-paginated — human sessions only (agent keys get 403)",
+        parameters: [wsParam],
+        responses: { "200": { description: "Notifications + nextCursor" } },
+      },
+    },
+    "/v1/workspaces/{ws}/notifications/unread-count": {
+      get: {
+        summary: "Unread notification count for the signed-in member",
+        parameters: [wsParam],
+        responses: { "200": { description: "{ count }" } },
+      },
+    },
+    "/v1/workspaces/{ws}/notifications/{id}/read": {
+      post: {
+        summary: "Mark one notification read (404 if it isn't yours)",
+        parameters: [wsParam, idParam],
+        responses: {
+          "200": { description: "Marked read" },
+          "404": { description: "Not found / not yours" },
+        },
+      },
+    },
+    "/v1/workspaces/{ws}/notifications/read-all": {
+      post: {
+        summary: "Mark every unread notification read",
+        parameters: [wsParam],
+        responses: { "200": { description: "{ ok, count }" } },
       },
     },
     "/v1/workspaces/{ws}/issues/{key}/triage": {

@@ -73,6 +73,14 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
     ],
   },
   issue_external_refs: { ops: ["POST /v1/workspaces/{ws}/import/linear", "GET /v1/workspaces/{ws}/issues/{key}"] },
+  notifications: {
+    ops: [
+      "GET /v1/workspaces/{ws}/notifications",
+      "GET /v1/workspaces/{ws}/notifications/unread-count",
+      "POST /v1/workspaces/{ws}/notifications/{id}/read",
+      "POST /v1/workspaces/{ws}/notifications/read-all",
+    ],
+  },
   issues: {
     ops: [
       "GET /v1/workspaces/{ws}/issues",
@@ -277,7 +285,7 @@ describe("tenancy: static coverage", () => {
     const stale = Object.keys(TABLE_ENDPOINTS).filter((t) => !tenantTables.includes(t));
     expect(missing, "tenant-scoped tables with no entry in TABLE_ENDPOINTS").toEqual([]);
     expect(stale, "TABLE_ENDPOINTS entries for tables that no longer have workspace_id").toEqual([]);
-    expect(tenantTables.length).toBe(28);
+    expect(tenantTables.length).toBe(29);
   });
 
   it("every table either lists swept endpoints or justifies having none", () => {

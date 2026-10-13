@@ -70,6 +70,24 @@ semver until stated otherwise.
 
 ### Added
 
+- **Notification inbox** (`/notifications`, `g n`): a `notifications` table
+  plus four workspace routes — `GET /notifications` (cursor-paginated,
+  joined issue key/title), `GET /notifications/unread-count`,
+  `POST /notifications/:id/read`, and `POST /notifications/read-all`.
+  Fan-out materializes rows on human assignment, human `@mention` in
+  comments (`@name`, `@name-surname`, `@namesurname` forms), `in_review`
+  transitions to workspace owner/admin staff (excluding the actor), and
+  dispatch failure to the issue's human creator. The surface is
+  human-session-only: agent keys get `403 FORBIDDEN_AGENT`, and reading or
+  marking another user's notification returns 404. Web: an Inbox sidebar
+  entry with an unread-count badge fetched server-side in the app layout,
+  a notification list page with mark-read/mark-all actions, and bridge
+  routes under `/api/notifications*`.
+- **Keyboard property pickers + command-mode verbs** on issue lists:
+  `p`/`s`/`l`/`a` open inline pickers (priority digit-jump, legal state
+  transitions, label multi-toggle via `labelIds` replace, human/agent
+  assignee) applied to the focused row or multi-selection; `:` now accepts
+  `priority`, `assign`/`unassign`, `label`, `due`, and `estimate`.
 - **Remote MCP endpoint with OAuth 2.1** (PLAN-010/011): `POST /mcp`
   (Streamable HTTP) on the API host, Tallyline as its own authorization
   server (RFC 9728/8414, CIMD + DCR, PKCE S256, resource-bound tokens, rotating

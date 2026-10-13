@@ -31,6 +31,7 @@ import {
   projects,
   slackLinks,
   teams,
+  users,
   workspaceMembers,
 } from "../db/schema.js";
 import { actorFromHeaders } from "../lib/actor.js";
@@ -44,6 +45,7 @@ import {
   mirrorIssueLabels,
 } from "../services/github-sync.js";
 import { createIssue, transitionIssue, type Actor } from "../services/issues.js";
+import { notifyUsers } from "../services/notifications.js";
 import { queueDeliveries } from "../services/outbound.js";
 import { createSlack } from "../services/slack.js";
 import { requireHumanReviewer } from "../services/members.js";
@@ -302,6 +304,16 @@ export const issueRoutes = new Hono()
         if (updated) result = updated;
       }
 
+      // create-time human assignment → inbox row (agent assignment at
+      // create does NOT dispatch — dispatch is PATCH/mention only)
+      if (body.assigneeType === "human" && body.assigneeId) {
+        await notifyUsers(ws.id, [body.assigneeId], {
+          kind: "assigned",
+          issueId: result.id,
+          actor,
+        });
+      }
+
       // `?dupCheck=1` runs semantic duplicate detection on the way out —
       // opt-in per request, LLM-disabled workspaces just get the issue back
       if (c.req.query("dupCheck") && llmEnabled()) {
@@ -519,6 +531,25 @@ export const issueRoutes = new Hono()
       if (body.projectId !== undefined) fields.projectId = body.projectId;
       if (body.parentId !== undefined) fields.parentId = body.parentId;
 
+      // prior assignee for the change-detection below — one extra read only
+      // when the patch touches assignment
+      const prevAssignee =
+        body.assigneeId !== undefined || body.assigneeType !== undefined
+          ? await db
+              .select({
+                assigneeType: issues.assigneeType,
+                assigneeId: issues.assigneeId,
+              })
+              .from(issues)
+              .where(
+                and(
+                  eq(issues.workspaceId, ws.id),
+                  eq(issues.key, key),
+                ),
+              )
+              .then((r) => r[0] ?? null)
+          : null;
+
       let issue;
       if (Object.keys(fields).length > 0) {
         fields.updatedAt = clock.now();
@@ -544,6 +575,20 @@ export const issueRoutes = new Hono()
           issueId: issue.id,
           agentId: body.assigneeId,
           trigger: "assign",
+        });
+      }
+      // human assignment change → inbox row (re-assigning the same person
+      // doesn't re-notify)
+      if (
+        body.assigneeType === "human" &&
+        body.assigneeId &&
+        issue &&
+        prevAssignee?.assigneeId !== body.assigneeId
+      ) {
+        await notifyUsers(ws.id, [body.assigneeId], {
+          kind: "assigned",
+          issueId: issue.id,
+          actor,
         });
       }
       return c.json(issue);
@@ -599,7 +644,9 @@ export const issueRoutes = new Hono()
         }),
       );
 
-      // @agent mentions → dispatch intents (one per agent per comment)
+      // @mentions split two ways: an agent name creates a dispatch; a
+      // member name creates a notification. The same token can hit both —
+      // dispatch and inbox are independent effects.
       const mentioned = new Set(
         [...body.body.matchAll(/@([a-z0-9][a-z0-9_-]*)/gi)].map((m) =>
           m[1]!.toLowerCase(),
@@ -618,6 +665,29 @@ export const issueRoutes = new Hono()
             agentId: agent.id,
             trigger: "mention",
             commentBody: body.body,
+          });
+        }
+        const wsMembers = await db
+          .select({ id: users.id, name: users.name })
+          .from(workspaceMembers)
+          .innerJoin(users, eq(users.id, workspaceMembers.userId))
+          .where(eq(workspaceMembers.workspaceId, ws.id));
+        const memberIds = wsMembers
+          .filter((m) => {
+            const name = m.name.toLowerCase();
+            return (
+              mentioned.has(name) ||
+              mentioned.has(name.replace(/\s+/g, "-")) ||
+              mentioned.has(name.replace(/\s+/g, "")) ||
+              mentioned.has(name.split(/\s+/)[0] ?? "")
+            );
+          })
+          .map((m) => m.id);
+        if (memberIds.length > 0) {
+          await notifyUsers(ws.id, memberIds, {
+            kind: "mention",
+            issueId: issue.id,
+            actor,
           });
         }
       }

@@ -3,11 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-// g-sequences — `g i` my issues, `g t` triage, `g r` review, `g b` board,
-// `g c` cycle, `g a` all issues, `g e` activity, `g p` roadmap.
+// g-sequences — `g i` my issues, `g n` inbox, `g t` triage, `g r` review,
+// `g b` board, `g c` cycle, `g a` all issues, `g e` activity, `g p` roadmap.
 // Mirrors the sidebar hints.
 const GOTO: Record<string, string> = {
   i: "/my-issues",
+  n: "/notifications",
   t: "/triage",
   r: "/review",
   b: "/board",
