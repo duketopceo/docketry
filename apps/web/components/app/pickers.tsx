@@ -18,6 +18,7 @@ export interface IssueLike {
   projectId?: string | null | undefined;
   teamId?: string | undefined;
   title?: string;
+  labels?: { id: string; name: string; color: string }[] | undefined;
 }
 
 const who = (issues: IssueLike[]) => (issues.length === 1 ? issues[0]!.key : `${issues.length} issues`);
@@ -139,7 +140,41 @@ export function useIssueEditors() {
     [meta, picker, run],
   );
 
+  const pickLabels = useCallback(
+    (anchor: HTMLElement, issues: IssueLike[]) => {
+      picker.open({
+        anchor,
+        title: "Set labels",
+        multi: true,
+        options: meta.labels.map((l) => {
+          const some = issues.some((i) => i.labels?.some((x) => x.id === l.id));
+          const all = issues.every((i) => i.labels?.some((x) => x.id === l.id));
+          return {
+            id: l.id,
+            label: l.name,
+            icon: <span aria-hidden className="size-2.5 rounded-full" style={{ backgroundColor: l.color }} />,
+            checked: all,
+            ...(some && !all ? { hint: "on some" } : {}),
+          };
+        }),
+        // multi pickers call onSelect once per toggle — the patch differs per
+        // issue (each has its own label set), so build Edits directly
+        onSelect: (id) => {
+          const edits: Edit[] = issues.map((i) => {
+            const have = i.labels ?? [];
+            const next = have.some((x) => x.id === id)
+              ? have.filter((x) => x.id !== id)
+              : [...have, meta.labels.find((x) => x.id === id)!];
+            return { key: i.key, patch: { labels: next }, prior: { labels: have } };
+          });
+          if (edits.length) void apply(edits, `${who(issues)} labels updated`);
+        },
+      });
+    },
+    [meta, picker, apply],
+  );
+
   const setTitle = useCallback((issue: IssueLike, title: string) => run([issue], { title }, `${issue.key} renamed`), [run]);
 
-  return { pickState, pickPriority, pickAssignee, pickProject, pickCycle, setTitle, run };
+  return { pickState, pickPriority, pickAssignee, pickProject, pickCycle, pickLabels, setTitle, run };
 }

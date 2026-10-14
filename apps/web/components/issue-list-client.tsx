@@ -13,6 +13,12 @@ import { Assignee, Glint, Kbd, PriorityGlyph, StateGlyph } from "./app/ui";
 import { PRIORITY_LABEL, relTime, STATE_LABEL } from "@/lib/format";
 import { apiQuery, parseFilters } from "@/lib/filters";
 
+export interface ListLabel {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface ListIssue {
   key: string;
   title: string;
@@ -28,6 +34,8 @@ export interface ListIssue {
   source?: string;
   createdAt?: string;
   updatedAt?: string;
+  dueDate?: string | null;
+  labels?: ListLabel[];
 }
 
 export interface IssueGroup {
@@ -189,6 +197,7 @@ export function IssueListClient({
     else if (id === "assignee") editors.pickAssignee(a, t);
     else if (id === "project") editors.pickProject(a, t);
     else if (id === "cycle") editors.pickCycle(a, t);
+    else if (id === "labels") editors.pickLabels(a, t);
     else if (id === "peek" && cur) peek.toggle(cur.key);
     else if (id === "select" && cur) toggle(cur.key, cursor, false);
     else if (id === "open" && cur) router.push(`/issues/${cur.key}`);
@@ -205,6 +214,7 @@ export function IssueListClient({
       { id: "state", label: "Set state", group: "Issue", keys: "s" },
       { id: "priority", label: "Set priority", group: "Issue", keys: "p" },
       { id: "assignee", label: "Assign to", group: "Issue", keys: "a" },
+      { id: "labels", label: "Set labels", group: "Issue", keys: "l" },
       { id: "project", label: "Set project", group: "Issue" },
       { id: "cycle", label: "Set cycle", group: "Issue" },
       { id: "edit", label: "Edit title", group: "Issue", keys: "e" },
@@ -247,7 +257,7 @@ export function IssueListClient({
         return;
       }
       const map: Record<string, string> = {
-        x: "select", " ": "peek", Enter: "open", s: "state", p: "priority", e: "edit",
+        x: "select", " ": "peek", Enter: "open", s: "state", p: "priority", e: "edit", l: "labels",
         ...(mode === "triage" ? { a: "accept", m: "accept-todo", d: "decline", u: "duplicate" } : { a: "assignee" }),
       };
       const id = map[k];
@@ -331,8 +341,8 @@ export function IssueListClient({
         <div role="toolbar" aria-label="Bulk actions" className="absolute inset-x-0 bottom-10 z-10 flex justify-center px-2">
           <div className="flex items-center gap-1 rounded-md border border-lining-strong bg-surface-3 p-1 max-sm:flex-wrap">
             <span className="px-2 text-[13px] font-medium tabular-nums text-ink">{selected.size} selected</span>
-            {[["State", "state"], ["Priority", "priority"], ["Assignee", "assignee"], ["Project", "project"]].map(([l, id]) => (
-              <button key={id} type="button" onClick={(e) => { const t = flat.filter((x) => selected.has(x.key)).map(like); const a = e.currentTarget; if (id === "state") editors.pickState(a, t); else if (id === "priority") editors.pickPriority(a, t); else if (id === "assignee") editors.pickAssignee(a, t); else editors.pickProject(a, t); }} className="h-7 rounded-sm px-2 text-[13px] text-ink-muted hover:bg-surface-4 hover:text-ink">{l}</button>
+            {[["State", "state"], ["Priority", "priority"], ["Assignee", "assignee"], ["Labels", "labels"], ["Project", "project"]].map(([l, id]) => (
+              <button key={id} type="button" onClick={(e) => { const t = flat.filter((x) => selected.has(x.key)).map(like); const a = e.currentTarget; if (id === "state") editors.pickState(a, t); else if (id === "priority") editors.pickPriority(a, t); else if (id === "assignee") editors.pickAssignee(a, t); else if (id === "labels") editors.pickLabels(a, t); else editors.pickProject(a, t); }} className="h-7 rounded-sm px-2 text-[13px] text-ink-muted hover:bg-surface-4 hover:text-ink">{l}</button>
             ))}
             <button type="button" onClick={() => setSelected(new Set())} className="h-7 rounded-sm px-2 text-[13px] text-ink-subtle hover:bg-surface-4">Clear <Kbd>Esc</Kbd></button>
           </div>

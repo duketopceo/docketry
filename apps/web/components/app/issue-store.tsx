@@ -17,6 +17,7 @@ export type IssuePatch = Partial<{
   cycleId: string | null;
   projectId: string | null;
   estimate: number | null;
+  labels: { id: string; name: string; color: string }[];
 }>;
 
 export interface Edit {
@@ -97,7 +98,7 @@ export function IssueStoreProvider({ children }: { children: ReactNode }) {
       const failures: { key: string; msg: string }[] = [];
       await Promise.all(
         edits.map(async (e) => {
-          const { state, ...rest } = e.patch;
+          const { state, labels, ...rest } = e.patch;
           if (state !== undefined) {
             const from = e.prior.state;
             const steps = from && from !== state ? findPath(from, state) : [state];
@@ -105,6 +106,10 @@ export function IssueStoreProvider({ children }: { children: ReactNode }) {
               const msg = await send(e.key, { state: s });
               if (msg) return void failures.push({ key: e.key, msg });
             }
+          }
+          if (labels !== undefined) {
+            const msg = await send(e.key, { labelIds: labels.map((l) => l.id) });
+            if (msg) failures.push({ key: e.key, msg });
           }
           if (Object.keys(rest).length) {
             const msg = await send(e.key, rest);

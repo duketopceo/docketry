@@ -1,6 +1,7 @@
 // 16px stroke icons for the sidebar rail; decorative (labels sit beside them)
 const P: Record<string, string> = {
   "my-issues": "M8 8.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM3 13.5c.6-2 2.3-3 5-3s4.4 1 5 3",
+  inbox: "M3 8.5h3l1 1.7h3l1-1.7h3M3.6 3.5h8.8l1.1 5v3.5a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1V8.5z",
   board: "M2.5 3h3.2v10H2.5zM6.4 3h3.2v6.5H6.4zM10.3 3h3.2v8.2h-3.2z",
   triage: "M2.5 8.5h3l1 1.7h3l1-1.7h3M3.6 3.5h8.8l1.1 5v3.5a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1V8.5z",
   review: "M3 8.3l3.2 3.2L13 4.7",

@@ -6,6 +6,7 @@ import { applyTheme } from "./theme-toggle";
 
 const NAV: [string, string, string, string][] = [
   ["nav-my", "My issues", "/my-issues", "g i"],
+  ["nav-inbox", "Inbox", "/notifications", "g n"],
   ["nav-triage", "Triage", "/triage", "g t"],
   ["nav-review", "Review queue", "/review", "g r"],
   ["nav-board", "Board", "/board", "g b"],
@@ -14,6 +15,7 @@ const NAV: [string, string, string, string][] = [
   ["nav-insights", "Insights", "/insights", "g s"],
   ["nav-roadmap", "Roadmap", "/roadmap", "g p"],
   ["nav-activity", "Activity", "/activity", "g e"],
+  ["nav-settings", "Settings", "/settings/members", "g ,"],
 ];
 
 export function GlobalActions() {

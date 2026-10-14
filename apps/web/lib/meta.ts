@@ -23,7 +23,7 @@ export interface Meta {
   cycles: CycleRef[];
   projects: ProjectRef[];
   views: ViewRef[];
-  counts: { triage: number; review: number };
+  counts: { triage: number; review: number; unread: number };
 }
 
 // Every page render needs the workspace reference data (9 API calls). A short
@@ -61,7 +61,7 @@ async function fetchMeta(
   me: { userId: string; name: string; role: string | undefined },
 ): Promise<Meta> {
   const base = `/v1/workspaces/${workspace}`;
-  const [members, agents, labels, teams, cycles, projects, views, triage, review] =
+  const [members, agents, labels, teams, cycles, projects, views, triage, review, unread] =
     await Promise.all([
       api<{ members: Member[] }>(`${base}/members`),
       api<{ agents: AgentRef[] }>(`${base}/agents`),
@@ -71,7 +71,8 @@ async function fetchMeta(
       api<{ projects: ProjectRef[] }>(`${base}/projects`),
       api<{ views: ViewRef[] }>(`${base}/views`),
       api<{ issues: unknown[] }>(`${base}/issues?state=triage&limit=100`),
-      api<{ queue: unknown[] }>(`${base}/review-queue`),
+      api<{ count: number }>(`${base}/review-queue/count`),
+      api<{ count: number }>(`${base}/notifications/unread-count`),
     ]);
   return {
     workspace,
@@ -87,7 +88,8 @@ async function fetchMeta(
     views: views.data?.views ?? [],
     counts: {
       triage: triage.data?.issues?.length ?? 0,
-      review: review.data?.queue?.length ?? 0,
+      review: review.data?.count ?? 0,
+      unread: unread.data?.count ?? 0,
     },
   };
 }

@@ -100,6 +100,7 @@ export function Shell({ children, peek }: { children: ReactNode; peek: ReactNode
     ...(meta.role === "owner" || meta.role === "admin" ? [{ href: "/settings/members", label: "Settings", hint: "g ,", icon: "settings" }] : []),
   ];
   const mine: Item = { href: "/my-issues", label: "My issues", hint: "g i", icon: "my-issues" };
+  const inbox: Item = { href: "/notifications", label: "Inbox", hint: "g n", icon: "inbox", count: meta.counts.unread };
 
   const curQuery = search.toString();
   const views = meta.views.map((v) => ({ ...v, q: filtersToQuery(filtersFromObject(v.filters)) }));
@@ -182,7 +183,7 @@ export function Shell({ children, peek }: { children: ReactNode; peek: ReactNode
         </button>
       </div>
       <nav aria-label="Primary" className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        <ul>{link(mine)}</ul>
+        <ul>{[mine, inbox].map(link)}</ul>
         {!rail && <p className="px-2 pb-1 pt-4 text-[11px] font-medium uppercase tracking-[0.4px] text-ink-subtle">Work</p>}
         {rail && <hr className="my-2 border-lining-faint" />}
         <ul>{work.map(link)}</ul>
