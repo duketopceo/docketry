@@ -13,32 +13,12 @@
       "count": 2,
       "tracking": "silver-lining/type-scale: off-scale font sizes (10px/9px/lg/xl/4xl/5xl) to be moved onto the 11-12-13-14-15-17-24 scale during the screen restyle"
     },
-    "apps/web/app/(auth)/login/page.tsx": {
-      "count": 1,
-      "tracking": "silver-lining/type-scale: off-scale font sizes (10px/9px/lg/xl/4xl/5xl) to be moved onto the 11-12-13-14-15-17-24 scale during the screen restyle"
-    },
-    "apps/web/app/(auth)/oauth/consent/consent-form.tsx": {
-      "count": 2,
-      "tracking": "TODO: add tracking issue"
-    },
-    "apps/web/app/(auth)/oauth/consent/page.tsx": {
-      "count": 1,
-      "tracking": "TODO: add tracking issue"
-    },
     "apps/web/app/(auth)/workspaces/page.tsx": {
       "count": 1,
       "tracking": "silver-lining/type-scale: off-scale font sizes (10px/9px/lg/xl/4xl/5xl) to be moved onto the 11-12-13-14-15-17-24 scale during the screen restyle"
     },
-    "apps/web/components/github-repos.tsx": {
-      "count": 1,
-      "tracking": "TODO: add tracking issue"
-    },
     "apps/web/components/invite-form.tsx": {
       "count": 2,
-      "tracking": "silver-lining/type-scale: off-scale font sizes (10px/9px/lg/xl/4xl/5xl) to be moved onto the 11-12-13-14-15-17-24 scale during the screen restyle"
-    },
-    "apps/web/components/landing/landing.tsx": {
-      "count": 3,
       "tracking": "silver-lining/type-scale: off-scale font sizes (10px/9px/lg/xl/4xl/5xl) to be moved onto the 11-12-13-14-15-17-24 scale during the screen restyle"
     },
     "apps/web/components/member-list.tsx": {
