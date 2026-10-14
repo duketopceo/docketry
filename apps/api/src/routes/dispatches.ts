@@ -128,7 +128,15 @@ export const dispatchRoutes = new Hono()
     const [row] = await db
       .select({ count: sql<number>`count(distinct ${issues.id})::int` })
       .from(issues)
-      .innerJoin(dispatches, eq(dispatches.issueId, issues.id))
+      .innerJoin(
+        dispatches,
+        and(
+          eq(dispatches.issueId, issues.id),
+          // referentially redundant (a dispatch's workspace is its issue's)
+          // but lets the planner probe dispatches(workspace_id, issue_id)
+          eq(dispatches.workspaceId, ws.id),
+        ),
+      )
       .where(and(eq(issues.workspaceId, ws.id), eq(issues.state, "in_review")));
     return c.json({ count: row?.count ?? 0 });
   })
