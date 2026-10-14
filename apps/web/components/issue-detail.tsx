@@ -60,6 +60,7 @@ export function IssueDetailView({
   const stateBtn = useRef<HTMLButtonElement>(null);
   const prioBtn = useRef<HTMLButtonElement>(null);
   const assignBtn = useRef<HTMLButtonElement>(null);
+  const labelBtn = useRef<HTMLButtonElement>(null);
 
   useEffect(() => recordRecent(issue.key), [issue.key]);
   useEffect(() => setLocal([]), [comments]);
@@ -74,6 +75,7 @@ export function IssueDetailView({
       if (e.key === "s") { e.preventDefault(); stateBtn.current?.click(); }
       else if (e.key === "p") { e.preventDefault(); prioBtn.current?.click(); }
       else if (e.key === "a") { e.preventDefault(); assignBtn.current?.click(); }
+      else if (e.key === "l") { e.preventDefault(); labelBtn.current?.click(); }
       else if (e.key === "e") { e.preventDefault(); setEditingTitle(true); }
       else if (e.key === "d") { e.preventDefault(); startDesc(); }
       else if (e.key === "Escape") router.push("/issues");
@@ -426,9 +428,11 @@ export function IssueDetailView({
               <div>
                 <dt className="text-[12px] text-ink-subtle">Labels</dt>
                 <dd className="mt-1">
-                  {issue.labels.length === 0 ? <span className="text-ink-subtle">None</span> : (
-                    <ul className="flex flex-wrap gap-1.5">{issue.labels.map((l) => <li key={l.id} className="flex items-center gap-1.5 rounded-full border border-lining px-2 py-0.5 text-[12px] text-ink-muted"><span aria-hidden className="h-2 w-2 rounded-full" style={{ background: l.color }} />{l.name}</li>)}</ul>
-                  )}
+                  <button ref={labelBtn} type="button" className="-ml-2 w-full rounded-sm px-2 py-0.5 text-left hover:bg-surface-2" aria-label="Edit labels" onClick={(e) => editors.pickLabels(e.currentTarget, [like])}>
+                    {issue.labels.length === 0 ? <span className="text-ink-subtle">None — press l</span> : (
+                      <ul className="flex flex-wrap gap-1.5">{issue.labels.map((l) => <li key={l.id} className="flex items-center gap-1.5 rounded-full border border-lining px-2 py-0.5 text-[12px] text-ink-muted"><span aria-hidden className="h-2 w-2 rounded-full" style={{ background: l.color }} />{l.name}</li>)}</ul>
+                    )}
+                  </button>
                 </dd>
               </div>
               <div>
