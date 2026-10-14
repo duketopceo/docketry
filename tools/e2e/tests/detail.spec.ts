@@ -51,9 +51,17 @@ test("comment composer: @ opens agent autocomplete and the comment posts", async
   await expect(list.getByRole("option", { name: new RegExp(f.agent.name) })).toBeVisible();
   await box.press("Enter");
   await expect(box).toHaveValue(new RegExp(`@${f.agent.name} `));
+  // mention insertion restores the caret on the next animation frame — typing
+  // before it lands puts the first characters at the stale position
+  await page.waitForFunction(() => {
+    const el = document.activeElement;
+    return el instanceof HTMLTextAreaElement && el.selectionStart === el.value.length;
+  });
   await box.pressSequentially("please take this");
   await box.press("Control+Enter");
-  await expect(page.getByText("please take this")).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Activity" }).getByText("please take this"),
+  ).toBeVisible();
 });
 
 test("@keyboard provenance: filed-by, session card, failed variant with actions, agent state change with Revert", async ({ page }) => {
