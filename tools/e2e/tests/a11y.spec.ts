@@ -152,7 +152,8 @@ for (const vp of VIEWPORTS) {
       test.use({ viewport: { width: vp.width, height: vp.height } });
       test(`@a11y /issues/:key with agent session`, async ({ page }) => {
         const f = await agentIssue(page, "a11y");
-        await fetch(`${f.ws}/issues/${f.issueKey}`, { method: "PATCH", headers: { "content-type": "application/json", authorization: `Bearer ${f.key}` }, body: JSON.stringify({ state: "todo" }) });
+        const patch = await fetch(`${f.ws}/issues/${f.issueKey}`, { method: "PATCH", headers: { "content-type": "application/json", authorization: `Bearer ${f.key}` }, body: JSON.stringify({ state: "todo" }) });
+        expect(patch.ok).toBeTruthy();
         await failSession(f);
         await page.goto(`/issues/${f.issueKey}`);
         await page.waitForLoadState("networkidle");

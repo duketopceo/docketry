@@ -42,8 +42,8 @@ function draftSet(k: string, v: string) {
 }
 
 export function IssueDetailView({
-  issue: serverIssue, comments, events, sessions,
-}: { issue: FullIssue; comments: DetailComment[]; events: DetailEvent[]; sessions: Session[] }) {
+  issue: serverIssue, comments, events, sessions, feedError,
+}: { issue: FullIssue; comments: DetailComment[]; events: DetailEvent[]; sessions: Session[]; feedError?: boolean }) {
   const router = useRouter();
   const meta = useMeta();
   const names = useNames();
@@ -130,7 +130,12 @@ export function IssueDetailView({
   }, [events]);
 
   async function rerun(s: Session) {
-    const res = await fetch(`/api/issues/${issue.key}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ assigneeType: "agent", assigneeId: s.agentId }) });
+    let res: Response;
+    try {
+      res = await fetch(`/api/issues/${issue.key}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ assigneeType: "agent", assigneeId: s.agentId }) });
+    } catch {
+      return toast.push({ error: true, message: `Could not re-run ${s.agentName}: the server rejected the request.` });
+    }
     if (!res.ok) return toast.push({ error: true, message: `Could not re-run ${s.agentName}: the server rejected the request.` });
     toast.push({ message: `Re-dispatched to ${s.agentName}: a new session is starting` });
     router.refresh();
@@ -179,7 +184,15 @@ export function IssueDetailView({
     setLocal((l) => [...l, pending]);
     setBody("");
     draftSet(`tl:draft:comment:${issue.key}`, "");
-    const res = await fetch(`/api/issues/${issue.key}/comments`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ body: text }) });
+    let res: Response;
+    try {
+      res = await fetch(`/api/issues/${issue.key}/comments`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ body: text }) });
+    } catch {
+      setLocal((l) => l.filter((c) => c.id !== pending.id));
+      setBody(text);
+      setSending(false);
+      return toast.push({ error: true, message: "Comment not posted: the network dropped the request. Your text is back in the box." });
+    }
     setSending(false);
     if (!res.ok) {
       setLocal((l) => l.filter((c) => c.id !== pending.id));
@@ -359,6 +372,7 @@ export function IssueDetailView({
 
             <section aria-label="Activity" className="mt-8">
               <h2 className="text-[13px] font-semibold">Activity</h2>
+              {feedError && <p role="status" className="mt-2 rounded-sm border border-lining-faint px-2 py-1.5 text-[12px] text-ink-subtle">Part of this activity failed to load. Refresh to retry.</p>}
               <ol className="mt-3 space-y-2">
                 {timeline.map((t) =>
                   "group" in t ? (
@@ -449,7 +463,7 @@ export function IssueDetailView({
                 </div>
                 <div>
                   <dt><label htmlFor="due" className="text-[12px] text-ink-subtle">Due</label></dt>
-                  <dd><input id="due" type="date" defaultValue={issue.dueDate ? issue.dueDate.slice(0, 10) : ""} key={`due-${issue.dueDate}`} onChange={(e) => { const v = e.currentTarget.value ? new Date(`${e.currentTarget.value}T12:00:00Z`).toISOString() : null; void apply([{ key: issue.key, patch: { dueDate: v }, prior: { dueDate: issue.dueDate ?? null } }], `${issue.key} due date updated`); }} className="mt-0.5 h-8 w-full rounded-sm border border-control bg-transparent px-1.5 text-[12px]" /></dd>
+                  <dd><input id="due" type="date" defaultValue={issue.dueDate ? issue.dueDate.slice(0, 10) : ""} key={`due-${issue.dueDate}`} onChange={(e) => { const raw = e.currentTarget.value; const v = raw ? new Date(`${raw}T12:00:00Z`).toISOString() : null; if (v === (issue.dueDate ?? null)) return; void apply([{ key: issue.key, patch: { dueDate: v }, prior: { dueDate: issue.dueDate ?? null } }], `${issue.key} due date updated`); }} className="mt-0.5 h-8 w-full rounded-sm border border-control bg-transparent px-1.5 text-[12px]" /></dd>
                 </div>
               <div>
                 <dt className="text-[12px] text-ink-subtle">Created</dt>

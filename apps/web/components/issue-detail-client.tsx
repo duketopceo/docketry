@@ -28,11 +28,16 @@ export function SummarizeButton({ issueKey }: { issueKey: string }) {
         onClick={async () => {
           setBusy(true);
           setError(null);
-          const res = await fetch(`/api/issues/${issueKey}/summarize`, { method: "POST" });
-          const body = (await res.json().catch(() => null)) as { summary?: string } | null;
-          setBusy(false);
-          if (!res.ok || !body?.summary) return setError("Summary unavailable. LLM assist may be misconfigured.");
-          setSummary(body.summary);
+          try {
+            const res = await fetch(`/api/issues/${issueKey}/summarize`, { method: "POST" });
+            const body = (await res.json().catch(() => null)) as { summary?: string } | null;
+            if (!res.ok || !body?.summary) return setError("Summary unavailable. LLM assist may be misconfigured.");
+            setSummary(body.summary);
+          } catch {
+            setError("Summary unavailable. LLM assist may be misconfigured.");
+          } finally {
+            setBusy(false);
+          }
         }}
         className="h-7 rounded-sm border border-control px-2.5 text-[12px] text-ink-muted hover:bg-surface-2 hover:text-ink disabled:opacity-50"
       >

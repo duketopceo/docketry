@@ -35,8 +35,12 @@ export function SessionTimeline({
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
   const refresh = useCallback(async () => {
-    const res = await fetch(`/api/issues/${issueKey}/sessions`, { cache: "no-store" });
-    if (res.ok) setSessions(((await res.json()) as { sessions?: Session[] }).sessions ?? []);
+    try {
+      const res = await fetch(`/api/issues/${issueKey}/sessions`, { cache: "no-store" });
+      if (res.ok) setSessions(((await res.json()) as { sessions?: Session[] }).sessions ?? []);
+    } catch {
+      // keep current sessions; the stream drives the next refresh
+    }
   }, [issueKey]);
 
   useEffect(() => setSessions(initial), [initial]);

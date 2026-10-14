@@ -71,5 +71,7 @@ test(": opens command mode — :comment executes a real mutation", async ({
 
   // the comment landed on the issue detail
   await page.goto(`/issues/${key}`);
-  await expect(page.getByText("e2e was here")).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Activity" }).getByText("e2e was here"),
+  ).toBeVisible();
 });

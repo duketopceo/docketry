@@ -27,7 +27,8 @@ export async function agentIssue(page: Page, tag: string): Promise<AgentFixture>
   expect(assign.ok()).toBeTruthy();
   const list = (await (await page.request.get(`${ws}/dispatches?agentId=${agent.id}`)).json()) as { dispatches: { id: string; issueKey: string }[] };
   const dispatchId = list.dispatches.find((d) => d.issueKey === issue.key)!.id;
-  await fetch(`${ws}/dispatches/${dispatchId}/events`, { method: "POST", headers: bearer, body: JSON.stringify({ events: [{ kind: "reading", message: "Read the issue" }, { kind: "implementing", message: "Patched the retry path" }] }) });
+  const evRes = await fetch(`${ws}/dispatches/${dispatchId}/events`, { method: "POST", headers: bearer, body: JSON.stringify({ events: [{ kind: "reading", message: "Read the issue" }, { kind: "implementing", message: "Patched the retry path" }] }) });
+  expect(evRes.ok).toBeTruthy();
   // the web app caches workspace reference data (agent names) for 3s per session
   await new Promise((r) => setTimeout(r, 3_200));
   return { ws, agent: { id: agent.id, name }, key: k.key, issueKey: issue.key, dispatchId };

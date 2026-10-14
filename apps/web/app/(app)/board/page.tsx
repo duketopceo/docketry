@@ -13,7 +13,9 @@ export default async function BoardPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const filters = { ...parseFilters(await searchParams), state: BOARD_STATES };
+  const parsed = parseFilters(await searchParams);
+  const picked = parsed.state.filter((s) => (BOARD_STATES as string[]).includes(s));
+  const filters = { ...parsed, state: picked.length ? picked : BOARD_STATES };
   const me = await api<Me>("/v1/auth/me");
   if (!me.data) return <main className="p-8 text-sm text-ink-subtle">Not signed in.</main>;
   const res = await api<{ issues?: ListIssue[] }>(`/v1/workspaces/${me.data.workspaceSlug}/issues?${apiQuery(filters, me.data.userId)}`);
@@ -32,7 +34,7 @@ export default async function BoardPage({
   else if (a === "human") rows = rows.filter((i) => i.assigneeType === "human");
   return (
     <main className="flex min-h-0 flex-1 flex-col">
-      <FilterBar title="Board" count={rows.length} hint="active" dims={["assignee", "label", "project", "cycle", "team", "source", "priority"]} display={false} />
+      <FilterBar title="Board" count={rows.length} hint="active" dims={["state", "assignee", "label", "project", "cycle", "team", "source", "priority"]} display={false} />
       <BoardLoader issues={rows} />
     </main>
   );

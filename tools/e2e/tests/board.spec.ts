@@ -111,7 +111,7 @@ test("@keyboard board: s opens the state picker and moves the card; Space peeks;
   const todo = page.getByRole("region", { name: /todo column/i });
   await expect(todo.locator(`[data-board-card="${key}"]`)).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "→ Todo" })).toBeVisible();
-  await page.keyboard.press("Control+z");
+  await page.keyboard.press("ControlOrMeta+z");
   await expect(backlog.locator(`[data-board-card="${key}"]`)).toBeVisible();
 });
 

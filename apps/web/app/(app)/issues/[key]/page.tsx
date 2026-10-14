@@ -21,6 +21,7 @@ export default async function IssuePage({ params }: { params: Promise<{ key: str
       comments={comments.data?.comments ?? []}
       events={events.data?.events ?? []}
       sessions={sessions.data?.sessions ?? []}
+      feedError={!comments.ok || !events.ok || !sessions.ok}
     />
   );
 }
