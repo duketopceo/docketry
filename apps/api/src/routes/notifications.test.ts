@@ -41,7 +41,6 @@ import {
 const SLUG = "notif-test";
 let ownerCookie = "";
 let memberCookie = "";
-let ownerId = "";
 let aliceId = "";
 let issueKey = "";
 let issueId = "";
@@ -159,15 +158,10 @@ beforeAll(async () => {
   expect(claim.status).toBe(201);
   memberCookie = claim.headers.get("set-cookie")!.split(";")[0]!;
 
-  const [owner] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, "owner@nt.dev"));
   const [alice] = await db
     .select()
     .from(users)
     .where(eq(users.email, "alice@nt.dev"));
-  ownerId = owner!.id;
   aliceId = alice!.id;
 
   // an agent credential for the 403 case
