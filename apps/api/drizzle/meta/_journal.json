@@ -162,6 +162,13 @@
       "when": 1792190163544,
       "tag": "0022_agent_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792192816062,
+      "tag": "0023_issue_delegate",
+      "breakpoints": true
     }
   ]
 }

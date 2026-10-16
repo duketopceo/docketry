@@ -264,6 +264,8 @@ export const issues = pgTable(
     dueDate: timestamp("due_date", { withTimezone: true }),
     assigneeType: assigneeTypeEnum("assignee_type"),
     assigneeId: uuid("assignee_id"),
+    delegateType: actorTypeEnum("delegate_type"),
+    delegateId: uuid("delegate_id"),
     creatorType: actorTypeEnum("creator_type").notNull().default("human"),
     creatorId: uuid("creator_id"),
     projectId: uuid("project_id").references(() => projects.id),
@@ -285,6 +287,7 @@ export const issues = pgTable(
     index().on(t.workspaceId, t.teamId),
     index().on(t.workspaceId, t.cycleId),
     index().on(t.workspaceId, t.assigneeId),
+    index().on(t.workspaceId, t.delegateId),
   ],
 );
 
