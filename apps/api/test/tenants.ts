@@ -17,6 +17,7 @@ import {
   issueLabels,
   issues,
   labels,
+  notifications,
   oauthCodes,
   oauthGrants,
   projectMilestones,
@@ -441,6 +442,21 @@ export async function mkIssueLabel(issueId: string, labelId: string) {
   await db.insert(issueLabels).values({ issueId, labelId });
 }
 
+export async function mkNotification(t: Tenant, userId: string, issueId?: string) {
+  const [row] = await db
+    .insert(notifications)
+    .values({
+      workspaceId: t.ws.id,
+      userId,
+      kind: "assigned",
+      issueId,
+      actorType: "human",
+      actorId: t.people.owner.id,
+    })
+    .returning();
+  return row!;
+}
+
 export interface Entities {
   issue: Awaited<ReturnType<typeof mkIssue>>;
   triageIssue: Awaited<ReturnType<typeof mkIssue>>;
@@ -467,6 +483,7 @@ export interface Entities {
   velocity: Awaited<ReturnType<typeof mkVelocity>>;
   oauthCode: Awaited<ReturnType<typeof mkOauthCode>>;
   oauthGrant: Awaited<ReturnType<typeof mkOauthGrant>>;
+  notification: Awaited<ReturnType<typeof mkNotification>>;
 }
 
 /** one row in every tenant-scoped table (except sessions: see newSession) */
@@ -507,5 +524,6 @@ export async function seedEntities(t: Tenant): Promise<Entities> {
     velocity: await mkVelocity(t, cycle.id),
     oauthCode: await mkOauthCode(t, t.people.owner.id),
     oauthGrant: await mkOauthGrant(t, t.people.owner.id),
+    notification: await mkNotification(t, t.people.owner.id, issue.id),
   };
 }

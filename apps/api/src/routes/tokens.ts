@@ -37,7 +37,7 @@ export const tokenRoutes = new Hono()
       requireRole(c, "admin");
       const body = c.req.valid("json");
       const lowered = body.name.toLowerCase();
-      if (lowered.includes("tly_") || lowered.includes("dok_")) {
+      if (lowered.includes("tly_")) {
         return apiError(c, 422, "BAD_NAME", "name may not contain 'tly_'");
       }
       const { token, id } = await createUserToken(

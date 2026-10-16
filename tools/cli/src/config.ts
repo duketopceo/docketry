@@ -53,12 +53,7 @@ export async function resolveConfig(opts: {
   flags?: { apiUrl?: string; token?: string; workspace?: string };
 }): Promise<ResolvedConfig> {
   const home = opts.env.HOME ?? homedir();
-  // legacy docketry-era paths come first (lowest precedence) so an existing
-  // setup keeps working; any tallyline-named file overrides them
   const candidates = [
-    join(home, ".config", "docketry", "config.json"),
-    join(opts.cwd, ".docketry", "config.json"),
-    join(opts.cwd, ".docketry.json"),
     join(home, ".config", "tallyline", "config.json"),
     join(opts.cwd, ".tallyline", "config.json"),
     join(opts.cwd, ".tallyline.json"),

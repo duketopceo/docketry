@@ -1,14 +1,14 @@
 # Self-hosting tallyline
 
 Three paths, fastest first. All of them land on the same thing: the web
-app on port `3100`, the API on `4000`, postgres + redis on an internal
+app on port `3100`, the API on `4000`, postgres on an internal
 network. Open `http://localhost:3100` — the first-run **/bootstrap** page
 creates your workspace, team, and admin user, then you're on the board.
 
 ## Quickstart — Docker Compose (target: < 10 min)
 
 ```bash
-git clone https://github.com/duketopceo/docketry.git && cd docketry
+git clone https://github.com/duketopceo/tallyline.git && cd tallyline
 
 # required: a db password and a JWT secret
 cat > .env <<EOF
@@ -23,11 +23,11 @@ docker compose -f docker-compose.selfhost.yml up -d
 
 That's it — `docker-compose.selfhost.yml` builds `apps/api` and `apps/web`
 from source, runs Drizzle migrations on API boot, and waits for healthy
-postgres/redis before starting the app. Only `web:3100` and `api:4000` are
+postgres before starting the app. Only `web:3100` and `api:4000` are
 published; the datastores stay internal. Override published ports with
 `WEB_PUBLISH_PORT` / `API_PUBLISH_PORT`.
 
-The dev `docker-compose.yml` (postgres+redis only, host-mapped ports) is
+The dev `docker-compose.yml` (postgres only, host-mapped ports) is
 unchanged — contributors keep using `docker compose up -d` + `pnpm dev`.
 
 ## Environment reference
@@ -47,7 +47,8 @@ Set these in `.env` next to the compose file (it reads `.env` automatically):
 | `RATE_LIMIT_PER_MIN` | no | `600` | Authenticated requests/minute per token/session (`0` disables — don't, on public instances) |
 | `RATE_LIMIT_ANON_PER_MIN` | no | `120` | **New.** Unauthenticated requests (and failed-credential attempts) per client IP, counted before auth. `/health` and signed provider webhooks are exempt. Needs `TRUSTED_PROXY=1` behind a proxy/Cloudflare or every visitor shares one bucket |
 | `RATE_LIMIT_AUTH_PER_MIN` | no | `30` | **New.** Login, bootstrap, invite-accept and OAuth start/callback per client IP |
-| `DATABASE_URL` / `REDIS_URL` | no | compose-internal | Override only for external datastores |
+| `DISPATCH_ACK_TIMEOUT_MS` | no | `600000` | **New.** A dispatch still `queued` after this window is failed loudly on the issue thread (delivery wedged without writeback). Keep above the ~7.5 min webhook retry budget. `0` disables |
+| `DATABASE_URL` | no | compose-internal | Override only for an external Postgres |
 | `GITHUB_APP_*`, `GITHUB_WEBHOOK_SECRET` | no | — | GitHub App sync — see [github-sync.md](./github-sync.md); all empty = feature off |
 | `WEB_URL` | no | `http://localhost:3100` | Public web origin — OAuth callbacks bounce here after exchange; set to your real web hostname behind a tunnel |
 | `AUTH_SECRET_KEY` | for DB providers | — | AES-256-GCM key (`openssl rand -base64 32`; in production must be ≥32 chars when set and differ from `JWT_SECRET`) encrypting provider secrets stored via the UI. Losing/rotating strands them — see [auth.md](./auth.md) |
@@ -115,21 +116,20 @@ Cookie `Secure` engages automatically via `NODE_ENV=production` + HTTPS.
 
 ## Railway — managed path
 
-A Railway project maps cleanly onto the four services:
+A Railway project maps cleanly onto three services:
 
 1. **Postgres** — Railway's postgres plugin.
-2. **Redis** — Railway's redis plugin.
-3. **API** — deploy from repo, root `apps/api/Dockerfile`; env
+2. **API** — deploy from repo, root `apps/api/Dockerfile`; env
    `DATABASE_URL=${{Postgres.DATABASE_URL}}`,
-   `REDIS_URL=${{Redis.REDIS_URL}}`, `JWT_SECRET`, `API_BASE_URL` =
+   `JWT_SECRET`, `API_BASE_URL` =
    the service's public domain. Migrations run on boot — no release step needed.
-4. **Web** — deploy `apps/web/Dockerfile` with build arg
+3. **Web** — deploy `apps/web/Dockerfile` with build arg
    `NEXT_PUBLIC_API_URL` = the API domain and env
    `API_INTERNAL_URL` = the API's *internal* Railway domain
    (`http://api.railway.internal:4000`).
 
 A `railway.json`/template button lands when the Dockerfile paths stabilize;
-until then the four-service manual setup is the documented route (~10 min).
+until then the three-service manual setup is the documented route (~10 min).
 
 ## Upgrading
 
@@ -167,8 +167,7 @@ before the losers delete, but that is data surgery, not a rollback path.
 
 ## Backup & restore
 
-Everything durable lives in the `docketry-postgres` volume (redis is
-ephemeral queue state — safe to lose).
+Everything durable lives in the `tallyline-postgres` volume.
 
 ```bash
 # backup — consistent dump while the stack runs
@@ -184,7 +183,7 @@ docker compose -f docker-compose.selfhost.yml exec postgres \
 docker compose -f docker-compose.selfhost.yml exec postgres \
   psql -U postgres -c "CREATE DATABASE tallyline;"
 cat backup-YYYY-MM-DD.dump | docker compose -f docker-compose.selfhost.yml \
-  exec -T postgres pg_restore -U postgres -d docketry --clean --if-exists
+  exec -T postgres pg_restore -U postgres -d tallyline --clean --if-exists
 docker compose -f docker-compose.selfhost.yml start api web
 ```
 
@@ -227,10 +226,10 @@ target all fail closed):
 # 1. stop writers on a live box
 docker compose -f docker-compose.selfhost.yml stop api web
 # 2. create an empty target database (never restore over a database you can't lose)
-docker compose -f docker-compose.selfhost.yml exec postgres psql -U postgres -c "CREATE DATABASE docketry_restore;"
+docker compose -f docker-compose.selfhost.yml exec postgres psql -U postgres -c "CREATE DATABASE tallyline_restore;"
 # 3. fetch + verify checksum + decrypt + restore (target is explicit: no default)
 BACKUP_AGE_IDENTITY=./tallyline-backup.key \
-RESTORE_PG_CONTAINER=<postgres-container> RESTORE_PG_DB=docketry_restore \
+RESTORE_PG_CONTAINER=<postgres-container> RESTORE_PG_DB=tallyline_restore \
 BACKUP_S3_BUCKET=... BACKUP_S3_ENDPOINT=... AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... \
 ./ops/restore.sh tallyline-YYYYMMDDTHHMMSSZ.dump.gz.age     # or a local file path
 # 4. sanity-check row counts, then point DATABASE_URL/POSTGRES_DB at it and start api/web
@@ -238,13 +237,13 @@ BACKUP_S3_BUCKET=... BACKUP_S3_ENDPOINT=... AWS_ACCESS_KEY_ID=... AWS_SECRET_ACC
 
 **Rehearse it** — restore the latest backup into a scratch database at
 least monthly; an untested backup is not a backup. The database name in the
-compose file is `docketry` (kept so existing volumes work); the older manual
+compose file is `tallyline` (kept so existing volumes work); the older manual
 snippet above says `tallyline` — use whatever `POSTGRES_DB` is on your box.
 
 ## Hardening checklist
 
 - `JWT_SECRET` is set and not the dev default (enforced: the API won't boot in production otherwise).
-- Postgres/redis are **not** published (the compose file never maps them).
+- Postgres is **not** published (the compose file never maps it).
 - `RATE_LIMIT_PER_MIN` > 0 on anything internet-facing.
 - `AUTH_AUTO_JOIN_SINGLE_WORKSPACE` left unset (off) on anything internet-facing —
   turning it on means any OAuth-verified stranger lands in your workspace.

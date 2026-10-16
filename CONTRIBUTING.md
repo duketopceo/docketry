@@ -4,18 +4,18 @@ Thanks for helping build tallyline — a self-hostable, agent-native issue track
 
 ## Setup
 
-Requirements: Node.js, pnpm 10, and Docker (for Postgres + Redis).
+Requirements: Node.js, pnpm 10, and Docker (for Postgres).
 
 ```bash
-git clone https://github.com/duketopceo/docketry
-cd docketry
+git clone https://github.com/duketopceo/tallyline
+cd tallyline
 pnpm install
 cp .env.example .env
-docker compose up -d   # Postgres on :5432, Redis on :6380
+docker compose up -d   # Postgres on :5432
 pnpm dev               # turbo dev — web + api + workers
 ```
 
-Fill in `.env` values as needed for the integrations you are touching — the core app only needs `DATABASE_URL` and `REDIS_URL` (there is no `AUTH_SECRET` — it was a dead var; `JWT_SECRET` has a dev fallback, and `AUTH_SECRET_KEY`/OAuth vars are only needed when developing provider sign-in — see [docs/auth.md](./docs/auth.md)).
+Fill in `.env` values as needed for the integrations you are touching — the core app only needs `DATABASE_URL` (there is no `AUTH_SECRET` — it was a dead var; `JWT_SECRET` has a dev fallback, and `AUTH_SECRET_KEY`/OAuth vars are only needed when developing provider sign-in — see [docs/auth.md](./docs/auth.md)).
 
 ## The check gate
 
@@ -28,15 +28,13 @@ pnpm turbo run test --filter='!@tallyline/e2e' --concurrency=1   # needs a throw
 
 ## Testing against real Postgres
 
-Tests run against a real Postgres database — do not mock the database layer. But **never point tests at the dev stack** from `docker-compose.yml` (Postgres `:5432`, db `docketry`; Redis `:6380`): several suites run migrations and wipe tables.
+Tests run against a real Postgres database — do not mock the database layer. But **never point tests at the dev stack** from `docker-compose.yml` (Postgres `:5432`, db `tallyline`): several suites run migrations and wipe tables.
 
-Every harness that touches the database (api, mcp-server, cli, e2e) runs a guard (`apps/api/test/db-guard.ts`) and refuses to start unless `DATABASE_URL` **and** `REDIS_URL` are explicitly set and are not the default dev stack. Use a throwaway stack on non-default ports:
+Every harness that touches the database (api, mcp-server, cli, e2e) runs a guard (`apps/api/test/db-guard.ts`) and refuses to start unless `DATABASE_URL` is explicitly set and are not the default dev stack. Use a throwaway stack on non-default ports:
 
 ```bash
 docker run -d --rm --name tly-test-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=tallyline_test -p 127.0.0.1:55432:5432 postgres:17-alpine
-docker run -d --rm --name tly-test-redis -p 127.0.0.1:56380:6379 redis:7-alpine
 export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/tallyline_test
-export REDIS_URL=redis://127.0.0.1:56380
 export JWT_SECRET=local-test-secret-0123456789abcdef
 pnpm turbo run test --filter='!@tallyline/e2e' --concurrency=1
 ```
@@ -47,7 +45,7 @@ The api suites clone a migrated template database per test file, so they never w
 
 ### e2e
 
-`pnpm --filter @tallyline/e2e test` starts its own compose project (`tallyline-e2e`, `tools/e2e/docker-compose.e2e.yml`) with Postgres on `:55432` and Redis on `:56380` (override with `E2E_PG_PORT` / `E2E_REDIS_PORT`), serves the API on `:4100` and web on `:3110` (`E2E_API_PORT` / `E2E_WEB_PORT`), and never reuses an already-running dev server. If `DATABASE_URL`/`REDIS_URL` are already set (as in CI) it uses those and starts nothing. Tear down with `pnpm --filter @tallyline/e2e stack:down`.
+`pnpm --filter @tallyline/e2e test` starts its own compose project (`tallyline-e2e`, `tools/e2e/docker-compose.e2e.yml`) with Postgres on `:55432` (override with `E2E_PG_PORT`), serves the API on `:4100` and web on `:3110` (`E2E_API_PORT` / `E2E_WEB_PORT`), and never reuses an already-running dev server. If `DATABASE_URL` is already set (as in CI) it uses that and starts nothing. Tear down with `pnpm --filter @tallyline/e2e stack:down`.
 
 ## Conventions
 

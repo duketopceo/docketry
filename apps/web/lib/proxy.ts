@@ -4,7 +4,7 @@ import { API_URL, SESSION_COOKIE } from "@/lib/api";
 import { WORKSPACE_COOKIE } from "@/lib/session";
 import { upstreamFetch } from "@/lib/upstream";
 
-// shared upstream forwarder for the settings bridges — session + dok_ws
+// shared upstream forwarder for the settings bridges — session + tly_ws
 // from the web jar; path is built by the caller, never the client
 export async function proxy(
   req: Request,

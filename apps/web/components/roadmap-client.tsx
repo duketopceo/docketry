@@ -11,6 +11,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { usePicker } from "@/components/app/picker";
+import { Kbd } from "@/components/app/ui";
 import { EmptyState, StateDot } from "@/components/primitives";
 
 export interface RoadmapProject {
@@ -86,6 +88,20 @@ const FILL_CLASS: Record<string, string> = {
 const FILL_DEFAULT = "bg-ink/10";
 
 const DAY = 86_400_000;
+
+// project health from time elapsed vs work done; always text + shape, never colour alone
+export function projectHealth(p: { startDate: string | null; targetDate: string | null; createdAt: string; status: string }, done: number, total: number, now: number): { label: string; tone: string; glyph: string } | null {
+  if (p.status === "completed") return { label: "Completed", tone: "text-healthy", glyph: "✓" };
+  if (p.status === "canceled" || p.status === "backlog") return null;
+  if (!p.targetDate) return { label: "No target date", tone: "text-ink-subtle", glyph: "–" };
+  const start = new Date(p.startDate ?? p.createdAt).getTime();
+  const end = new Date(p.targetDate).getTime();
+  const ratio = total > 0 ? done / total : 0;
+  if (now > end && ratio < 1) return { label: "Late", tone: "text-urgent", glyph: "!" };
+  const elapsed = end > start ? Math.min(1, Math.max(0, (now - start) / (end - start))) : 1;
+  if (total > 0 && ratio + 0.15 < elapsed) return { label: "At risk", tone: "text-attention", glyph: "▲" };
+  return { label: "On track", tone: "text-healthy", glyph: "●" };
+}
 const TERMINAL: ReadonlySet<string> = new Set(["done", "canceled", "duplicate"]);
 
 function fmtDay(t: number): string {
@@ -356,7 +372,7 @@ export function RoadmapClient({
           aria-expanded={open}
           onClick={() => toggleRow({ kind: "project", project: p })}
           onMouseEnter={() => setCursor(i)}
-          className={`grid w-full grid-cols-[16rem_1fr] items-center border-b border-lining-faint text-left focus-visible:outline-none ${
+          className={`grid w-full grid-cols-[8.5rem_1fr] sm:grid-cols-[16rem_1fr] items-center border-b border-lining-faint text-left focus-visible:outline-none ${
             isCursor ? "bg-surface-2" : "hover:bg-surface-1"
           }`}
         >
@@ -364,14 +380,18 @@ export function RoadmapClient({
             <span className="truncate text-[13px] text-ink-muted">
               {p.name}
             </span>
-            <span className="shrink-0 font-mono text-[10px] text-ink-tertiary">
+            <span className="shrink-0 font-mono text-[11px] text-ink-tertiary max-sm:hidden">
               {p.teamId ? (teamById.get(p.teamId) ?? "?") : "ws"}
             </span>
             {iss.length > 0 && (
-              <span className="shrink-0 font-mono text-[10px] text-ink-tertiary">
+              <span className="shrink-0 font-mono text-[11px] text-ink-tertiary max-sm:hidden">
                 {done}/{iss.length}
               </span>
             )}
+            {(() => {
+              const h = projectHealth(p, done, iss.length, now);
+              return h ? <span className={`shrink-0 text-[11px] font-medium ${h.tone}`} title={h.label}><span aria-hidden>{h.glyph}</span><span className="max-sm:sr-only"> {h.label}</span></span> : null;
+            })()}
           </span>
           <span className="relative h-10 flex-1">
             <TrackBackdrop />
@@ -446,7 +466,7 @@ export function RoadmapClient({
           data-index={i}
           onClick={() => toggleRow({ kind: "cycle", cycle: c })}
           onMouseEnter={() => setCursor(i)}
-          className={`grid w-full grid-cols-[16rem_1fr] items-center border-b border-lining-faint text-left focus-visible:outline-none ${
+          className={`grid w-full grid-cols-[8.5rem_1fr] sm:grid-cols-[16rem_1fr] items-center border-b border-lining-faint text-left focus-visible:outline-none ${
             isCursor ? "bg-surface-2" : "hover:bg-surface-1"
           }`}
         >
@@ -454,13 +474,11 @@ export function RoadmapClient({
             <span className="shrink-0 font-mono text-xs text-ink-tertiary">
               {teamById.get(c.teamId) ?? "?"} · C{c.number}
             </span>
-            <span className="truncate text-[12px] text-ink-subtle">
+            <span className="truncate text-[12px] text-ink-subtle max-sm:hidden">
               {c.name ?? ""}
             </span>
             {c.isActive && (
-              <span className="shrink-0 rounded-full bg-healthy/15 px-1.5 font-mono text-[9px] text-healthy">
-                active
-              </span>
+              <span className="shrink-0 text-[11px] font-medium text-healthy"><span aria-hidden>●</span><span className="max-sm:sr-only"> Active</span></span>
             )}
           </span>
           <span className="relative h-8 flex-1">
@@ -486,22 +504,22 @@ export function RoadmapClient({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* axis header — shares the same grid so ticks align with rows */}
-      <div className="grid h-7 shrink-0 grid-cols-[16rem_1fr] items-end border-b border-lining-faint">
-        <span className="px-4 font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+      <div className="grid h-7 shrink-0 grid-cols-[8.5rem_1fr] sm:grid-cols-[16rem_1fr] items-end border-b border-lining-faint">
+        <span className="px-4 text-[11px] font-medium uppercase tracking-[0.4px] text-ink-subtle">
           roadmap
         </span>
         <div className="relative h-full">
-          {ticks.map(({ t, label }) => (
+          {ticks.filter(({ t }) => Math.abs(pct(t) - pct(now)) > 12).map(({ t, label }) => (
             <span
               key={t}
-              className="absolute bottom-0.5 -translate-x-1/2 font-mono text-[9px] whitespace-nowrap text-ink-tertiary"
+              className="absolute bottom-0.5 -translate-x-1/2 text-[11px] whitespace-nowrap tabular-nums text-ink-subtle"
               style={{ left: `${pct(t)}%` }}
             >
               {label}
             </span>
           ))}
           <span
-            className="absolute bottom-0.5 -translate-x-1/2 font-mono text-[9px] text-accent"
+            className="absolute bottom-0.5 -translate-x-1/2 text-[11px] font-medium text-accent"
             style={{ left: `${pct(now)}%` }}
           >
             today
@@ -520,7 +538,7 @@ export function RoadmapClient({
         )}
         {projectCount > 0 && (
           <li>
-            <div className="flex h-7 items-center gap-2 border-b border-lining-faint bg-surface-1 px-4 font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+            <div className="flex h-7 items-center gap-2 border-b border-lining-faint bg-surface-1 px-4 text-[11px] font-medium uppercase tracking-[0.4px] text-ink-subtle">
               Projects
               <span>{projectCount}</span>
             </div>
@@ -533,7 +551,7 @@ export function RoadmapClient({
         )}
         {cycleCount > 0 && (
           <li>
-            <div className="flex h-7 items-center gap-2 border-b border-lining-faint bg-surface-1 px-4 font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+            <div className="flex h-7 items-center gap-2 border-b border-lining-faint bg-surface-1 px-4 text-[11px] font-medium uppercase tracking-[0.4px] text-ink-subtle">
               Cycles
               <span>{cycleCount}</span>
             </div>
@@ -556,17 +574,11 @@ export function RoadmapClient({
           {error}
         </p>
       )}
-      <footer className="flex h-8 shrink-0 items-center gap-4 border-t border-lining-faint px-4 font-mono text-[10px] text-ink-tertiary">
-        <span>
-          <kbd>j</kbd>/<kbd>k</kbd> move
-        </span>
-        <span>
-          <kbd>⏎</kbd> open
-        </span>
-        <span>
-          <kbd>esc</kbd> collapse
-        </span>
-        <span className="ml-auto">◆ milestone · open ends fade</span>
+      <footer className="flex h-8 shrink-0 items-center gap-4 overflow-hidden border-t border-lining-faint px-4 text-[11px] text-ink-subtle max-sm:hidden">
+        <span><Kbd>j</Kbd> <Kbd>k</Kbd> move</span>
+        <span><Kbd>Enter</Kbd> expand a project</span>
+        <span><Kbd>Esc</Kbd> collapse</span>
+        <span className="ml-auto">◆ milestone · bars fade where the end is open</span>
       </footer>
     </div>
   );
@@ -592,6 +604,7 @@ function ProjectDetail({
   busy: string | null;
   onCall: (path: string, init: RequestInit, tag: string) => Promise<boolean>;
 }) {
+  const picker = usePicker();
   const [msTitle, setMsTitle] = useState("");
   const [msDate, setMsDate] = useState("");
 
@@ -616,36 +629,30 @@ function ProjectDetail({
   }
 
   return (
-    <div className="grid grid-cols-[16rem_1fr] border-b border-lining-faint bg-surface-1">
+    <div className="grid grid-cols-1 border-b border-lining-faint bg-surface-1 sm:grid-cols-[16rem_1fr]">
       <div className="px-4 py-3">
         <div className="flex items-center gap-2">
-          <select
-            value={project.status}
+          <button
+            type="button"
             disabled={busy !== null}
-            onChange={(e) =>
-              void onCall(
-                `/api/projects/${project.id}`,
-                {
-                  method: "PATCH",
-                  body: JSON.stringify({ status: e.target.value }),
-                },
-                project.id,
-              )
+            aria-label={`Project status: ${project.status}. Change`}
+            onClick={(e) =>
+              picker.open({
+                anchor: e.currentTarget,
+                title: "Set project status",
+                options: Object.keys(STATUS_LABEL).map((st) => ({ id: st, label: STATUS_LABEL[st]!, checked: st === project.status })),
+                onSelect: (st) => void onCall(`/api/projects/${project.id}`, { method: "PATCH", body: JSON.stringify({ status: st }) }, project.id),
+              })
             }
-            className="h-6 rounded-sm border border-control bg-surface-2 px-1 font-mono text-[11px] text-ink-muted focus:border-accent focus:outline-none disabled:opacity-50"
-            aria-label="project status"
+            className="h-7 rounded-sm border border-control px-2 text-[12px] text-ink-muted hover:bg-surface-2 hover:text-ink disabled:opacity-50"
           >
-            {Object.keys(STATUS_LABEL).map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABEL[s]}
-              </option>
-            ))}
-          </select>
-          <span className="font-mono text-[10px] text-ink-tertiary">
+            {STATUS_LABEL[project.status] ?? project.status}
+          </button>
+          <span className="font-mono text-[11px] text-ink-tertiary">
             {project.teamId ? (teamById.get(project.teamId) ?? "?") : "workspace"}
           </span>
         </div>
-        <p className="mt-2 font-mono text-[10px] text-ink-tertiary">
+        <p className="mt-2 font-mono text-[11px] text-ink-tertiary">
           {fmtDay(
             new Date(project.startDate ?? project.createdAt).getTime(),
           )}{" "}
@@ -659,11 +666,13 @@ function ProjectDetail({
             {project.description}
           </p>
         )}
+        <Link href={`/board?project=${project.id}`} className="mt-3 inline-flex h-7 items-center rounded-sm border border-control px-2.5 text-[12px] text-ink-muted hover:bg-surface-2 hover:text-ink">Open on board</Link>
+        <Link href={`/issues?project=${project.id}`} className="ml-2 mt-3 inline-flex h-7 items-center rounded-sm px-2 text-[12px] text-accent hover:bg-surface-2">All issues</Link>
       </div>
       <div className="border-l border-lining-faint px-4 py-3">
         <div className="flex flex-wrap gap-x-6 gap-y-3">
           <div className="min-w-56">
-            <p className="font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+            <p className="text-[11px] font-medium uppercase tracking-[0.4px] text-ink-subtle">
               Milestones
             </p>
             <ul className="mt-1.5 space-y-1">
@@ -698,7 +707,7 @@ function ProjectDetail({
                   >
                     {m.title}
                   </span>
-                  <span className="font-mono text-[10px] text-ink-tertiary">
+                  <span className="font-mono text-[11px] text-ink-tertiary">
                     {m.targetDate
                       ? fmtDay(new Date(m.targetDate).getTime())
                       : "undated"}
@@ -713,7 +722,7 @@ function ProjectDetail({
                         m.id,
                       )
                     }
-                    className="font-mono text-[10px] text-ink-tertiary hover:text-urgent"
+                    className="font-mono text-[11px] text-ink-tertiary hover:text-urgent"
                     aria-label={`delete milestone ${m.title}`}
                   >
                     ×
@@ -734,23 +743,23 @@ function ProjectDetail({
                 className="h-6 w-36 rounded-sm border border-control bg-surface-2 px-1.5 text-[11px] text-ink placeholder:text-ink-tertiary focus:border-accent focus:outline-none"
               />
               <input
-                type="datetime-local"
+                type="date"
                 value={msDate}
                 onChange={(e) => setMsDate(e.target.value)}
-                className="h-6 rounded-sm border border-control bg-surface-2 px-1 font-mono text-[10px] text-ink-muted"
+                className="h-6 rounded-sm border border-control bg-surface-2 px-1 font-mono text-[11px] text-ink-muted"
                 aria-label="milestone target date"
               />
               <button
                 type="submit"
                 disabled={busy !== null || !msTitle.trim()}
-                className="h-6 rounded-sm border border-control px-2 font-mono text-[10px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
+                className="h-6 rounded-sm border border-control px-2 font-mono text-[11px] text-ink-subtle hover:border-accent hover:text-accent disabled:opacity-50"
               >
                 add
               </button>
             </form>
           </div>
           <div className="min-w-56 flex-1">
-            <p className="font-mono text-[10px] uppercase tracking-wider text-ink-tertiary">
+            <p className="text-[11px] font-medium uppercase tracking-[0.4px] text-ink-subtle">
               Issues ({issues.length})
             </p>
             <ul className="mt-1.5 max-h-40 space-y-1 overflow-y-auto">
@@ -790,9 +799,10 @@ function NewProjectForm({
   busy: string | null;
   onCall: (path: string, init: RequestInit, tag: string) => Promise<boolean>;
 }) {
+  const picker = usePicker();
   const [name, setName] = useState("");
   const [teamKey, setTeamKey] = useState("");
-  const [startDate, setStartDate] = useState(toLocalInput(new Date()));
+  const [startDate, setStartDate] = useState(toLocalInput(new Date()).slice(0, 10));
   const [targetDate, setTargetDate] = useState("");
 
   async function submit(e: FormEvent) {
@@ -832,21 +842,23 @@ function NewProjectForm({
         placeholder="project name"
         className="h-7 w-44 rounded-sm border border-control bg-surface-2 px-2 text-[12px] text-ink placeholder:text-ink-tertiary focus:border-accent focus:outline-none"
       />
-      <select
-        value={teamKey}
-        onChange={(e) => setTeamKey(e.target.value)}
-        className="h-7 rounded-sm border border-control bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
-        aria-label="team (optional)"
+      <button
+        type="button"
+        aria-label={`Team: ${teamKey || "workspace"}. Change`}
+        onClick={(e) =>
+          picker.open({
+            anchor: e.currentTarget,
+            title: "Project team",
+            options: [{ id: "", label: "Workspace (all teams)", checked: !teamKey }, ...teams.map((t) => ({ id: t.key, label: t.key, checked: t.key === teamKey }))],
+            onSelect: (id) => setTeamKey(id),
+          })
+        }
+        className="h-8 rounded-sm border border-control px-2.5 text-[12px] text-ink-muted hover:bg-surface-2"
       >
-        <option value="">workspace</option>
-        {teams.map((t) => (
-          <option key={t.key} value={t.key}>
-            {t.key}
-          </option>
-        ))}
-      </select>
+        {teamKey || "Workspace"}
+      </button>
       <input
-        type="datetime-local"
+        type="date"
         value={startDate}
         onChange={(e) => setStartDate(e.target.value)}
         className="h-7 rounded-sm border border-control bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"
@@ -854,7 +866,7 @@ function NewProjectForm({
       />
       <span className="font-mono text-[11px] text-ink-tertiary">→</span>
       <input
-        type="datetime-local"
+        type="date"
         value={targetDate}
         onChange={(e) => setTargetDate(e.target.value)}
         className="h-7 rounded-sm border border-control bg-surface-2 px-1.5 font-mono text-[11px] text-ink-muted"

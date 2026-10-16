@@ -9,6 +9,7 @@ import {
 import { db } from "../db/client.js";
 import { events, issues, teams } from "../db/schema.js";
 import { mirrorIssueState } from "./github-sync.js";
+import { notifyUsers, staffUserIds } from "./notifications.js";
 import { queueDeliveries } from "./outbound.js";
 import { track } from "./background.js";
 import { clock } from "./clock.js";
@@ -148,6 +149,15 @@ export async function transitionIssue(
     after: { state: to, ...extra },
     issueKey: key,
   });
+  // in_review lands on the review queue — owner+admin members get a row so
+  // pending review is ambient without polling. The actor is never notified.
+  if (to === "in_review") {
+    await notifyUsers(
+      workspaceId,
+      await staffUserIds(workspaceId),
+      { kind: "review_pending", issueId: updated.id, actor },
+    );
+  }
   // best-effort GitHub mirror after commit — never blocks, never throws;
   // inbound-originated transitions (via=github) skip inside (#60)
   track(

@@ -73,6 +73,69 @@ context file as argv[1]; `claude`/`codex`/`opencode` are auto-detected from
 the agent's `harness` field. Agent keys may only report their own dispatches.
 The spawned process gets `TALLYLINE_DISPATCH_ID` and `TALLYLINE_ISSUE_KEY`.
 
+## Event-driven dispatch (n8n / webhook automations)
+
+There is deliberately no in-app rule engine: transition-triggered dispatch is
+an external automation over two seams that already exist — **outbound
+webhooks** (docs/webhooks.md) notify your automation, and **assign / @mention**
+trigger the dispatch. Works with n8n, a tiny HTTP function, or anything that
+can receive a POST and make one.
+
+The rule shape is *"when an issue lands in state S (optionally with label L),
+dispatch agent A"*:
+
+1. **Subscribe an endpoint** (owner/admin):
+   `POST /v1/:ws/webhook-endpoints {"url": "https://…", "events": ["issue.state_changed"]}`
+   — add `issue.created` if new issues should qualify, `issue.commented` only
+   for comment-driven rules (see loop notes below).
+2. **Filter in the consumer.** The payload carries `action`, `issueKey`,
+   `before.state`, `after.state`, `actorType`. Keep a delivery only when
+   `before.state !== after.state` and `after.state` matches your trigger
+   (e.g. `"todo"`). Event payloads don't embed labels, assignees, or comment
+   bodies — `issue.commented` carries only `after.commentId`. If the rule
+   filters on those, `GET /v1/:ws/issues/:key` (and `…/comments`) and inspect
+   the live objects.
+3. **Trigger the dispatch** with a `write`-scoped PAT minted by the human the
+   automation should act as:
+   ```sh
+   # assign trigger — the dispatch record says "assign"
+   curl -X PATCH $API/v1/$WS/issues/$KEY -H "Authorization: Bearer tly_pat_…" \
+     -H "content-type: application/json" \
+     -d '{"assigneeType":"agent","assigneeId":"<agent-uuid>"}'
+
+   # or mention trigger — thread shows the reason in plain text
+   curl -X POST $API/v1/$WS/issues/$KEY/comments -H "Authorization: Bearer tly_pat_…" \
+     -H "content-type: application/json" \
+     -d '{"body":"@triage-bot rule: state→todo + label backend"}'
+   ```
+   Agent ids come from `GET /v1/:ws/agents`. Both routes return 2xx and the
+   dispatch lifecycle (`queued → claimed/dispatch_failed`) reports back on the
+   issue thread — there is no `POST /dispatches` route and none is needed.
+
+### Loop prevention — required reading
+
+Assign-to-agent PATCHes emit **no** `issue.state_changed`, and the dispatch
+ack comment posts as `actorType: "system"` — which emits nothing — so a
+state rule can't retrigger itself. The sharp edges are elsewhere:
+
+- **Your own trigger comments.** A mention-trigger POST made with a PAT fires
+  `issue.commented` with `actorType: "human"`. A comment-driven rule
+  subscribed to `issue.commented` will see its own triggers — drop payloads
+  whose `actorId` is the automation's PAT user, or never subscribe to
+  `issue.commented` for state rules.
+- **Duplicate deliveries.** Webhooks retry; dedupe on `X-Tallyline-Delivery`
+  or the payload's `id` before acting.
+- **Re-assignment re-dispatches.** `PATCH` with an agent assignee creates a
+  dispatch *every call*, even re-assigning the same agent — gate your consumer
+  on "not already assigned to this agent" if that isn't what you want.
+- **Fan-out subscriptions.** A catch-all `["*"]` endpoint receives
+  `issue.dispatched` for your own triggers too — a dispatch rule must ignore
+  `issue.dispatch_*` actions explicitly.
+
+Built-in escape hatch: `send_back` in review already re-dispatches to the
+issue's last agent automatically — don't recreate that with a
+`in_review → in_progress` rule.
+
 ## Session timeline
 
 Inside a session the harness posts structured progress events:
@@ -101,7 +164,8 @@ only append to and read their own session logs.
 }
 ```
 
-Payload signing, endpoint management UI, and retry/backoff land with the
-external-harness work in milestone v0.4 (#25). Third-party harnesses that need
-a first-class adapter can implement `DispatchAdapter` in
-`apps/api/src/services/dispatch.ts` and register it in `ADAPTERS`.
+Dispatch deliveries ride the outbound pipeline: HMAC-SHA256 signing, 30s ×
+2^attempt retry, 5-attempt cap — see docs/webhooks.md for the wire details.
+Third-party harnesses that need a first-class adapter can implement
+`DispatchAdapter` in `apps/api/src/services/dispatch.ts` and register it in
+`ADAPTERS`.

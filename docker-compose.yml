@@ -4,29 +4,17 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: docketry
+      POSTGRES_DB: tallyline
     ports:
       - "5432:5432"
     volumes:
-      - docketry-postgres:/var/lib/postgresql/data
+      - tallyline-postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d docketry"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6380:6379"
-    volumes:
-      - docketry-redis:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tallyline"]
       interval: 5s
       timeout: 5s
       retries: 5
 
 volumes:
-  docketry-postgres:
-  docketry-redis:
+  tallyline-postgres:
+    name: tallyline-postgres

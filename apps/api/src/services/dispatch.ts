@@ -1,5 +1,10 @@
-import { eq } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 import { db } from "../db/client.js";
+import { config_ } from "../env.js";
+import {
+  dispatchFailureTargets,
+  notifyUsers,
+} from "./notifications.js";
 import {
   agents,
   comments,
@@ -138,6 +143,12 @@ async function fail(
     dispatch.workspaceId,
     dispatch.issueId,
     `dispatch_failed: ${reason}`,
+  );
+  // a failed dispatch needs human eyes — assignee first, then creator, then staff
+  await notifyUsers(
+    dispatch.workspaceId,
+    await dispatchFailureTargets(dispatch.workspaceId, dispatch.issueId),
+    { kind: "dispatch_failed", issueId: dispatch.issueId },
   );
 }
 
@@ -278,4 +289,49 @@ export async function createDispatch(input: {
 
   await processDispatch(dispatch!.id);
   return dispatch!;
+}
+
+// Sweeper: a dispatch still `queued` past the ack window means the delivery
+// pipeline wedged without a terminal writeback — fail it loudly on the issue
+// thread instead of letting it hang. `claimed` rows are never touched:
+// claiming is the acknowledgement. Runs on the API interval alongside the
+// delivery and cycle sweepers. `timeoutMs <= 0` disables the sweep.
+export async function sweepStaleDispatches(
+  timeoutMs = config_.dispatchAckTimeoutMs,
+  now = clock.now(),
+): Promise<number> {
+  if (timeoutMs <= 0) return 0;
+  const stale = await db
+    .select({ id: dispatches.id, workspaceId: dispatches.workspaceId, issueId: dispatches.issueId })
+    .from(dispatches)
+    .where(
+      and(
+        eq(dispatches.status, "queued"),
+        lt(dispatches.createdAt, new Date(now.getTime() - timeoutMs)),
+      ),
+    );
+  let swept = 0;
+  for (const d of stale) {
+    // flip only if still queued — a delivery writeback can claim the row
+    // between the select and the update; losing that race must not kill it
+    const flipped = await db
+      .update(dispatches)
+      .set({
+        status: "dispatch_failed",
+        reason: `no acknowledgement within ${Math.round(timeoutMs / 1000)}s`,
+        updatedAt: now,
+      })
+      .where(
+        and(eq(dispatches.id, d.id), eq(dispatches.status, "queued")),
+      )
+      .returning({ id: dispatches.id });
+    if (flipped.length === 0) continue;
+    // fail() rewrites the same status/reason then fans out event + comment
+    await fail(
+      d,
+      `no acknowledgement within ${Math.round(timeoutMs / 1000)}s`,
+    );
+    swept++;
+  }
+  return swept;
 }

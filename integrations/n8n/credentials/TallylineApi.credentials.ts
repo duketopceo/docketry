@@ -17,7 +17,7 @@ export class TallylineApi implements ICredentialType {
 	displayName = "tallyline API";
 
 	documentationUrl =
-		"https://github.com/duketopceo/docketry/blob/main/integrations/n8n/README.md";
+		"https://github.com/duketopceo/tallyline/blob/main/integrations/n8n/README.md";
 
 	properties: INodeProperties[] = [
 		{

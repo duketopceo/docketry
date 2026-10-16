@@ -7,7 +7,7 @@
 #   BACKUP_AGE_IDENTITY    path to the age PRIVATE key file (age-keygen output). Supply it
 #                          only for the restore — it should not live on the production box.
 #   target (explicit — there is deliberately NO default, so a typo can't hit production):
-#     RESTORE_PG_CONTAINER [RESTORE_PG_USER=postgres] [RESTORE_PG_DB=docketry]
+#     RESTORE_PG_CONTAINER [RESTORE_PG_USER=postgres] [RESTORE_PG_DB=tallyline]
 #     or RESTORE_DATABASE_URL
 # The target database must already exist (CREATE DATABASE) and ideally be empty;
 # objects are replaced with --clean --if-exists. Stop api/web first on a live box.
@@ -45,7 +45,7 @@ fi
 restore() {
   if [ -n "${RESTORE_PG_CONTAINER:-}" ]; then
     docker exec -i "$RESTORE_PG_CONTAINER" pg_restore -U "${RESTORE_PG_USER:-postgres}" \
-      -d "${RESTORE_PG_DB:-docketry}" --clean --if-exists --no-owner --exit-on-error
+      -d "${RESTORE_PG_DB:-tallyline}" --clean --if-exists --no-owner --exit-on-error
   elif [ -n "${RESTORE_DATABASE_URL:-}" ]; then
     pg_restore -d "$RESTORE_DATABASE_URL" --clean --if-exists --no-owner --exit-on-error
   else

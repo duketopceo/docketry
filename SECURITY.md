@@ -14,7 +14,7 @@ promptly when a fix lands).
 
 ## Reporting a Vulnerability
 
-**Preferred:** use [GitHub private vulnerability reporting](https://github.com/duketopceo/docketry/security/advisories/new)
+**Preferred:** use [GitHub private vulnerability reporting](https://github.com/duketopceo/tallyline/security/advisories/new)
 ("Report a vulnerability" on the Security tab). This opens a private advisory
 where we can discuss, develop a fix, and coordinate disclosure without exposing
 details publicly.

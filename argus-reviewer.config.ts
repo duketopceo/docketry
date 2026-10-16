@@ -5,7 +5,7 @@ export default defineConfig({
   // argus-reviewer polls url until it responds before running tests.
   target: {
     // pnpm monorepo: `pnpm dev` boots api (:4000) + web (:3100) via turbo
-    // and needs `docker compose up -d` (postgres+redis) running first.
+    // and needs `docker compose up -d` (postgres) running first.
     command: 'pnpm dev',
     url: 'http://localhost:3100',
     readyTimeoutMs: 60_000,

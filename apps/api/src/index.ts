@@ -11,7 +11,9 @@ import { securityHeaders } from "./lib/security-headers.js";
 import { openApiDoc } from "./openapi.js";
 import { sweepExpiredCycles } from "./services/cycles.js";
 import { sweepDeliveries } from "./services/outbound.js";
+import { sweepStaleDispatches } from "./services/dispatch.js";
 import { agentRoutes } from "./routes/agents.js";
+import { notificationRoutes } from "./routes/notifications.js";
 import { authRoutes, requireSession } from "./routes/auth.js";
 import { assistRoutes } from "./routes/assist.js";
 import { dispatchRoutes } from "./routes/dispatches.js";
@@ -57,7 +59,7 @@ export const app = new Hono()
   .use("*", securityHeaders)
   .use("*", anonymousLimiter)
   .get("/health", async (c) => {
-    const report = await checkHealth(config_.databaseUrl, config_.redisUrl);
+    const report = await checkHealth(config_.databaseUrl);
     return c.json(report, report.status === "ok" ? 200 : 503);
   })
   .get("/openapi.json", (c) => c.json(openApiDoc))
@@ -82,6 +84,7 @@ export const app = new Hono()
   .route("/v1", tokenRoutes)
   .route("/v1", memberRoutes)
   .route("/v1", inviteRoutes)
+  .route("/v1", notificationRoutes)
   .route("/v1", githubRoutes)
   .route("/v1", importRoutes)
   .route("/v1", webhookEndpointRoutes)
@@ -113,6 +116,12 @@ if (process.env.NODE_ENV !== "test") {
       console.error("webhook sweep failed", err),
     );
   }, 30_000).unref();
+  // dispatch ack sweep: fail dispatches that never got acknowledged
+  setInterval(() => {
+    void sweepStaleDispatches().catch((err) =>
+      console.error("dispatch sweep failed", err),
+    );
+  }, 30_000).unref();
   // cycle boundary sweep: complete expired active cycles unattended
   setInterval(() => {
     void sweepExpiredCycles().catch((err) =>
@@ -121,6 +130,9 @@ if (process.env.NODE_ENV !== "test") {
   }, 60_000).unref();
   void sweepExpiredCycles().catch((err) =>
     console.error("cycle sweep failed", err),
+  );
+  void sweepStaleDispatches().catch((err) =>
+    console.error("dispatch sweep failed", err),
   );
   serve({ fetch: app.fetch, port: config_.port }, (info) => {
     console.log(`api listening on http://localhost:${info.port}`);

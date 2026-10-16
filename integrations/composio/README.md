@@ -1,6 +1,6 @@
 # @tallyline/composio
 
-Composio custom toolkit for [tallyline](https://github.com/duketopceo/docketry) —
+Composio custom toolkit for [tallyline](https://github.com/duketopceo/tallyline) —
 `TALLYLINE_*` tools that wrap the workspace REST API, so Composio-session
 agents discover and operate the tracker natively.
 
@@ -19,7 +19,7 @@ const tallyline = createTallylineToolkit({
 });
 ```
 
-Mint a key per [`docs/agents.md`](https://github.com/duketopceo/docketry/blob/main/docs/agents.md):
+Mint a key per [`docs/agents.md`](https://github.com/duketopceo/tallyline/blob/main/docs/agents.md):
 `POST /v1/workspaces/:ws/agents/:id/keys` with `["read","write"]` scopes.
 `read` covers all `LIST_*/GET_*/WHOAMI` tools; the mutation tools need `write`.
 

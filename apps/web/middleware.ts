@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { redirectTo } from "@/lib/redirect";
 import {
   buildCsp,
   HSTS_VALUE,
@@ -41,13 +42,12 @@ export function middleware(req: NextRequest) {
   ) {
     return pass();
   }
-  if (!req.cookies.get("dok_session")) {
+  if (!req.cookies.get("tly_session")) {
     // the MCP consent page round-trips through login (same-origin path only)
-    const login = new URL("/login", req.url);
-    if (pathname.startsWith("/oauth/")) {
-      login.searchParams.set("return_to", `${pathname}${req.nextUrl.search}`);
-    }
-    return withSecurityHeaders(req, NextResponse.redirect(login));
+    const returnTo = pathname.startsWith("/oauth/")
+      ? `?return_to=${encodeURIComponent(`${pathname}${req.nextUrl.search}`)}`
+      : "";
+    return withSecurityHeaders(req, redirectTo(`/login${returnTo}`));
   }
   return pass();
 }

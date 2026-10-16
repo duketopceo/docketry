@@ -93,7 +93,7 @@ async function resolve(name: CredName): Promise<{ headers: Record<string, string
     case "admin":
     case "owner":
       return {
-        headers: { cookie: `dok_session=${await newSession(A, name)}` },
+        headers: { cookie: `tly_session=${await newSession(A, name)}` },
         caller: { name, userId: A.people[name].id },
       };
     case "agent_read":
@@ -106,7 +106,7 @@ async function resolve(name: CredName): Promise<{ headers: Record<string, string
       return { headers: { authorization: `Bearer ${A.pats.write}` }, caller: { name, userId: A.people.owner.id } };
     case "outsider":
       return {
-        headers: { cookie: `dok_session=${await newSession(B, "owner")}` },
+        headers: { cookie: `tly_session=${await newSession(B, "owner")}` },
         caller: { name, userId: B.people.owner.id },
       };
   }

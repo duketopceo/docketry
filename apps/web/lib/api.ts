@@ -6,7 +6,7 @@ export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ??
   "http://localhost:4000";
 
-export const SESSION_COOKIE = "dok_session";
+export const SESSION_COOKIE = "tly_session";
 
 export async function api<T>(
   path: string,

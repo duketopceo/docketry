@@ -4,7 +4,7 @@ import { setWorkspaceCookie } from "@/lib/session";
 import { cookies } from "next/headers";
 import { upstreamFetch } from "@/lib/upstream";
 
-// workspace switch — rebinding dok_ws only happens through this bridge,
+// workspace switch — rebinding tly_ws only happens through this bridge,
 // which proves membership via the API's session endpoint first
 export async function POST(req: Request) {
   const { workspaceSlug } = (await req.json().catch(() => ({}))) as {

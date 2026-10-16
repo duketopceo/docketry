@@ -80,7 +80,7 @@ const installationPayload = (id: number, action = "created") =>
     action,
     installation: { id, account: { login: "duketopceo" } },
     repositories: [
-      { id: 1001, name: "tallyline", full_name: "duketopceo/docketry" },
+      { id: 1001, name: "tallyline", full_name: "duketopceo/tallyline" },
       { id: 1002, name: "dotfiles", full_name: "duketopceo/dotfiles" },
     ],
   });
@@ -253,7 +253,7 @@ describe("installation binding + repo connect", () => {
     const repos = await db
       .select()
       .from(githubRepos)
-      .where(eq(githubRepos.fullName, "duketopceo/docketry"));
+      .where(eq(githubRepos.fullName, "duketopceo/tallyline"));
     expect(repos).toHaveLength(1);
     expect(repos[0]!.enabled).toBe(false);
   });
@@ -261,7 +261,7 @@ describe("installation binding + repo connect", () => {
   it("connect/disconnect round-trips", async () => {
     const connect = await req(`/v1/workspaces/${SLUG}/github/repos/connect`, {
       method: "POST",
-      body: JSON.stringify({ fullName: "duketopceo/docketry" }),
+      body: JSON.stringify({ fullName: "duketopceo/tallyline" }),
     });
     expect(connect.status).toBe(200);
     expect((connect.body as { enabled: boolean }).enabled).toBe(true);
@@ -272,7 +272,7 @@ describe("installation binding + repo connect", () => {
 
     const disconnect = await req(
       `/v1/workspaces/${SLUG}/github/repos/disconnect`,
-      { method: "POST", body: JSON.stringify({ fullName: "duketopceo/docketry" }) },
+      { method: "POST", body: JSON.stringify({ fullName: "duketopceo/tallyline" }) },
     );
     expect(disconnect.status).toBe(200);
     expect((disconnect.body as { enabled: boolean }).enabled).toBe(false);
@@ -330,7 +330,7 @@ describe("installation binding + repo connect", () => {
 
 describe("branch/PR automation (#19)", () => {
   let deliveryCounter = 0;
-  const REPO = { full_name: "duketopceo/docketry" };
+  const REPO = { full_name: "duketopceo/tallyline" };
 
   async function deliver(event: string, payload: object) {
     const body = JSON.stringify({ ...payload, repository: REPO });
@@ -355,7 +355,7 @@ describe("branch/PR automation (#19)", () => {
     });
     await req(`/v1/workspaces/${SLUG}/github/repos/connect`, {
       method: "POST",
-      body: JSON.stringify({ fullName: "duketopceo/docketry" }),
+      body: JSON.stringify({ fullName: "duketopceo/tallyline" }),
     });
 
     await deliver("push", { ref: "refs/heads/GH-1-branch-fix" });
@@ -378,7 +378,7 @@ describe("branch/PR automation (#19)", () => {
       pull_request: {
         number: 42,
         head: { ref: "GH-1-branch-fix" },
-        html_url: "https://github.com/duketopceo/docketry/pull/42",
+        html_url: "https://github.com/duketopceo/tallyline/pull/42",
       },
     });
     expect(await stateOf("GH-1")).toBe("in_review");
@@ -389,7 +389,7 @@ describe("branch/PR automation (#19)", () => {
       action: "submitted",
       review: {
         state: "approved",
-        html_url: "https://github.com/duketopceo/docketry/pull/42#r1",
+        html_url: "https://github.com/duketopceo/tallyline/pull/42#r1",
         user: { login: "octocat" },
       },
       pull_request: { number: 42, head: { ref: "GH-1-branch-fix" } },
@@ -411,7 +411,7 @@ describe("branch/PR automation (#19)", () => {
         number: 42,
         merged: true,
         head: { ref: "GH-1-branch-fix" },
-        html_url: "https://github.com/duketopceo/docketry/pull/42",
+        html_url: "https://github.com/duketopceo/tallyline/pull/42",
       },
     });
     expect(await stateOf("GH-1")).toBe("done");
@@ -434,7 +434,7 @@ describe("branch/PR automation (#19)", () => {
     });
     await req(`/v1/workspaces/${SLUG}/github/repos/disconnect`, {
       method: "POST",
-      body: JSON.stringify({ fullName: "duketopceo/docketry" }),
+      body: JSON.stringify({ fullName: "duketopceo/tallyline" }),
     });
     await deliver("push", { ref: "refs/heads/GH-2-nope" });
     expect(await stateOf("GH-2")).toBe("backlog");
@@ -445,17 +445,17 @@ describe("github issue intake (#20)", () => {
   it("issues.opened creates a triage issue and link row", async () => {
     await req(`/v1/workspaces/${SLUG}/github/repos/connect`, {
       method: "POST",
-      body: JSON.stringify({ fullName: "duketopceo/docketry", teamKey: "GH" }),
+      body: JSON.stringify({ fullName: "duketopceo/tallyline", teamKey: "GH" }),
     });
     const body = JSON.stringify({
       action: "opened",
-      repository: { full_name: "duketopceo/docketry" },
+      repository: { full_name: "duketopceo/tallyline" },
       issue: {
         id: 9001,
         number: 55,
         title: "bug: board flickers",
         body: "steps to repro…",
-        html_url: "https://github.com/duketopceo/docketry/issues/55",
+        html_url: "https://github.com/duketopceo/tallyline/issues/55",
         user: { login: "reporter" },
       },
     });
@@ -485,13 +485,13 @@ describe("github issue intake (#20)", () => {
     const before = await db.select().from(githubIssueLinks);
     const body = JSON.stringify({
       action: "opened",
-      repository: { full_name: "duketopceo/docketry" },
+      repository: { full_name: "duketopceo/tallyline" },
       issue: {
         id: 9001,
         number: 55,
         title: "bug: board flickers",
         body: "dup",
-        html_url: "https://github.com/duketopceo/docketry/issues/55",
+        html_url: "https://github.com/duketopceo/tallyline/issues/55",
       },
     });
     await webhook(body, {

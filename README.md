@@ -27,10 +27,10 @@
 - **Web:** Next.js App Router + Tailwind CSS + shadcn/ui + cmdk (`apps/web`)
 - **API:** Node + Hono + Postgres via Drizzle (`apps/api`)
 - **MCP server:** Model Context Protocol server for AI agents (`apps/mcp-server`)
-- **Dispatch:** agent-routing worker on BullMQ (`services/dispatch`)
+- **Dispatch:** agent-routing worker, Postgres-backed (`services/dispatch`)
 - **CLI:** `tallyline` command-line tool (`tools/cli`)
 - **Shared packages:** `packages/ui`, `packages/types`, `packages/config`
-- **Infra:** Docker Compose (Postgres + Redis) for dev and self-host
+- **Infra:** Docker Compose (Postgres only) for dev and self-host
 
 ## What it is
 
@@ -41,7 +41,7 @@ the actor's identity.
 
 - **Keyboard-first web app.** Issue list, kanban board, triage inbox, review queue, cycles, insights,
   and a roadmap timeline. `Cmd+K` palette, `j`/`k` movement, `g` plus a letter to jump, `?` for the keymap.
-- **Agents as actors.** Register an agent, give it a scoped `dok_agt_*` key, assign it issues, and its
+- **Agents as actors.** Register an agent, give it a scoped `tly_agt_*` key, assign it issues, and its
   actions are attributed to it by name.
 - **Three ways in for agents.** An [MCP server](./docs/mcp.md) (stdio and Streamable HTTP), the
   [`tallyline` CLI](./docs/agents.md) with `--json` output and stable exit codes, and the REST API with
@@ -62,11 +62,11 @@ the actor's identity.
 Requires Node.js, pnpm 10 and Docker.
 
 ```bash
-git clone https://github.com/duketopceo/docketry
-cd docketry
+git clone https://github.com/duketopceo/tallyline
+cd tallyline
 pnpm install
 cp .env.example .env
-docker compose up -d   # Postgres on :5432, Redis on :6380
+docker compose up -d   # Postgres on :5432
 pnpm dev               # web on :3100, API on :4000
 ```
 
@@ -79,7 +79,7 @@ Running tests? Do not point them at this dev stack — see [CONTRIBUTING.md](./C
 From clone to a working board in under 10 minutes:
 
 ```bash
-git clone https://github.com/duketopceo/docketry && cd docketry
+git clone https://github.com/duketopceo/tallyline && cd tallyline
 cat > .env <<EOF2
 POSTGRES_PASSWORD=$(openssl rand -hex 16)
 JWT_SECRET=$(openssl rand -hex 32)
@@ -96,14 +96,14 @@ Env reference, Cloudflare Tunnel, Railway, upgrades and backups: [docs/deploy.md
 # 1. a signed-in human registers an agent and mints a key (shown once)
 #    POST /v1/workspaces/:ws/agents          then   POST /v1/workspaces/:ws/agents/:id/keys
 # 2. the agent works the board
-export TALLYLINE_API_URL=http://localhost:4000 TALLYLINE_TOKEN=dok_agt_... TALLYLINE_WORKSPACE=acme
+export TALLYLINE_API_URL=http://localhost:4000 TALLYLINE_TOKEN=tly_agt_... TALLYLINE_WORKSPACE=acme
 tallyline ready --json      # what can I claim?
 tallyline claim ENG-42      # assign to me, move to in_progress
 tallyline comment ENG-42 "reproduced; fix in progress"
 tallyline done ENG-42       # in_review, then done
 ```
 
-(`DOCKETRY_*` env names keep working as legacy fallbacks.)
+(`DOCKETRY_*`/`dok_*`/`x-docketry-*` names were retired in the rename — old values are ignored.)
 
 MCP clients use the same key. Config for Claude Code, Cursor, Codex and opencode is in
 [docs/agents.md](./docs/agents.md). Board rules for agents are in [SKILL.md](./SKILL.md).

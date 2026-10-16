@@ -1,5 +1,6 @@
-import type { IssueState } from "@tallyline/types";
+import type { IssueState, Priority } from "@tallyline/types";
 import type { ReactNode } from "react";
+import type { ActorRef } from "@/lib/actors";
 import { TallyMark } from "./tally-mark";
 
 // DESIGN.md signature primitives — the "silver lining" system.
@@ -40,7 +41,7 @@ const STATE_PILL: Record<IssueState, string> = {
 export function StatePill({ state }: { state: IssueState }) {
   return (
     <span
-      className={`rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase ${STATE_PILL[state]}`}
+      className={`rounded-full border px-2 py-0.5 font-mono text-[11px] uppercase ${STATE_PILL[state]}`}
     >
       {state.replace("_", " ")}
     </span>
@@ -66,6 +67,128 @@ export function StateDot({ state }: { state: IssueState }) {
       aria-label={state.replace("_", " ")}
       title={state.replace("_", " ")}
     />
+  );
+}
+
+// Linear-style priority glyph — bars for low→high, urgent gets the status
+// color; "none" renders a quiet placeholder so columns stay aligned.
+export function PriorityIcon({
+  priority,
+  size = 12,
+}: {
+  priority: Priority;
+  size?: number;
+}) {
+  if (priority === "urgent") {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 12 12"
+        className="shrink-0 fill-urgent"
+        role="img"
+        aria-label="urgent"
+      >
+        <rect width="12" height="12" rx="3" />
+        <path
+          d="M6 2.5v4.2M6 9.4v.1"
+          stroke="var(--sl-on-accent)"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+  const level =
+    priority === "high" ? 3 : priority === "medium" ? 2 : priority === "low" ? 1 : 0;
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 12 12"
+      className="shrink-0 text-ink-subtle"
+      role="img"
+      aria-label={priority === "none" ? "no priority" : priority}
+    >
+      {[0, 1, 2].map((i) => (
+        <rect
+          key={i}
+          x={1 + i * 4}
+          y={8 - i * 3}
+          width="2.4"
+          height={4 + i * 3}
+          rx="0.8"
+          className={i < level ? "fill-current" : "fill-lining"}
+        />
+      ))}
+    </svg>
+  );
+}
+
+export function LabelChip({
+  label,
+}: {
+  label: { id: string; name: string; color: string };
+}) {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-lining-faint bg-surface-2 px-1.5 py-px font-mono text-[11px] text-ink-subtle">
+      <span
+        className="h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: label.color }}
+      />
+      {label.name}
+    </span>
+  );
+}
+
+// 20px identity disc; agents carry the 12px glint badge bottom-right per
+// the provenance rule — humans never do.
+export function Avatar({ actor }: { actor?: ActorRef | undefined }) {
+  if (!actor) {
+    return (
+      <span
+        className="inline-block h-5 w-5 shrink-0 rounded-full border border-dashed border-lining"
+        title="unassigned"
+        role="img"
+        aria-label="unassigned"
+      />
+    );
+  }
+  return (
+    <span className="relative inline-flex shrink-0" title={actor.name}>
+      <span className="flex h-5 w-5 items-center justify-center rounded-full border border-lining bg-surface-3 font-mono text-[11px] text-ink-muted">
+        {actor.initials}
+      </span>
+      {actor.kind === "agent" && (
+        <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-surface-2">
+          <Sparkle size={12} label={`agent: ${actor.name}`} />
+        </span>
+      )}
+    </span>
+  );
+}
+
+// compact clock for row metadata — "now", "4m", "7h", "12d", then a date
+export function relativeTime(iso: string): string {
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 60) return "now";
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86_400) return `${Math.floor(s / 3600)}h`;
+  if (s < 86_400 * 30) return `${Math.floor(s / 86_400)}d`;
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+export function RelativeTime({ iso }: { iso: string }) {
+  return (
+    <span
+      className="shrink-0 font-mono text-[11px] text-ink-tertiary"
+      title={new Date(iso).toLocaleString()}
+    >
+      {relativeTime(iso)}
+    </span>
   );
 }
 
@@ -149,7 +272,7 @@ export function LoadingState({ label }: { label: string }) {
       {[72, 56, 64, 40].map((w, i) => (
         <div
           key={i}
-          className="h-9 animate-pulse rounded-xs border-b border-lining-faint"
+          className="h-9 rounded-xs border-b border-lining-faint"
         >
           <div
             className="mt-3 h-2 rounded-full bg-surface-3"

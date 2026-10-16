@@ -1,6 +1,6 @@
 # @tallyline/cli
 
-Command line for [Tallyline](https://github.com/duketopceo/docketry). Installs
+Command line for [Tallyline](https://github.com/duketopceo/tallyline). Installs
 `tallyline` and the short alias `tly`.
 
 ```

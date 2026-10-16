@@ -80,7 +80,7 @@ async function req<T = Record<string, unknown>>(
   else headers.cookie = cookie;
   const res = await app.fetch(new Request(`http://t${path}`, { ...init, headers }));
   const sc = res.headers.get("set-cookie");
-  if (sc?.startsWith("dok_session=")) cookie = sc.split(";")[0]!;
+  if (sc?.startsWith("tly_session=")) cookie = sc.split(";")[0]!;
   return { status: res.status, body: (await res.json()) as T };
 }
 

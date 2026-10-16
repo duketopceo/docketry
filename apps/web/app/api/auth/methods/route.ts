@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { API_URL, PUBLIC_API_URL } from "@/lib/api";
 import { upstreamFetch } from "@/lib/upstream";
 
-export const LOGIN_NONCE_COOKIE = "dok_login_nonce";
+export const LOGIN_NONCE_COOKIE = "tly_login_nonce";
 
 interface Methods {
   password: boolean;
@@ -12,7 +12,7 @@ interface Methods {
 }
 
 // Login-page discovery bridge — the route handler owns the HttpOnly
-// dok_login_nonce (client JS cannot set it), and builds each provider's
+// tly_login_nonce (client JS cannot set it), and builds each provider's
 // startUrl on the browser-reachable public origin (NEXT_PUBLIC_API_URL —
 // API_INTERNAL_URL is a docker hostname browsers cannot reach).
 export async function GET() {

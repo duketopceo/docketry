@@ -99,16 +99,16 @@ describe("methods + oauth round trip", () => {
   });
 
   it("start 302s to the authorize URL and sets hardened cookies", async () => {
-    const res = await req("/v1/auth/oauth/stub/start?return_to=https://evil.example&invite=dok_inv_abc&login_nonce=nnn", { redirect: "manual" });
+    const res = await req("/v1/auth/oauth/stub/start?return_to=https://evil.example&invite=tly_inv_abc&login_nonce=nnn", { redirect: "manual" });
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toContain("https://stub.example/authorize?state=");
     const cookies = res.headers.getSetCookie().join("; ");
-    expect(cookies).toContain("dok_oauth_state=");
-    expect(cookies).toContain("dok_oauth_nonce=");
-    expect(cookies).toContain("dok_oauth_verifier=");
+    expect(cookies).toContain("tly_oauth_state=");
+    expect(cookies).toContain("tly_oauth_nonce=");
+    expect(cookies).toContain("tly_oauth_verifier=");
     expect(cookies).toContain("HttpOnly");
     // invite token never reaches the authorize URL
-    expect(res.headers.get("location")).not.toContain("dok_inv");
+    expect(res.headers.get("location")).not.toContain("tly_inv");
   });
 
   it("full round trip: start → callback → code → exchange → session", async () => {
@@ -138,7 +138,7 @@ describe("methods + oauth round trip", () => {
     expect(ex.status).toBe(200);
     const body = (await ex.json()) as { purpose: string; workspaceSlug: string };
     expect(body.purpose).toBe("login");
-    expect(ex.headers.get("set-cookie")).toContain("dok_session=");
+    expect(ex.headers.get("set-cookie")).toContain("tly_session=");
     // the sole-workspace auto-join rung created ws+user+member
     const [u] = await db.select().from(users).where(eq(users.email, "neo@corp.io"));
     expect(u).toBeTruthy();

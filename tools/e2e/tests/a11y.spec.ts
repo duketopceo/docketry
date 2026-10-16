@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { agentIssue, failSession } from "./helpers";
 
 // PLAN-044: every app screen, WCAG 2.0/2.1/2.2 A + AA tags, both themes,
 // desktop and phone widths. Zero violations gates the run.
@@ -35,7 +36,10 @@ const KEY = /[A-Z][A-Z0-9]*-\d+/;
 async function issueKey(page: Page): Promise<string> {
   await page.goto("/issues");
   await page.waitForSelector("[data-qc-ready]", { timeout: 15_000 });
-  let match = (await page.locator("main").innerText()).match(KEY);
+  // the layout hydrates before the streamed page swaps in: wait for visible content
+  await page.locator("main:visible").first().waitFor({ timeout: 40_000 });
+  await page.locator("[data-issue-row]:visible, :text('No issues')").first().waitFor({ timeout: 40_000 }).catch(() => undefined);
+  let match = (await page.locator("main:visible").first().innerText()).match(KEY);
   if (!match) {
     await page.keyboard.press("c");
     const dialog = page.getByRole("dialog", { name: "Quick create issue" });
@@ -43,8 +47,8 @@ async function issueKey(page: Page): Promise<string> {
     await dialog.getByRole("button", { name: "Create issue" }).click();
     await expect(dialog).not.toBeVisible();
     await page.goto("/issues");
-    await expect(page.locator("main")).toContainText(KEY);
-    match = (await page.locator("main").innerText()).match(KEY);
+    await expect(page.locator("main:visible").first()).toContainText(KEY);
+    match = (await page.locator("main:visible").first().innerText()).match(KEY);
   }
   return match![0];
 }
@@ -75,6 +79,7 @@ for (const vp of VIEWPORTS) {
       test.use({ viewport: { width: vp.width, height: vp.height } });
       let key = "";
       test.beforeAll(async ({ browser }) => {
+        test.setTimeout(90_000);
         const ctx = await browser.newContext({ storageState: "tests/.auth/session.json" });
         const page = await ctx.newPage();
         key = await issueKey(page);
@@ -82,7 +87,7 @@ for (const vp of VIEWPORTS) {
       });
 
       for (const path of APP_PAGES) {
-        test(`${path}`, async ({ page }) => {
+        test(`@a11y ${path}`, async ({ page }) => {
           await page.goto(path.replace(":key", key));
           await page.waitForLoadState("networkidle");
           await setTheme(page, theme);
@@ -97,7 +102,7 @@ for (const vp of VIEWPORTS) {
 test.describe("axe logged-out", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
   for (const [theme, path] of THEMES.flatMap((t) => ["/", "/login"].map((p) => [t, p] as const))) {
-    test(`${path} ${theme}`, async ({ page }) => {
+    test(`@a11y ${path} ${theme}`, async ({ page }) => {
       await page.goto(path);
       await page.waitForLoadState("networkidle");
       await setTheme(page, theme);
@@ -106,3 +111,56 @@ test.describe("axe logged-out", () => {
     });
   }
 });
+
+// overlays: peek panel, picker popover, palette, bulk bar (both themes, both widths)
+for (const vp of VIEWPORTS) {
+  for (const theme of THEMES) {
+    test.describe(`axe overlays ${theme} @${vp.name}`, () => {
+      test.use({ viewport: { width: vp.width, height: vp.height } });
+      test(`@a11y peek + picker + palette`, async ({ page }) => {
+        await page.goto("/issues");
+        await page.waitForSelector("[data-qc-ready]", { timeout: 20_000 });
+        await setTheme(page, theme);
+        const row = page.locator("[data-issue-row]").first();
+        await row.hover();
+        await page.keyboard.press("Space");
+        await expect(page.getByRole("complementary", { name: /^Peek / })).toBeVisible();
+        await page.getByRole("heading").filter({ hasText: /./ }).first().waitFor();
+        await page.waitForTimeout(400);
+        let v = await scan(page);
+        expect(v, `peek: ${v.join("\n")}`).toHaveLength(0);
+        await page.keyboard.press("Escape");
+        await row.hover();
+        await page.keyboard.press("s");
+        await expect(page.getByRole("dialog", { name: "Set state" })).toBeVisible();
+        v = await scan(page);
+        expect(v, `picker: ${v.join("\n")}`).toHaveLength(0);
+        await page.keyboard.press("Escape");
+        await page.keyboard.press("Control+k");
+        await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
+        v = await scan(page);
+        expect(v, `palette: ${v.join("\n")}`).toHaveLength(0);
+      });
+    });
+  }
+}
+
+// issue detail with an agent identity, a failed session and an agent state change
+for (const vp of VIEWPORTS) {
+  for (const theme of THEMES) {
+    test.describe(`axe provenance ${theme} @${vp.name}`, () => {
+      test.use({ viewport: { width: vp.width, height: vp.height } });
+      test(`@a11y /issues/:key with agent session`, async ({ page }) => {
+        const f = await agentIssue(page, "a11y");
+        const patch = await fetch(`${f.ws}/issues/${f.issueKey}`, { method: "PATCH", headers: { "content-type": "application/json", authorization: `Bearer ${f.key}` }, body: JSON.stringify({ state: "todo" }) });
+        expect(patch.ok).toBeTruthy();
+        await failSession(f);
+        await page.goto(`/issues/${f.issueKey}`);
+        await page.waitForLoadState("networkidle");
+        await setTheme(page, theme);
+        const violations = await scan(page);
+        expect(violations, violations.join("\n")).toHaveLength(0);
+      });
+    });
+  }
+}

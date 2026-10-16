@@ -7,7 +7,7 @@
 #                          private half OFF this box (password manager / second machine)
 #   one of:
 #     BACKUP_PG_CONTAINER  docker container running postgres (e.g. tallyline-postgres-1)
-#       [BACKUP_PG_USER=postgres] [BACKUP_PG_DB=docketry]
+#       [BACKUP_PG_USER=postgres] [BACKUP_PG_DB=tallyline]
 #     DATABASE_URL         connection string, dumped with the host's pg_dump
 # Upload (skipped when BACKUP_SKIP_UPLOAD=1)
 #   BACKUP_S3_BUCKET       bucket name
@@ -45,7 +45,7 @@ umask 077
 
 dump() {
   if [ -n "${BACKUP_PG_CONTAINER:-}" ]; then
-    docker exec "$BACKUP_PG_CONTAINER" pg_dump -U "${BACKUP_PG_USER:-postgres}" -Fc -Z 0 "${BACKUP_PG_DB:-docketry}"
+    docker exec "$BACKUP_PG_CONTAINER" pg_dump -U "${BACKUP_PG_USER:-postgres}" -Fc -Z 0 "${BACKUP_PG_DB:-tallyline}"
   elif [ -n "${DATABASE_URL:-}" ]; then
     pg_dump -Fc -Z 0 "$DATABASE_URL"
   else

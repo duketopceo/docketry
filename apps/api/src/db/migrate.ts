@@ -10,7 +10,7 @@ export async function runMigrations(): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query(
-      "SELECT pg_advisory_lock(hashtext('docketry-migrate')::bigint)",
+      "SELECT pg_advisory_lock(hashtext('tallyline-migrate')::bigint)",
     );
     const migrationDb = drizzle(client, { schema });
     await migrate(migrationDb, {
@@ -18,7 +18,7 @@ export async function runMigrations(): Promise<void> {
     });
   } finally {
     await client
-      .query("SELECT pg_advisory_unlock(hashtext('docketry-migrate')::bigint)")
+      .query("SELECT pg_advisory_unlock(hashtext('tallyline-migrate')::bigint)")
       .catch(() => {});
     client.release();
   }

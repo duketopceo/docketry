@@ -7,7 +7,7 @@ import { assertSafeTestEnv } from "../../../apps/api/test/db-guard.js";
 // against a real browser on the seeded 10k-issue workspace. Run against a
 // production build for honest numbers:
 //
-//   DATABASE_URL=...docketry_perf E2E_WEB_PORT=3105 E2E_API_PORT=4000 \
+//   DATABASE_URL=...tallyline_perf E2E_WEB_PORT=3105 E2E_API_PORT=4000 \
 //     playwright test tests/perf.spec.ts
 //
 // The spec mints its own session into the `seed` workspace (same direct-pg
@@ -58,7 +58,7 @@ async function sessionCookie(): Promise<{
       [ws.rows[0].id, user.rows[0].id, tokenHash],
     );
     const host = new URL(process.env.E2E_WEB_PORT ? `http://localhost:${process.env.E2E_WEB_PORT}` : "http://localhost:3100").hostname;
-    return { name: "dok_session", value: token, domain: host, path: "/" };
+    return { name: "tly_session", value: token, domain: host, path: "/" };
   } finally {
     await pool.end();
   }

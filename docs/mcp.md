@@ -64,10 +64,10 @@ agents):
 
 ```sh
 curl -X POST $API/v1/workspaces/$WS/agents \
-  -H "cookie: dok_session=…" -H 'content-type: application/json' \
+  -H "cookie: tly_session=…" -H 'content-type: application/json' \
   -d '{"name":"claude","harness":"claude-code","capabilities":["code"]}'
 curl -X POST $API/v1/workspaces/$WS/agents/$AGENT_ID/keys \
-  -H "cookie: dok_session=…" -H 'content-type: application/json' \
+  -H "cookie: tly_session=…" -H 'content-type: application/json' \
   -d '{"name":"local","scopes":["read","write"]}'   # plaintext key returned once
 ```
 

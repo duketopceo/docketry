@@ -126,11 +126,11 @@ describe("params", () => {
 	});
 });
 
-describe("legacy x-docketry-* delivery headers", () => {
-	it("deliveryHeader reads new names, falling back to the legacy ones", async () => {
+describe("delivery headers", () => {
+	it("deliveryHeader reads x-tallyline-* names only", async () => {
 		const { deliveryHeader } = await import("../lib/signature");
 		expect(deliveryHeader({ "x-tallyline-signature": "n" }, "x-tallyline-signature")).toBe("n");
-		expect(deliveryHeader({ "x-docketry-signature": "o" }, "x-tallyline-signature")).toBe("o");
+		expect(deliveryHeader({ "x-docketry-signature": "o" }, "x-tallyline-signature")).toBeUndefined();
 		expect(deliveryHeader({}, "x-tallyline-delivery")).toBeUndefined();
 	});
 });

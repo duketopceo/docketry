@@ -110,3 +110,11 @@ A delivery that exhausts retries writes `dispatch_failed` back to the
 dispatch record and the issue thread. The harness then reports progress and
 completion via `POST /v1/:ws/dispatches/:id/events` and `/report` (see
 docs/adapters.md).
+
+## Building automations on events
+
+The event stream doubles as the trigger surface for external automations —
+e.g. "when an issue lands in `todo` with label `backend`, dispatch the triage
+agent". The recipe (subscription, filtering, triggering via assign/`@mention`,
+and the loop-prevention rules) lives in
+[adapters.md — Event-driven dispatch](./adapters.md#event-driven-dispatch-n8n--webhook-automations).

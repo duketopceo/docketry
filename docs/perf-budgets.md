@@ -9,12 +9,12 @@ Postgres, no TCP noise).
 
 ```bash
 docker compose up -d
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/docketry_perf \
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tallyline_perf \
   npx tsx apps/api/scripts/seed.ts 10000
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/docketry_perf \
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tallyline_perf \
   RATE_LIMIT_PER_MIN=100000 npx tsx apps/api/scripts/bench.ts
 # web vitals (needs prod web on :3105 + api on :4000 against the seeded DB)
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/docketry_perf \
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tallyline_perf \
   E2E_WEB_PORT=3105 E2E_API_PORT=4000 \
   npx playwright test tests/perf.spec.ts -c tools/e2e/playwright.config.ts
 node tools/e2e/scripts/bundle-budget.mjs   # after pnpm --filter web build

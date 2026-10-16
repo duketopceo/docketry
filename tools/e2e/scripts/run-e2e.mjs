@@ -1,10 +1,10 @@
 // `pnpm test` entry point for the e2e package.
 //
-// - If DATABASE_URL/REDIS_URL are already set (CI service containers, or a
-//   throwaway stack you started yourself) they are used as-is.
+// - If DATABASE_URL is already set (CI service container, or a throwaway
+//   stack you started yourself) it is used as-is.
 // - Otherwise the dedicated `tallyline-e2e` compose project (non-default
 //   ports, tmpfs data) is started and pointed at. It never touches the dev
-//   stack on :5432/:6380.
+//   stack on :5432.
 // The safety guard then runs; it refuses the default dev stack regardless.
 import { spawnSync } from "node:child_process";
 import { assertSafeTestEnv } from "../../../apps/api/test/db-guard.ts";
@@ -15,13 +15,10 @@ const sh = (cmd, args, opts = {}) =>
 
 const env = { ...process.env };
 let startedStack = false;
-if (!env.DATABASE_URL && !env.REDIS_URL) {
+if (!env.DATABASE_URL) {
   const pg = env.E2E_PG_PORT ?? "55432";
-  const redis = env.E2E_REDIS_PORT ?? "56380";
   env.DATABASE_URL = `postgresql://postgres:postgres@127.0.0.1:${pg}/tallyline_e2e`;
-  env.REDIS_URL = `redis://127.0.0.1:${redis}`;
   env.E2E_PG_PORT = pg;
-  env.E2E_REDIS_PORT = redis;
   startedStack = true;
 }
 

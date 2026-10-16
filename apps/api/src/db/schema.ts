@@ -638,6 +638,46 @@ export const webhookDeliveries = pgTable(
   (t) => [index().on(t.status, t.nextAttemptAt), index().on(t.endpointId)],
 );
 
+// inbox rows for humans — materialized at write time (assign, @mention,
+// review-pending, dispatch failure); agents never get rows here
+export const notificationKinds = [
+  "assigned",
+  "mention",
+  "review_pending",
+  "dispatch_failed",
+] as const;
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspaces.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: notificationKinds }).notNull(),
+    issueId: uuid("issue_id").references(() => issues.id, {
+      onDelete: "cascade",
+    }),
+    // link back to the causal activity row when one exists
+    eventId: bigint("event_id", { mode: "number" }).references(
+      () => events.id,
+    ),
+    actorType: actorTypeEnum("actor_type").notNull().default("system"),
+    actorId: uuid("actor_id"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index().on(t.workspaceId, t.userId),
+    index().on(t.userId, t.readAt),
+  ],
+);
+
 // external system refs on issues — importer dedupe + provenance (linear, etc.)
 export const issueExternalRefs = pgTable(
   "issue_external_refs",

@@ -31,6 +31,7 @@ import {
   projects,
   slackLinks,
   teams,
+  users,
   workspaceMembers,
 } from "../db/schema.js";
 import { actorFromHeaders } from "../lib/actor.js";
@@ -44,6 +45,7 @@ import {
   mirrorIssueLabels,
 } from "../services/github-sync.js";
 import { createIssue, transitionIssue, type Actor } from "../services/issues.js";
+import { notifyUsers } from "../services/notifications.js";
 import { queueDeliveries } from "../services/outbound.js";
 import { createSlack } from "../services/slack.js";
 import { requireHumanReviewer } from "../services/members.js";
@@ -81,6 +83,7 @@ const patchSchema = z.object({
   cycleId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
   parentId: z.uuid().nullable().optional(),
+  labelIds: z.array(z.uuid()).max(10).optional(),
 });
 
 const listQuerySchema = z.object({
@@ -301,6 +304,16 @@ export const issueRoutes = new Hono()
         if (updated) result = updated;
       }
 
+      // create-time human assignment → inbox row (agent assignment at
+      // create does NOT dispatch — dispatch is PATCH/mention only)
+      if (body.assigneeType === "human" && body.assigneeId) {
+        await notifyUsers(ws.id, [body.assigneeId], {
+          kind: "assigned",
+          issueId: result.id,
+          actor,
+        });
+      }
+
       // `?dupCheck=1` runs semantic duplicate detection on the way out —
       // opt-in per request, LLM-disabled workspaces just get the issue back
       if (c.req.query("dupCheck") && llmEnabled()) {
@@ -381,8 +394,34 @@ export const issueRoutes = new Hono()
       const hasMore = rows.length > q.limit;
       const page = hasMore ? rows.slice(0, q.limit) : rows;
       const last = page.at(-1);
+      // one batched label read per page — rows render chips without N+1
+      const pageIds = page.map((i) => i.id);
+      const labelRows = pageIds.length
+        ? await db
+            .select({
+              issueId: issueLabels.issueId,
+              id: labels.id,
+              name: labels.name,
+              color: labels.color,
+            })
+            .from(issueLabels)
+            .innerJoin(labels, eq(labels.id, issueLabels.labelId))
+            .where(inArray(issueLabels.issueId, pageIds))
+        : [];
+      const labelsByIssue = new Map<
+        string,
+        { id: string; name: string; color: string }[]
+      >();
+      for (const l of labelRows) {
+        const arr = labelsByIssue.get(l.issueId) ?? [];
+        arr.push({ id: l.id, name: l.name, color: l.color });
+        labelsByIssue.set(l.issueId, arr);
+      }
       return c.json({
-        issues: page,
+        issues: page.map((i) => ({
+          ...i,
+          labels: labelsByIssue.get(i.id) ?? [],
+        })),
         nextCursor:
           hasMore && last
             ? encodeCursor({
@@ -432,6 +471,24 @@ export const issueRoutes = new Hono()
         await validateAssignee(ws.id, body.assigneeType, body.assigneeId);
       }
       if (body.parentId) await validateParent(ws.id, body.parentId, key);
+      if (body.labelIds?.length) {
+        const found = await db
+          .select({ id: labels.id })
+          .from(labels)
+          .where(
+            and(
+              eq(labels.workspaceId, ws.id),
+              inArray(labels.id, body.labelIds),
+            ),
+          );
+        if (found.length !== new Set(body.labelIds).size) {
+          throw new HttpError(
+            422,
+            "INVALID_LABELS",
+            "label id not in workspace",
+          );
+        }
+      }
       if (body.cycleId || body.projectId) {
         const issue = await findIssue(ws.id, key);
         if (body.cycleId)
@@ -474,6 +531,25 @@ export const issueRoutes = new Hono()
       if (body.projectId !== undefined) fields.projectId = body.projectId;
       if (body.parentId !== undefined) fields.parentId = body.parentId;
 
+      // prior assignee for the change-detection below — one extra read only
+      // when the patch touches assignment
+      const prevAssignee =
+        body.assigneeId !== undefined || body.assigneeType !== undefined
+          ? await db
+              .select({
+                assigneeType: issues.assigneeType,
+                assigneeId: issues.assigneeId,
+              })
+              .from(issues)
+              .where(
+                and(
+                  eq(issues.workspaceId, ws.id),
+                  eq(issues.key, key),
+                ),
+              )
+              .then((r) => r[0] ?? null)
+          : null;
+
       let issue;
       if (Object.keys(fields).length > 0) {
         fields.updatedAt = clock.now();
@@ -490,12 +566,29 @@ export const issueRoutes = new Hono()
       } else {
         issue = await findIssue(ws.id, key);
       }
+      if (body.labelIds !== undefined && issue) {
+        await replaceIssueLabels(issue.id, ws.id, body.labelIds);
+      }
       if (body.assigneeType === "agent" && body.assigneeId && issue) {
         await createDispatch({
           workspaceId: ws.id,
           issueId: issue.id,
           agentId: body.assigneeId,
           trigger: "assign",
+        });
+      }
+      // human assignment change → inbox row (re-assigning the same person
+      // doesn't re-notify)
+      if (
+        body.assigneeType === "human" &&
+        body.assigneeId &&
+        issue &&
+        prevAssignee?.assigneeId !== body.assigneeId
+      ) {
+        await notifyUsers(ws.id, [body.assigneeId], {
+          kind: "assigned",
+          issueId: issue.id,
+          actor,
         });
       }
       return c.json(issue);
@@ -551,7 +644,9 @@ export const issueRoutes = new Hono()
         }),
       );
 
-      // @agent mentions → dispatch intents (one per agent per comment)
+      // @mentions split two ways: an agent name creates a dispatch; a
+      // member name creates a notification. The same token can hit both —
+      // dispatch and inbox are independent effects.
       const mentioned = new Set(
         [...body.body.matchAll(/@([a-z0-9][a-z0-9_-]*)/gi)].map((m) =>
           m[1]!.toLowerCase(),
@@ -570,6 +665,29 @@ export const issueRoutes = new Hono()
             agentId: agent.id,
             trigger: "mention",
             commentBody: body.body,
+          });
+        }
+        const wsMembers = await db
+          .select({ id: users.id, name: users.name })
+          .from(workspaceMembers)
+          .innerJoin(users, eq(users.id, workspaceMembers.userId))
+          .where(eq(workspaceMembers.workspaceId, ws.id));
+        const memberIds = wsMembers
+          .filter((m) => {
+            const name = m.name.toLowerCase();
+            return (
+              mentioned.has(name) ||
+              mentioned.has(name.replace(/\s+/g, "-")) ||
+              mentioned.has(name.replace(/\s+/g, "")) ||
+              mentioned.has(name.split(/\s+/)[0] ?? "")
+            );
+          })
+          .map((m) => m.id);
+        if (memberIds.length > 0) {
+          await notifyUsers(ws.id, memberIds, {
+            kind: "mention",
+            issueId: issue.id,
+            actor,
           });
         }
       }
@@ -731,6 +849,46 @@ export const issueRoutes = new Hono()
       .where(eq(labels.workspaceId, ws.id));
     return c.json({ labels: rows });
   })
+  .patch(
+    "/workspaces/:ws/labels/:id",
+    zValidator(
+      "json",
+      z.object({
+        name: z.string().min(1).max(60).optional(),
+        color: z
+          .string()
+          .regex(/^#[0-9a-fA-F]{6}$/)
+          .optional(),
+      }),
+    ),
+    async (c) => {
+      const ws = await requireWorkspace(c);
+      const body = c.req.valid("json");
+      const [row] = await db
+        .update(labels)
+        .set({
+          ...(body.name !== undefined ? { name: body.name } : {}),
+          ...(body.color !== undefined ? { color: body.color } : {}),
+        })
+        .where(
+          and(eq(labels.id, c.req.param("id")), eq(labels.workspaceId, ws.id)),
+        )
+        .returning();
+      if (!row) throw new HttpError(404, "NOT_FOUND", "label not found");
+      return c.json(row);
+    },
+  )
+  .delete("/workspaces/:ws/labels/:id", async (c) => {
+    const ws = await requireWorkspace(c);
+    const [row] = await db
+      .delete(labels)
+      .where(
+        and(eq(labels.id, c.req.param("id")), eq(labels.workspaceId, ws.id)),
+      )
+      .returning({ id: labels.id });
+    if (!row) throw new HttpError(404, "NOT_FOUND", "label not found");
+    return c.json({ ok: true });
+  })
   .get("/workspaces/:ws/issues/:key/slack-link", async (c) => {
     const ws = await requireWorkspace(c);
     const issue = await findIssue(ws.id, c.req.param("key"));
@@ -775,4 +933,23 @@ async function setIssueLabels(
     .values(valid.map((l) => ({ issueId, labelId: l.id })));
   // best-effort GitHub mirror — no-ops for unlinked issues (#60)
   if (valid.length > 0) track(mirrorIssueLabels(issueId));
+}
+
+// PATCH label set — replace semantics, matching the web editor's chip model.
+// Ids are pre-validated against the workspace in the PATCH handler; the swap
+// is transactional so an insert failure can't strip the existing set.
+async function replaceIssueLabels(
+  issueId: string,
+  workspaceId: string,
+  labelIds: string[],
+) {
+  await db.transaction(async (tx) => {
+    await tx.delete(issueLabels).where(eq(issueLabels.issueId, issueId));
+    if (labelIds.length > 0) {
+      await tx
+        .insert(issueLabels)
+        .values(labelIds.map((labelId) => ({ issueId, labelId })));
+    }
+  });
+  if (labelIds.length > 0) track(mirrorIssueLabels(issueId));
 }

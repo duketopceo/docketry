@@ -4,6 +4,18 @@ All notable changes to Tallyline (formerly docketry). Format loosely follows
 [Keep a Changelog](https://keepachangelog.com); this project is pre-1.x
 semver until stated otherwise.
 
+## [Unreleased] — Postgres-only stack
+
+### Changed (breaking — ops)
+
+- **Redis removed.** Nothing consumed it (health ping only). The dev and
+  self-host compose files, the e2e stack, CI service containers, and the
+  `ioredis` dependency are gone. `REDIS_URL` is no longer read — remove it
+  from your `.env` when convenient; a stale value is ignored, not an error.
+- **`GET /health` shape**: `{ status, postgres, uptimeSeconds }` — the
+  `redis` field is gone. Update any external healthcheck parsers.
+- **Test guard**: `assertSafeTestEnv` now requires only `DATABASE_URL`.
+
 ## [Unreleased] — go-live security hardening
 
 ### Changed (breaking — authorization fixes from the permission matrix)
@@ -38,8 +50,55 @@ semver until stated otherwise.
   so the real client IP is read from `CF-Connecting-IP` / last
   `X-Forwarded-For` hop.
 
+### Fixed
+
+- **Web app redirects no longer leak the upstream Host**: login/OAuth
+  callback, logout, and the middleware login redirect previously built
+  absolute `Location` targets from `req.url`. Behind a reverse proxy or
+  tunnel that forwards an internal Host (e.g. `localhost:3100`) the browser
+  was sent to an unreachable origin after signing in. All auth redirects now
+  emit relative `Location` headers, which resolve against the public origin
+  the browser actually requested — no config change needed for self-hosters.
+- **`/my-issues` ignored the assignee filter** and listed every active
+  issue; it now passes `assignee=<current user>` and sorts by priority.
+- **Web surface uplift toward the issue-row contract** (DESIGN.md): list
+  rows and board cards render priority glyphs, label chips, assignee
+  avatars, and relative timestamps; issue detail gains a property rail
+  with editable assignee, priority, labels, estimate, due date, cycle,
+  and project, plus the rendered description body and a "filed by" agent
+  attribution with the provenance glint on agent-created ids.
+
 ### Added
 
+- **Review-queue nav badge**: `GET /v1/workspaces/:ws/review-queue/count`
+  returns the number of `in_review` issues carrying at least one dispatch —
+  the sidebar Review row shows it as an accent badge, fetched server-side in
+  the app layout.
+- **Settings admin surfaces for labels, projects, and cycles**: three new
+  pages under Settings tabs. Labels can be created (name + swatch),
+  renamed/recolored inline, and deleted — backed by new
+  `PATCH`/`DELETE /v1/workspaces/:ws/labels/:id` routes (previously the API
+  had create/list only; delete detaches via `issue_labels` cascade).
+  Projects get create + status transitions + delete; cycles get create
+  (team, window, active flag), activate, complete, and delete.
+- **Notification inbox** (`/notifications`, `g n`): a `notifications` table
+  plus four workspace routes — `GET /notifications` (cursor-paginated,
+  joined issue key/title), `GET /notifications/unread-count`,
+  `POST /notifications/:id/read`, and `POST /notifications/read-all`.
+  Fan-out materializes rows on human assignment, human `@mention` in
+  comments (`@name`, `@name-surname`, `@namesurname` forms), `in_review`
+  transitions to workspace owner/admin staff (excluding the actor), and
+  dispatch failure to the issue's human creator. The surface is
+  human-session-only: agent keys get `403 FORBIDDEN_AGENT`, and reading or
+  marking another user's notification returns 404. Web: an Inbox sidebar
+  entry with an unread-count badge fetched server-side in the app layout,
+  a notification list page with mark-read/mark-all actions, and bridge
+  routes under `/api/notifications*`.
+- **Keyboard property pickers + command-mode verbs** on issue lists:
+  `p`/`s`/`l`/`a` open inline pickers (priority digit-jump, legal state
+  transitions, label multi-toggle via `labelIds` replace, human/agent
+  assignee) applied to the focused row or multi-selection; `:` now accepts
+  `priority`, `assign`/`unassign`, `label`, `due`, and `estimate`.
 - **Remote MCP endpoint with OAuth 2.1** (PLAN-010/011): `POST /mcp`
   (Streamable HTTP) on the API host, Tallyline as its own authorization
   server (RFC 9728/8414, CIMD + DCR, PKCE S256, resource-bound tokens, rotating
@@ -56,6 +115,22 @@ semver until stated otherwise.
   (see docs/deploy.md).
 - `RateStore` seam in the API rate limiter (in-memory default) for a future
   shared store.
+- **Event-driven dispatch recipe** (U4): `docs/adapters.md` now documents
+  transition-triggered dispatch over the existing seams — subscribe a webhook
+  endpoint to `issue.state_changed`, filter in your consumer, trigger by
+  assigning the issue to an agent or `@mention`ing it — including the
+  loop-prevention rules. No in-app rule engine.
+- **Dispatch acknowledgement timeout** (U3): a dispatch still `queued` after
+  `DISPATCH_ACK_TIMEOUT_MS` (default 10 min — beyond the ~7.5 min webhook
+  retry budget) is failed loudly on the issue thread and in the activity
+  stream instead of hanging forever. `claimed` dispatches are never swept —
+  claiming is the acknowledgement. `0` disables the sweep.
+- **Board collapses empty columns by default** (U5): per DESIGN, empty board
+  columns now render as slim labelled strips (dot + count, click to expand)
+  instead of 300px of dead space — a typical board fits 1440px instead of
+  overflowing at ~1760px. Columns force-expand during drags so drop zones
+  stay full-size; any column can be pinned collapsed/expanded and the choice
+  persists per device (`localStorage`).
 
 ## [Unreleased] — renamed: docketry → Tallyline
 
@@ -90,11 +165,17 @@ nothing below requires a database migration or re-issuing credentials.
 - **n8n / Composio** — node and credential types are now `Tallyline*`,
   Composio tool slugs `TALLYLINE_*`; workflows using the old node types need
   to be re-pointed.
-- **Deliberately unchanged** — Postgres database/user (`docketry`/`postgres`)
-  and the `docketry-postgres` / `docketry-redis` volume names, session
-  cookie names (`dok_session`, `dok_ws`, …), the default dev `JWT_SECRET`,
-  and the GitHub repository URL. Changing them would orphan existing data or
-  sign everyone out; they are follow-ups.
+- **Repo/database rename (follow-up)** — the GitHub repository moved to
+  `duketopceo/tallyline`, the default Postgres database is now `tallyline`,
+  and compose volumes are pinned as `tallyline-postgres` / `tallyline-redis`.
+  Existing deployments keep their data by renaming the database
+  (`ALTER DATABASE docketry RENAME TO tallyline`) and copying or
+  re-pointing the old `docketry_*` volumes.
+- **Compat layer retired** — `DOCKETRY_*` env fallbacks, `x-docketry-*`
+  headers, `dok_agt_`/`dok_pat_` tokens, `dok_*` cookies, and `.docketry`
+  CLI paths are no longer accepted anywhere. On upgrade: rename env vars
+  to `TALLYLINE_*`, re-mint `dok_` API keys as `tly_`, and expect all
+  sessions to sign out once.
 
 ### Brand
 
@@ -186,4 +267,4 @@ through the same system of record.
   agents (Devin, Cursor, Codex) under human direction, per the repo's
   disclosure conventions.
 
-[1.0.0]: https://github.com/duketopceo/docketry/releases/tag/v1.0.0
+[1.0.0]: https://github.com/duketopceo/tallyline/releases/tag/v1.0.0

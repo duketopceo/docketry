@@ -71,7 +71,7 @@ describe("createRateLimiter", () => {
 describe("anonymous limiter", () => {
   const build = (limit: number) => {
     const bucketRef: { store?: MemoryRateStore } = {};
-    const limiter = createAnonymousLimiter(limit, "dok_session", {
+    const limiter = createAnonymousLimiter(limit, "tly_session", {
       skip: (p) => p === "/health",
     });
     bucketRef.store = limiter.store as MemoryRateStore;

@@ -9,6 +9,7 @@ WORKDIR /repo
 
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json tsconfig.base.json ./
 COPY packages/types/package.json packages/types/package.json
+COPY packages/silver-lining/package.json packages/silver-lining/package.json
 COPY apps/web/package.json apps/web/package.json
 RUN pnpm install --frozen-lockfile --filter @tallyline/web...
 
@@ -18,8 +19,9 @@ ARG NEXT_PUBLIC_API_URL=http://localhost:4000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 COPY packages/types packages/types
+COPY packages/silver-lining packages/silver-lining
 COPY apps/web apps/web
-RUN pnpm --filter @tallyline/types build && pnpm --filter @tallyline/web build
+RUN pnpm --filter @tallyline/types build && pnpm --filter @tallyline/silver-lining build && pnpm --filter @tallyline/web build
 RUN pnpm deploy --legacy --filter @tallyline/web --prod /out
 
 FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS run

@@ -8,9 +8,9 @@ import { requestIsHttps } from "../lib/https.js";
 // value carries the flow context (return_to, invite hash, login nonce) —
 // invite tokens are hashed, never the raw bearer, and never reach the
 // provider authorize URL (R21).
-export const STATE_COOKIE = "dok_oauth_state";
-export const NONCE_COOKIE = "dok_oauth_nonce";
-export const VERIFIER_COOKIE = "dok_oauth_verifier";
+export const STATE_COOKIE = "tly_oauth_state";
+export const NONCE_COOKIE = "tly_oauth_nonce";
+export const VERIFIER_COOKIE = "tly_oauth_verifier";
 
 export interface StatePayload {
   state: string;

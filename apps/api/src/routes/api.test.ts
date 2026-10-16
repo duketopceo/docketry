@@ -40,7 +40,13 @@ const SLUGS = [SLUG, `${SLUG}-2`];
 
 interface TestBody {
   error?: { code: string; message: string };
-  issues?: { key: string; title: string; state: string; priority: string }[];
+  issues?: {
+    key: string;
+    title: string;
+    state: string;
+    priority: string;
+    labels?: { id: string; name: string; color: string }[];
+  }[];
   labels?: { id: string; name: string }[];
   events?: { action: string; actorType: string; actorId?: string | null }[];
   comments?: { body: string }[];
@@ -74,7 +80,7 @@ async function req(
     }),
   );
   const setCookie = res.headers.get("set-cookie");
-  if (setCookie?.startsWith("dok_session=")) {
+  if (setCookie?.startsWith("tly_session=")) {
     sessionCookie = setCookie.split(";")[0]!;
   }
   return { status: res.status, body: (await res.json()) as TestBody };
@@ -174,7 +180,7 @@ describe("api routes (real postgres)", () => {
       }),
     });
     expect(boot.status).toBe(201);
-    expect(sessionCookie).toContain("dok_session=");
+    expect(sessionCookie).toContain("tly_session=");
 
     const bootAgain = await req("/v1/auth/bootstrap", {
       method: "POST",
@@ -333,12 +339,92 @@ describe("api routes (real postgres)", () => {
     const list = await req(`/v1/workspaces/${SLUG}/labels`);
     expect(list.body.labels).toHaveLength(1);
 
+    const renamed = await req(`/v1/workspaces/${SLUG}/labels/${label.body.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name: "defect", color: "#22c55e" }),
+    });
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.name).toBe("defect");
+    expect(renamed.body.color).toBe("#22c55e");
+
+    const badPatch = await req(
+      `/v1/workspaces/${SLUG}/labels/${label.body.id}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ color: "not-hex" }),
+      },
+    );
+    expect(badPatch.status).toBe(400);
+
+    const missingPatch = await req(
+      `/v1/workspaces/${SLUG}/labels/00000000-0000-0000-0000-000000000000`,
+      { method: "PATCH", body: JSON.stringify({ name: "x" }) },
+    );
+    expect(missingPatch.status).toBe(404);
+
+    const del = await req(`/v1/workspaces/${SLUG}/labels/${label.body.id}`, {
+      method: "DELETE",
+    });
+    expect(del.status).toBe(200);
+    const gone = await req(`/v1/workspaces/${SLUG}/labels/${label.body.id}`, {
+      method: "DELETE",
+    });
+    expect(gone.status).toBe(404);
+
     const missing = await req(`/v1/workspaces/${SLUG}/issues/ENG-999`);
     expect(missing.status).toBe(404);
     expect(missing.body.error!.code).toBe("NOT_FOUND");
 
     const badWs = await req(`/v1/workspaces/nonexistent/issues`);
     expect(badWs.status).toBe(404);
+  });
+
+  it("PATCH labelIds replaces the set atomically and validates ids", async () => {
+    const mk = async (name: string) => {
+      const r = await req(`/v1/workspaces/${SLUG}/labels`, {
+        method: "POST",
+        body: JSON.stringify({ name, color: "#339fee" }),
+      });
+      return r.body.id as string;
+    };
+    const [a, b] = [await mk("backend"), await mk("frontend")];
+    const created = await req(`/v1/workspaces/${SLUG}/issues`, {
+      method: "POST",
+      body: JSON.stringify({ teamKey: "ENG", title: "label swap target" }),
+    });
+    const key = created.body.key as string;
+
+    const set = await req(`/v1/workspaces/${SLUG}/issues/${key}`, {
+      method: "PATCH",
+      body: JSON.stringify({ labelIds: [a, b] }),
+    });
+    expect(set.status).toBe(200);
+    let detail = await req(`/v1/workspaces/${SLUG}/issues/${key}`);
+    expect(detail.body.labels).toHaveLength(2);
+
+    // replace semantics — removing b leaves only a
+    await req(`/v1/workspaces/${SLUG}/issues/${key}`, {
+      method: "PATCH",
+      body: JSON.stringify({ labelIds: [a] }),
+    });
+    detail = await req(`/v1/workspaces/${SLUG}/issues/${key}`);
+    expect(detail.body.labels).toHaveLength(1);
+    expect(detail.body.labels![0]!.name).toBe("backend");
+
+    // unknown label id → 422, existing labels untouched
+    const bad = await req(`/v1/workspaces/${SLUG}/issues/${key}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        labelIds: ["00000000-0000-0000-0000-000000000000"],
+      }),
+    });
+    expect(bad.status).toBe(422);
+    detail = await req(`/v1/workspaces/${SLUG}/issues/${key}`);
+    expect(detail.body.labels).toHaveLength(1);
+
+    // list rows carry labels for chip rendering
+    const list = await req(`/v1/workspaces/${SLUG}/issues?search=label swap target`);
+    expect(list.body.issues![0]!.labels).toHaveLength(1);
   });
 
   it("rejects invalid payloads at the boundary", async () => {
@@ -456,8 +542,8 @@ describe("api routes (real postgres)", () => {
     expect(agentMint.status).toBe(403);
   });
 
-  it("legacy dok_agt_/dok_pat_ credentials issued before the rename still authenticate", async () => {
-    // simulate a pre-rename credential: same hash-at-rest scheme, old prefix
+  it("legacy dok_agt_/dok_pat_ credentials issued before the rename are now rejected", async () => {
+    // pre-rename credential: valid hash at rest, retired prefix — must 401
     const agent = await req(`/v1/workspaces/${SLUG}/agents`, {
       method: "POST",
       body: JSON.stringify({ name: "legacy-agent", harness: "x" }),
@@ -475,11 +561,7 @@ describe("api routes (real postgres)", () => {
     const viaKey = await req(`/v1/workspaces/${SLUG}/issues`, {
       headers: { authorization: `Bearer ${legacyKey}` },
     });
-    expect(viaKey.status).toBe(200);
-    const me = await req("/v1/auth/me", {
-      headers: { authorization: `Bearer ${legacyKey}` },
-    });
-    expect(me.body.type).toBe("agent");
+    expect(viaKey.status).toBe(401);
 
     const mint = await req(`/v1/workspaces/${SLUG}/tokens`, {
       method: "POST",
@@ -494,13 +576,7 @@ describe("api routes (real postgres)", () => {
     const viaPat = await req(`/v1/workspaces/${SLUG}/issues`, {
       headers: { authorization: `Bearer ${legacyPat}` },
     });
-    expect(viaPat.status).toBe(200);
-
-    // an unknown dok_ token is still rejected (never tried as a JWT)
-    const bogus = await req(`/v1/workspaces/${SLUG}/issues`, {
-      headers: { authorization: "Bearer dok_agt_nope" },
-    });
-    expect(bogus.status).toBe(401);
+    expect(viaPat.status).toBe(401);
 
     // clean up so later token-listing assertions see only their own rows
     await req(`/v1/workspaces/${SLUG}/tokens/${mint.body.id as string}`, {

@@ -15,6 +15,13 @@ const keyParam = {
   schema: { type: "string", pattern: "^[A-Z][A-Z0-9]*-\\d+$" },
 } as const;
 
+const idParam = {
+  name: "id",
+  in: "path",
+  required: true,
+  schema: { type: "string" },
+} as const;
+
 function jsonBody(schema: Record<string, unknown>) {
   return {
     required: true,
@@ -25,7 +32,7 @@ function jsonBody(schema: Record<string, unknown>) {
 const basePaths = {
     "/health": {
       get: {
-        summary: "Liveness + dependency check (postgres, redis)",
+        summary: "Liveness + dependency check (postgres)",
         responses: {
           "200": { description: "All dependencies healthy" },
           "503": { description: "One or more dependencies down" },
@@ -220,6 +227,11 @@ const basePaths = {
             cycleId: { type: ["string", "null"], format: "uuid" },
             projectId: { type: ["string", "null"], format: "uuid" },
             parentId: { type: ["string", "null"], format: "uuid" },
+            labelIds: {
+              type: "array",
+              maxItems: 10,
+              items: { type: "string", format: "uuid" },
+            },
           },
         }),
         responses: {
@@ -304,6 +316,38 @@ const basePaths = {
         summary: "Activity/audit feed for an issue (append-only)",
         parameters: [wsParam, keyParam],
         responses: { "200": { description: "Events" } },
+      },
+    },
+    "/v1/workspaces/{ws}/notifications": {
+      get: {
+        summary:
+          "List the signed-in member's notifications, newest first, cursor-paginated — human sessions only (agent keys get 403)",
+        parameters: [wsParam],
+        responses: { "200": { description: "Notifications + nextCursor" } },
+      },
+    },
+    "/v1/workspaces/{ws}/notifications/unread-count": {
+      get: {
+        summary: "Unread notification count for the signed-in member",
+        parameters: [wsParam],
+        responses: { "200": { description: "{ count }" } },
+      },
+    },
+    "/v1/workspaces/{ws}/notifications/{id}/read": {
+      post: {
+        summary: "Mark one notification read (404 if it isn't yours)",
+        parameters: [wsParam, idParam],
+        responses: {
+          "200": { description: "Marked read" },
+          "404": { description: "Not found / not yours" },
+        },
+      },
+    },
+    "/v1/workspaces/{ws}/notifications/read-all": {
+      post: {
+        summary: "Mark every unread notification read",
+        parameters: [wsParam],
+        responses: { "200": { description: "{ ok, count }" } },
       },
     },
     "/v1/workspaces/{ws}/issues/{key}/triage": {
@@ -890,6 +934,31 @@ const basePaths = {
           },
         }),
         responses: { "201": { description: "Label created" } },
+      },
+    },
+    "/v1/workspaces/{ws}/labels/{id}": {
+      patch: {
+        summary: "Update label name/color",
+        parameters: [wsParam, idParam],
+        requestBody: jsonBody({
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            color: { type: "string", pattern: "^#[0-9a-fA-F]{6}$" },
+          },
+        }),
+        responses: {
+          "200": { description: "Label updated" },
+          "404": { description: "Not found" },
+        },
+      },
+      delete: {
+        summary: "Delete label (detaches from issues via cascade)",
+        parameters: [wsParam, idParam],
+        responses: {
+          "200": { description: "Deleted" },
+          "404": { description: "Not found" },
+        },
       },
     },
 } as const;

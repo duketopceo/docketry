@@ -1,21 +1,23 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, asc, desc, eq, gt, lt, type SQL } from "drizzle-orm";
+import { and, eq, gt, lt, type SQL } from "drizzle-orm";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
-import type { ActorType } from "@tallyline/types";
-import { db } from "../db/client.js";
-import { agents, events, issues, users } from "../db/schema.js";
+import { events } from "../db/schema.js";
 import { apiError } from "../lib/errors.js";
 import { decodeCursor, encodeCursor } from "../lib/pagination.js";
+import {
+  feedEventsQuery,
+  subscribeEvents,
+  toFeedEvent,
+} from "../services/event-hub.js";
 import { requireWorkspace } from "./workspaces.js";
-import { clock } from "../services/clock.js";
 
-// v0.2 realtime: poll-based SSE. `pg_notify`/Redis pub-sub is a later work
-// order — 1s polling already meets the "~1s cross-client" acceptance bar and
-// keeps this endpoint stateless.
+// v0.3 realtime: one shared poller per process fans committed events out to
+// every SSE connection (see services/event-hub.ts). Each stream still does
+// its own backlog drain from `Last-Event-ID`/`?after=` and its own
+// heartbeat — the only per-connection DB work is the initial replay.
 
-const POLL_MS = 1_000;
 const HEARTBEAT_MS = 15_000;
 const BATCH_SIZE = 200;
 
@@ -23,96 +25,6 @@ const listQuerySchema = z.object({
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
-
-export interface FeedEvent {
-  id: string; // bigserial — serialized as string so clients never truncate
-  entityType: string;
-  entityId: string;
-  action: string;
-  actorType: ActorType;
-  actorId: string | null;
-  actorName: string | null;
-  issueKey: string | null;
-  issueTitle: string | null;
-  before: unknown;
-  after: unknown;
-  createdAt: string;
-}
-
-function feedEventsQuery(
-  where: SQL | undefined,
-  order: "asc" | "desc",
-  limit: number,
-) {
-  return db
-    .select({
-      id: events.id,
-      entityType: events.entityType,
-      entityId: events.entityId,
-      action: events.action,
-      actorType: events.actorType,
-      actorId: events.actorId,
-      before: events.before,
-      after: events.after,
-      createdAt: events.createdAt,
-      issueKey: issues.key,
-      issueTitle: issues.title,
-      userName: users.name,
-      agentName: agents.name,
-    })
-    .from(events)
-    .leftJoin(
-      issues,
-      and(eq(issues.id, events.entityId), eq(events.entityType, "issue")),
-    )
-    .leftJoin(users, eq(users.id, events.actorId))
-    .leftJoin(agents, eq(agents.id, events.actorId))
-    .where(where)
-    .orderBy(order === "asc" ? asc(events.id) : desc(events.id))
-    .limit(limit);
-}
-
-type FeedRow = Awaited<ReturnType<typeof feedEventsQuery>>[number];
-
-function toFeedEvent(row: FeedRow): FeedEvent {
-  return {
-    id: String(row.id),
-    entityType: row.entityType,
-    entityId: row.entityId,
-    action: row.action,
-    actorType: row.actorType,
-    actorId: row.actorId,
-    actorName:
-      row.actorType === "agent"
-        ? row.agentName
-        : row.actorType === "human"
-          ? row.userName
-          : null,
-    issueKey: row.issueKey,
-    issueTitle: row.issueTitle,
-    before: row.before,
-    after: row.after,
-    createdAt: row.createdAt.toISOString(),
-  };
-}
-
-function sleep(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    if (signal.aborted) {
-      resolve();
-      return;
-    }
-    const timer = setTimeout(() => {
-      signal.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-    function onAbort() {
-      clearTimeout(timer);
-      resolve();
-    }
-    signal.addEventListener("abort", onAbort, { once: true });
-  });
-}
 
 export const eventRoutes = new Hono()
   .get(
@@ -176,32 +88,45 @@ export const eventRoutes = new Hono()
       else reqSignal.addEventListener("abort", stop, { once: true });
       const done = stopper.signal;
 
-      let lastBeat = clock.ms();
-      while (!done.aborted) {
-        try {
-          const rows = await feedEventsQuery(
-            and(eq(events.workspaceId, ws.id), gt(events.id, lastSeen)),
-            "asc",
-            BATCH_SIZE,
-          );
-          for (const row of rows) {
-            lastSeen = row.id;
-            await stream.writeSSE({
-              id: String(row.id),
-              data: JSON.stringify(toFeedEvent(row)),
-            });
-          }
-        } catch {
-          // transient poll failure — keep the stream alive, retry next tick
-        }
-        const now = clock.ms();
-        if (now - lastBeat >= HEARTBEAT_MS) {
-          // SSE comment — keeps proxies/NATs from reaping an idle connection
-          await stream.write(`: hb\n\n`);
-          lastBeat = now;
-        }
-        await sleep(POLL_MS, done);
+      const write = async (row: Parameters<typeof toFeedEvent>[0]) => {
+        if (row.id <= lastSeen) return; // dedup vs the backlog drain
+        lastSeen = row.id;
+        await stream.writeSSE({
+          id: String(row.id),
+          data: JSON.stringify(toFeedEvent(row)),
+        });
+      };
+
+      // subscribe first so rows committed mid-drain arrive via the hub and
+      // dedup against `lastSeen` instead of being missed
+      const unsubscribe = subscribeEvents(ws.id, (row) => {
+        void write(row).catch(() => undefined);
+      });
+
+      // backlog drain — this connection's only polling work
+      for (;;) {
+        const rows = await feedEventsQuery(
+          and(eq(events.workspaceId, ws.id), gt(events.id, lastSeen)),
+          "asc",
+          BATCH_SIZE,
+        );
+        for (const row of rows) await write(row);
+        if (rows.length < BATCH_SIZE || done.aborted) break;
       }
+
+      // heartbeat — keeps proxies/NATs from reaping an idle connection
+      const heartbeat = setInterval(() => {
+        if (done.aborted) return;
+        void stream.write(`: hb\n\n`).catch(() => undefined);
+      }, HEARTBEAT_MS);
+
+      await new Promise<void>((resolve) => {
+        if (done.aborted) resolve();
+        else done.addEventListener("abort", () => resolve(), { once: true });
+      });
+
+      clearInterval(heartbeat);
+      unsubscribe();
       reqSignal.removeEventListener("abort", stop);
     });
   });

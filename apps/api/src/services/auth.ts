@@ -9,7 +9,7 @@ import { db } from "../db/client.js";
 import { sessions, users, workspaces } from "../db/schema.js";
 import { clock } from "./clock.js";
 
-export const SESSION_COOKIE = "dok_session";
+export const SESSION_COOKIE = "tly_session";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function hashPassword(password: string): string {

@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { API_URL, SESSION_COOKIE } from "@/lib/api";
 import { upstreamFetch } from "@/lib/upstream";
 
-export const WORKSPACE_COOKIE = "dok_ws";
+export const WORKSPACE_COOKIE = "tly_ws";
 
 const COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
 
@@ -27,7 +27,7 @@ export async function forwardSessionCookies(
 ): Promise<void> {
   const secure = requestIsHttps(req);
   const setCookie = upstream.headers.get("set-cookie") ?? "";
-  const match = setCookie.match(/dok_session=([^;]+)/);
+  const match = setCookie.match(/tly_session=([^;]+)/);
   const jar = await cookies();
   if (match) {
     jar.set(SESSION_COOKIE, match[1]!, {

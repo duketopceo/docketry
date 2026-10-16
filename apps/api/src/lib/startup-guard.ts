@@ -2,7 +2,7 @@
 // well-known dev-default secret. Pure so it can be unit tested; env.ts calls
 // it once at import time with the real environment.
 
-export const DEV_JWT_SECRET = "docketry-dev-secret-change-me";
+export const DEV_JWT_SECRET = "tallyline-dev-secret-change-me";
 const MIN_SECRET_LENGTH = 32;
 
 const KNOWN_WEAK = new Set([

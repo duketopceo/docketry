@@ -55,7 +55,7 @@ jobs:
           done
 
   unit:
-    name: unit tests (postgres + redis)
+    name: unit tests (postgres)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:
@@ -70,19 +70,11 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres -d tallyline_test"
           --health-interval 5s --health-timeout 5s --health-retries 10
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-    # test harnesses refuse to run unless DATABASE_URL/REDIS_URL are explicit and
+    # test harnesses refuse to run unless DATABASE_URL is explicit and
     # not the default dev stack (apps/api/test/db-guard.ts); the db names below
-    # are deliberately not `docketry`
+    # are deliberately not `tallyline`
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tallyline_test
-      REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-only-not-a-secret-0123456789abcdef
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -113,16 +105,8 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres -d tallyline_e2e"
           --health-interval 5s --health-timeout 5s --health-retries 10
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tallyline_e2e
-      REDIS_URL: redis://localhost:6379
       JWT_SECRET: ci-only-not-a-secret-0123456789abcdef
       E2E_API_PORT: "4000"
       E2E_WEB_PORT: "3100"
