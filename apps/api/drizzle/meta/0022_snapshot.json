@@ -1,5 +1,5 @@
 {
-  "id": "8ae0b206-a25d-4012-895f-de74c8165bb0",
+  "id": "ba07ef9c-5884-422e-ad47-da519aa49d94",
   "prevId": "f20299cb-737f-4e04-8dc8-8355a18201eb",
   "version": "7",
   "dialect": "postgresql",
@@ -390,6 +390,48 @@
             },
             {
               "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agent_sessions_status_created_at_index": {
+          "name": "agent_sessions_status_created_at_index",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "agent_sessions_status_last_activity_at_index": {
+          "name": "agent_sessions_status_last_activity_at_index",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "last_activity_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
