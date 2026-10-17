@@ -128,26 +128,50 @@ overlaps are called out.
   Actions: dispatch, comment, set_field. Evaluated by the existing
   `services/background.ts` tick.
 - **D7.** Delta sync: `events.syncId` bigserial; `GET /sync?since=` returns
-  ordered deltas; web client caches entities in IndexedDB and applies
-  deltas; optimistic writes via TanStack Query with rollback on 4xx.
+  ordered deltas plus a `schemaVersion`; web client caches entities in
+  IndexedDB and applies deltas; optimistic writes via TanStack Query with
+  rollback on 4xx. A bigserial value is reserved at insert, not at commit,
+  so a transaction can reserve N, stay open, and commit after N+1 commits;
+  a client that stored N+1 would skip N forever. Cursor rule: every writer
+  of `events` takes `pg_advisory_xact_lock(hashtext(workspace_id))` before
+  its insert and holds it to commit, so within a workspace syncId order is
+  commit order and the highest returned syncId is a safe cursor. This
+  serializes event writes per workspace, which is acceptable at
+  one-operator scale; if it ever is not, switch to a commit-time watermark
+  (`pg_snapshot_xmin`) and accept the added lag. The response carries
+  `schemaVersion`; a mismatch with the client's cached version means
+  discard the cache and rehydrate in full.
 - **D8.** No SLA, initiatives, customers, releases in this plan.
 
 ## Implementation Units
 
 ### L1. Agent session and activity tables plus ack timeout
 - **Goal:** every agent run is a session with typed activities and
-  Linear's status set. Subsumes roadmap U8 and next-tier U3.
+  Linear's status set. Supersedes roadmap U8 and next-tier U3 (which chose
+  an ack timeout only): L1 delivers that ack timeout inside the full
+  session protocol, so U3 and U8 close when L1 ships. U4 and U9 stay
+  separate until L6 (see L6). L2 delivers the delegate half of the same
+  protocol; the earlier plan deferred both.
 - **Files:** `apps/api/src/db/schema.ts`, new drizzle migration,
   `packages/types/src/agent.ts`, `apps/api/src/services/dispatch.ts`,
   `apps/api/src/routes/dispatches.ts`, `apps/api/src/services/background.ts`
   (stale sweep), `apps/mcp-server/src/tools.ts` (`session_post_activity`,
   `session_get`), `docs/` protocol page.
-- **Behavior:** session created `pending` on dispatch; first `thought`
-  within 10 s moves to `active`; no activity for 10 s → `stale` and a
-  dispatch event; `ephemeral` activities replace the prior ephemeral one;
-  `signal=stop` moves to `stopping`.
-- **Test scenarios:** status transitions table; stale sweep with the
-  `clock` service; ephemeral replacement; zod rejects unknown content
+- **Behavior:** session created `pending` on dispatch; the first `thought`
+  within the 10 s ack window moves it to `active`; a `pending` session with
+  no `thought` after 10 s becomes `stale` and a dispatch event is written.
+  The 10 s window applies only to `pending`. An `active` or `stopping`
+  session goes `stale` only after the separate idle window
+  (`SESSION_IDLE_TIMEOUT_MS`, default 30 min). `ephemeral` activities
+  replace the prior ephemeral one; `signal=stop` moves to `stopping`.
+  Transitions: `pending`→`active` (thought/action), `pending`→`stale`
+  (ack timeout), `pending`→`stopping` (stop), `active`→`awaitingInput`
+  (elicitation), `awaitingInput`→`active` (prompt), `active`→`complete`
+  (response), `active`→`error` (error), `active|stopping`→`stale` (idle),
+  `stopping`→`complete`|`error`. Anything else is rejected.
+- **Test scenarios:** one case per allowed and per rejected transition
+  above; stale sweep with the `clock` service for both the ack and idle
+  windows; ephemeral replacement; zod rejects unknown content
   types; MCP tools round-trip.
 - **Verification:** `pnpm check` green; an adapter script completes a
   session end to end against the local stack.
@@ -171,9 +195,15 @@ overlaps are called out.
   `promptId`), `apps/web/src` session thread (answer box),
   `apps/mcp-server/src/tools.ts` (`session_elicit`, `session_reply`),
   `services/notifications` (notify owner on elicitation).
-- **Test scenarios:** elicitation sets `awaitingInput` and notifies; reply
-  posts a `prompt` activity and sets `active`; second reply to a closed
-  prompt is rejected; 24 h timeout → `stale`.
+- **Behavior:** the owner notification is coalesced per session: at most
+  one per 60 s, with later elicitations in the window folded into it.
+  Reply is first-writer-wins: the transition `awaitingInput`→`active` is a
+  conditional update on the open `promptId`.
+- **Test scenarios:** elicitation sets `awaitingInput` and notifies; rapid
+  elicitations produce one notification; reply posts a `prompt` activity
+  and sets `active`; second reply to a closed prompt is rejected; two
+  concurrent replies to one prompt yield exactly one success and one
+  conflict; 24 h timeout → `stale`.
 - **Verification:** manual run: agent asks, human answers in web, adapter
   receives the prompt.
 
@@ -185,9 +215,14 @@ overlaps are called out.
   upsert), `routes/issues.ts` (`/suggestions`, accept, dismiss),
   `apps/web/src` triage view chips, `apps/mcp-server` (`issue_suggestions`),
   `docker-compose*.yml` (pgvector image).
+- **Behavior:** the duplicate search is bounded: candidates come from the
+  same workspace, non-closed or closed within 90 days, same project when
+  the issue has one, capped at the nearest 200 by vector index
+  (HNSW), then filtered by cosine threshold. No full scan per insert.
 - **Test scenarios:** suggestion generation is idempotent per issue
   version; accept applies exactly the field; dismiss records reason;
-  duplicate candidates above cosine threshold only; OpenRouter failure
+  duplicate candidates above cosine threshold only and never outside the
+  bounded set; OpenRouter failure
   leaves triage usable.
 - **Verification:** 20 seeded issues produce sensible suggestions on
   review; cost per issue logged.
@@ -229,8 +264,10 @@ overlaps are called out.
 - **Behavior:** first load hydrates from server then caches; later loads
   render from cache and apply deltas since the stored cursor; mutations
   apply locally, send, roll back on 4xx.
-- **Test scenarios:** delta ordering is total per workspace; cursor
-  resume after disconnect; rollback restores prior state; cache cleared on
+- **Test scenarios:** delta ordering is total per workspace; two
+  concurrent writers (N reserved first, N+1 commits first) never let a
+  resumed `/sync` skip N; cursor resume after disconnect; `schemaVersion`
+  mismatch forces full rehydrate; rollback restores prior state; cache cleared on
   workspace switch.
 - **Verification:** cold navigation between issue and board under 50 ms
   from cache on the dogfood instance.
@@ -261,8 +298,8 @@ overlaps are called out.
   degrade to label/project/team without embeddings.
 - OpenRouter cost on every triage create. Mitigation: cheap model,
   per-workspace daily cap, logged.
-- L7 cache invalidation bugs. Mitigation: cursor plus full-rehydrate on
-  schema version change.
+- L7 cache invalidation bugs. Mitigation: per-workspace commit-ordered cursor plus
+  full-rehydrate on `schemaVersion` change.
 
 ## Sources
 
