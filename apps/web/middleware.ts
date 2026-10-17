@@ -13,6 +13,7 @@ const PUBLIC_PATHS = [
   "/login",
   "/bootstrap",
   "/join",
+  "/join/", // invite tokens live at /join/<token>
   "/link",
   // public trust pages (PLAN-016)
   "/privacy",
@@ -46,7 +47,9 @@ export function middleware(req: NextRequest) {
     withSecurityHeaders(req, NextResponse.next({ request: { headers: requestHeaders } }), csp);
 
   if (
-    PUBLIC_PATHS.some((p) => pathname.startsWith(p)) ||
+    PUBLIC_PATHS.some((p) =>
+      p !== "/" && p.endsWith("/") ? pathname.startsWith(p) : pathname === p,
+    ) ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/") ||
     pathname === "/favicon.ico"
