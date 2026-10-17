@@ -38,8 +38,8 @@
   --color-attention-soft: var(--sl-status-attention-soft);
   --color-healthy-soft: var(--sl-status-healthy-soft);
   --color-neutral-soft: var(--sl-status-neutral-soft);
-  --font-sans: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "Atkinson Hyperlegible Next", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Commit Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 body {
@@ -49,7 +49,7 @@ body {
 
 html {
   font-family: var(--font-sans);
-  font-feature-settings: "cv11", "ss01", "tnum", "calt", "kern";
+  font-feature-settings: "kern";
 }
 
 .toast-in { animation: toast-in 120ms ease-out; }

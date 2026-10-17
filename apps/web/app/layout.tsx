@@ -7,8 +7,12 @@ import {
 } from "@tallyline/silver-lining";
 import { cookies } from "next/headers";
 import type { CSSProperties, ReactNode } from "react";
-import "@fontsource-variable/inter";
-import "@fontsource-variable/jetbrains-mono";
+import "@fontsource/atkinson-hyperlegible-next/400.css";
+import "@fontsource/atkinson-hyperlegible-next/400-italic.css";
+import "@fontsource/atkinson-hyperlegible-next/500.css";
+import "@fontsource/atkinson-hyperlegible-next/600.css";
+import "@fontsource/commit-mono/400.css";
+import "@fontsource/commit-mono/500.css";
 import "./globals.css";
 
 // CSP nonces are per-request, so every page must render dynamically
