@@ -19,7 +19,7 @@ test.describe("logged out", () => {
     // light variants are served to light-scheme browsers
     expect(await page.locator('picture source[media="(prefers-color-scheme: light)"]').count()).toBeGreaterThanOrEqual(4);
     await expect(page.getByRole("link", { name: "Sign in" }).first()).toHaveAttribute("href", "/login");
-    await expect(page.getByRole("link", { name: "MIT license" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "AGPL-3.0 license" })).toBeVisible();
     await expect(page.locator("canvas")).toHaveCount(0); // no WebGL hero
   });
 
