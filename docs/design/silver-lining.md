@@ -78,11 +78,12 @@ The ceiling exists for comfort: past about 16:1 on a dark canvas, text starts to
 ## 4. Typography
 
 - **Faces:**
-  - **Inter** for interface text, with `font-feature-settings: "cv11", "ss01", "tnum"`. `tnum` keeps counts, dates and estimates aligned.
-  - **JetBrains Mono** for issue keys, IDs, hashes, code and log lines.
+  - **Atkinson Hyperlegible Pro** for interface text, self-hosted (`@fontsource/atkinson-hyperlegible-next`), `font-feature-settings: "kern"`. It is chosen for legibility over long sessions — maximum character discrimination (l/I/1, O/0, rn/m) at 11–15px — not for how it screenshots. True italics for prose emphasis.
+  - **Commit Mono** for issue keys, IDs, hashes, code and log lines — and for tabular numerals anywhere (counts, estimates, durations). Numerals that describe data are data; the mono face is the data face. Self-hosted (`@fontsource/commit-mono`).
+  - **No template faces.** The primary UI face is a deliberate, licensed pick — never a platform default (Inter, Roboto, Geist, SF/system-ui) serving as the branded face. A face earns its place on legibility over hours and letterform distinction, not familiarity.
   - No third face.
 - **Scale:** `micro 11 / caption 12 / body 13 / body-lg 14 / title 15 / headline 17 / display 24`. Nothing below 11px, anywhere.
-- **Weights:** 400, 500 and 600 only. Emphasis comes from weight and ink step, not from size jumps or color.
+- **Weights:** 400, 500 and 600 only. Emphasis comes from weight and ink step, not from size jumps or color. (The faces ship heavier files — the product doesn't use them.)
 - **Measure:** running text (issue descriptions, docs) is 72ch at most. Lists and tables are not capped.
 - **Truncation:** single-line titles truncate with an ellipsis and show the full text in a tooltip and the peek panel. Issue keys never truncate.
 - Uppercase is used only for `micro` labels, with +0.4px tracking.
@@ -272,3 +273,57 @@ open-computer renders server-side from Python's standard library, with no build 
 - **The lining is functional:** Linear uses near-invisible borders. Silver Lining makes the edge itself the attention signal.
 - **Review is a first-class view,** because most incoming work comes from agents.
 - **No AI chrome:** no sparkles on buttons and no "AI" badges. The glint means exactly one thing: an agent touched this.
+
+---
+
+## 16. Edge states: loading, empty, error, degradation
+
+The un-happy paths are designed surfaces, not afterthoughts. Every state below is a contract — if a surface can reach the state, the state must look intentional.
+
+### Loading
+
+- **Skeletons match final geometry exactly.** Same rows, same columns, same heights — the CLS budget (section 8) is a gate. Spinners remain banned.
+- **Every routed surface ships a `loading.tsx`.** A route without a skeleton is a spec violation. The known gap: `notifications` and the `settings/*` tree.
+- **Lazy surfaces acknowledge instantly, fill progressively.** The palette, quick-create, peek, pickers and keymap load their bodies on first use: the frame opens on the keypress and rows stream in — the trigger never waits on the chunk.
+- **Slow path escalates quietly.** A skeleton visible longer than ~4 seconds gains one muted line ("Still loading — the API is slow to answer") plus a `button-secondary` Retry. No spinner swap, no page change.
+- **Cold boot has one branded moment.** First paint into the app draws the tally strokes once — 300ms, struck through by the azure line, the mark itself. Under `prefers-reduced-motion` it renders static. It never appears between routes, on refetches, or more than once per app load.
+- **Live data degrades to quiet.** When the event stream drops, a subtle "reconnecting" pill sits top-right; reads stay live, writes disable with the reason attached. The stream dying must never freeze reading.
+
+### Empty
+
+Four distinct flavors — never the same "nothing here":
+
+| Flavor | Cause | Contract |
+|---|---|---|
+| First-run | Nothing exists yet | What appears here + how to create it (primary action or keycap) |
+| Filtered-empty | Active filters hid everything | Say so + a one-click clear |
+| Permission-empty | It exists, you can't see it | Say so + who can grant access |
+| Error-empty | Data didn't load | Error copy + Retry — never masquerade as "empty" |
+
+### Error
+
+- **Isolate failures to the segment that failed.** Every route carries an `error.tsx` boundary; partial failures on a multi-fetch page render `error-panel` in the failing region only — a dead activity feed never blanks the issue.
+- **`error-panel` for recoverable, route boundary for catastrophic, inline for validation.** No third class of error surface.
+- **API unreachable:** content regions show `error-panel` + Retry; the shell stays navigable — the operator can always get to a page that works.
+- **No codes unless they help.** "Could not sign in" — not "401".
+
+### Degradation and concurrency
+
+- **Deleted while viewing** → a "this issue was deleted" gone-state with a path back, not a bare 404.
+- **409 conflict** → show the server's current truth beside the intended change and let the operator choose; never silently overwrite.
+- **Ghost actors** (removed member, revoked agent) → name + "(removed)". Provenance survives account deletion — the record still says who did it.
+- **Oversized:** lists virtualize above 200 rows; titles truncate with tooltip; label overflow collapses to a "+N" chip; long markdown lazy-renders below the fold.
+- **Session expiry mid-draft:** drafts autosave locally every 2s; re-auth returns to the same draft. Auth dying never costs writing.
+- **Double submit:** mutations disable while in flight; retries are idempotent, never duplicated.
+
+---
+
+## 17. Iconography
+
+- **Phosphor** (MIT) via `@phosphor-icons/react` is the product's icon set — one library, one visual grammar. No hand-rolled UI icons.
+- **Weight:** `regular` at 16px is the default glyph; `bold` marks active/emphasis states. `thin` is illegible at 16px on dark; `fill` and `duotone` fight the one-accent, four-status palette — all three are banned.
+- **Sizes:** 16px standard (nav, rows, pickers, buttons); 20px for emphasis; never below 14px.
+- **Color:** icons render `currentColor` — the ink step, status color or accent comes from the surrounding token, never a per-icon prop.
+- **Brand exceptions stay custom:** the four-point **glint** and the **TallyMark** are owned geometry, not icon-set stock.
+- **A11y:** every icon-only control carries an accessible name; status always pairs icon + label (section 5).
+- **One import surface:** `components/app/icons.ts` names every icon the product uses. Components import the name, not the library — the set stays auditable and swap-able in one file.
