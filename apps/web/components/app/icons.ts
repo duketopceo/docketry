@@ -1,3 +1,5 @@
+"use client";
+
 // The single import surface for product icons (Silver Lining section 17).
 // Components import product names from here — never @phosphor-icons/react.
 // Weight stays `regular` at 16px; `bold` for active/emphasis only.
