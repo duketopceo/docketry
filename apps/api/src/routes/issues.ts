@@ -20,12 +20,17 @@ import {
 } from "@tallyline/types";
 import { db } from "../db/client.js";
 import {
+  agentSessions,
   agents,
   comments,
   cycles,
   dispatches,
   events,
   issueLabels,
+  issueRelationTypes,
+  issueRelations,
+  issueSuggestionKinds,
+  issueSuggestions,
   issues,
   labels,
   projects,
@@ -33,9 +38,11 @@ import {
   teams,
   users,
   workspaceMembers,
+  type IssueSuggestionKind,
 } from "../db/schema.js";
 import { actorFromHeaders } from "../lib/actor.js";
 import { apiError, HttpError } from "../lib/errors.js";
+import { postActivity } from "../services/agent-sessions.js";
 import { createAssist } from "../services/assist.js";
 import { llmEnabled } from "../services/llm.js";
 import { decodeCursor, encodeCursor } from "../lib/pagination.js";
@@ -65,6 +72,8 @@ const createSchema = z.object({
   state: z.enum(["triage", "backlog"]).default("backlog"),
   assigneeType: z.enum(["human", "agent"]).optional(),
   assigneeId: z.uuid().optional(),
+  delegateType: z.enum(["agent"]).nullable().optional(),
+  delegateId: z.uuid().nullable().optional(),
   cycleId: z.uuid().optional(),
   projectId: z.uuid().optional(),
   parentId: z.uuid().optional(),
@@ -80,6 +89,8 @@ const patchSchema = z.object({
   dueDate: z.iso.datetime().nullable().optional(),
   assigneeType: z.enum(["human", "agent"]).nullable().optional(),
   assigneeId: z.uuid().nullable().optional(),
+  delegateType: z.enum(["agent"]).nullable().optional(),
+  delegateId: z.uuid().nullable().optional(),
   cycleId: z.uuid().nullable().optional(),
   projectId: z.uuid().nullable().optional(),
   parentId: z.uuid().nullable().optional(),
@@ -152,6 +163,31 @@ async function validateAssignee(
       );
     if (!m)
       throw new HttpError(422, "INVALID_ASSIGNEE", "user not in workspace");
+  }
+}
+
+async function validateDelegate(
+  workspaceId: string,
+  type: "agent" | null | undefined,
+  id: string | null | undefined,
+): Promise<void> {
+  if (type === undefined && id === undefined) return;
+  if (type === null && id === null) return;
+  if ((type === "agent") !== Boolean(id)) {
+    throw new HttpError(
+      400,
+      "INVALID_DELEGATE",
+      "delegateType='agent' and delegateId must be provided together",
+    );
+  }
+  if (type === "agent" && id) {
+    const [a] = await db
+      .select({ id: agents.id })
+      .from(agents)
+      .where(and(eq(agents.id, id), eq(agents.workspaceId, workspaceId)));
+    if (!a) {
+      throw new HttpError(422, "INVALID_DELEGATE", "agent not in workspace");
+    }
   }
 }
 
@@ -255,6 +291,7 @@ export const issueRoutes = new Hono()
       if (body.assigneeId && body.assigneeType) {
         await validateAssignee(ws.id, body.assigneeType, body.assigneeId);
       }
+      await validateDelegate(ws.id, body.delegateType, body.delegateId);
 
       const issue = await createIssue({
         workspaceId: ws.id,
@@ -275,6 +312,8 @@ export const issueRoutes = new Hono()
       if (
         body.priority !== undefined ||
         body.assigneeId !== undefined ||
+        body.delegateType !== undefined ||
+        body.delegateId !== undefined ||
         body.cycleId !== undefined ||
         body.projectId !== undefined ||
         body.parentId !== undefined
@@ -291,6 +330,12 @@ export const issueRoutes = new Hono()
             ...(body.assigneeId !== undefined
               ? { assigneeId: body.assigneeId }
               : {}),
+            ...(body.delegateType !== undefined
+              ? { delegateType: body.delegateType }
+              : {}),
+            ...(body.delegateId !== undefined
+              ? { delegateId: body.delegateId }
+              : {}),
             ...(body.cycleId !== undefined ? { cycleId: body.cycleId } : {}),
             ...(body.projectId !== undefined
               ? { projectId: body.projectId }
@@ -302,6 +347,27 @@ export const issueRoutes = new Hono()
           .where(eq(issues.id, issue.id))
           .returning();
         if (updated) result = updated;
+      }
+
+      if (body.assigneeType === "agent") {
+        await db.insert(events).values({
+          workspaceId: ws.id,
+          entityType: "issue",
+          entityId: result.id,
+          action: "deprecated_agent_assignee",
+          actorType: actor.type,
+          actorId: actor.id,
+          after: { assigneeId: body.assigneeId ?? null },
+        });
+      }
+
+      if (body.delegateType === "agent" && body.delegateId) {
+        await createDispatch({
+          workspaceId: ws.id,
+          issueId: result.id,
+          agentId: body.delegateId,
+          trigger: "assign",
+        });
       }
 
       // create-time human assignment → inbox row (agent assignment at
@@ -470,6 +536,7 @@ export const issueRoutes = new Hono()
       if (body.assigneeId && body.assigneeType) {
         await validateAssignee(ws.id, body.assigneeType, body.assigneeId);
       }
+      await validateDelegate(ws.id, body.delegateType, body.delegateId);
       if (body.parentId) await validateParent(ws.id, body.parentId, key);
       if (body.labelIds?.length) {
         const found = await db
@@ -527,18 +594,26 @@ export const issueRoutes = new Hono()
       if (body.assigneeType !== undefined)
         fields.assigneeType = body.assigneeType;
       if (body.assigneeId !== undefined) fields.assigneeId = body.assigneeId;
+      if (body.delegateType !== undefined)
+        fields.delegateType = body.delegateType;
+      if (body.delegateId !== undefined) fields.delegateId = body.delegateId;
       if (body.cycleId !== undefined) fields.cycleId = body.cycleId;
       if (body.projectId !== undefined) fields.projectId = body.projectId;
       if (body.parentId !== undefined) fields.parentId = body.parentId;
 
-      // prior assignee for the change-detection below — one extra read only
-      // when the patch touches assignment
-      const prevAssignee =
-        body.assigneeId !== undefined || body.assigneeType !== undefined
+      // prior assignee / delegate for the change-detection below — one extra read only
+      // when the patch touches assignment or delegation
+      const prevAssignment =
+        body.assigneeId !== undefined ||
+        body.assigneeType !== undefined ||
+        body.delegateId !== undefined ||
+        body.delegateType !== undefined
           ? await db
               .select({
                 assigneeType: issues.assigneeType,
                 assigneeId: issues.assigneeId,
+                delegateType: issues.delegateType,
+                delegateId: issues.delegateId,
               })
               .from(issues)
               .where(
@@ -569,11 +644,36 @@ export const issueRoutes = new Hono()
       if (body.labelIds !== undefined && issue) {
         await replaceIssueLabels(issue.id, ws.id, body.labelIds);
       }
+      if (body.assigneeType === "agent" && issue) {
+        await db.insert(events).values({
+          workspaceId: ws.id,
+          entityType: "issue",
+          entityId: issue.id,
+          action: "deprecated_agent_assignee",
+          actorType: actor.type,
+          actorId: actor.id,
+          after: { assigneeId: body.assigneeId ?? null },
+        });
+      }
       if (body.assigneeType === "agent" && body.assigneeId && issue) {
         await createDispatch({
           workspaceId: ws.id,
           issueId: issue.id,
           agentId: body.assigneeId,
+          trigger: "assign",
+        });
+      }
+      if (
+        body.delegateType === "agent" &&
+        body.delegateId &&
+        issue &&
+        (prevAssignment?.delegateType !== "agent" ||
+          prevAssignment?.delegateId !== body.delegateId)
+      ) {
+        await createDispatch({
+          workspaceId: ws.id,
+          issueId: issue.id,
+          agentId: body.delegateId,
           trigger: "assign",
         });
       }
@@ -583,7 +683,7 @@ export const issueRoutes = new Hono()
         body.assigneeType === "human" &&
         body.assigneeId &&
         issue &&
-        prevAssignee?.assigneeId !== body.assigneeId
+        prevAssignment?.assigneeId !== body.assigneeId
       ) {
         await notifyUsers(ws.id, [body.assigneeId], {
           kind: "assigned",
@@ -689,6 +789,29 @@ export const issueRoutes = new Hono()
             issueId: issue.id,
             actor,
           });
+        }
+      }
+
+      // plan L3: when a human comments on an issue with an awaitingInput
+      // agent session, resume the session with a prompt activity.
+      if (actor.type === "human") {
+        const waitingSessions = await db
+          .select({ id: agentSessions.id })
+          .from(agentSessions)
+          .where(
+            and(
+              eq(agentSessions.workspaceId, ws.id),
+              eq(agentSessions.issueId, issue.id),
+              eq(agentSessions.status, "awaitingInput"),
+            ),
+          )
+          .orderBy(desc(agentSessions.createdAt));
+        for (const s of waitingSessions) {
+          await postActivity(
+            s.id,
+            { content: { type: "prompt", body: comment!.body } },
+            { actorType: "human", actorId: actor.id },
+          );
         }
       }
 
@@ -902,6 +1025,623 @@ export const issueRoutes = new Hono()
     const ws = await requireWorkspace(c);
     const issue = await findIssue(ws.id, c.req.param("key"));
     await db.delete(slackLinks).where(eq(slackLinks.issueId, issue.id));
+    return c.json({ ok: true });
+  })
+  // ── Plan L4: Issue suggestions ─────────────────────────────────
+  .get("/workspaces/:ws/issues/:key/suggestions", async (c) => {
+    const ws = await requireWorkspace(c);
+    const issue = await findIssue(ws.id, c.req.param("key"));
+    const rows = await db
+      .select()
+      .from(issueSuggestions)
+      .where(
+        and(
+          eq(issueSuggestions.workspaceId, ws.id),
+          eq(issueSuggestions.issueId, issue.id),
+        ),
+      )
+      .orderBy(asc(issueSuggestions.createdAt));
+    return c.json({ suggestions: rows });
+  })
+  .post("/workspaces/:ws/issues/:key/suggestions", async (c) => {
+    const ws = await requireWorkspace(c);
+    const issue = await findIssue(ws.id, c.req.param("key"));
+    const rawText = await c.req.text();
+    let rawJson: unknown = {};
+    if (rawText.trim()) {
+      try {
+        rawJson = JSON.parse(rawText);
+      } catch {
+        return apiError(c, 400, "INVALID_JSON", "invalid JSON body");
+      }
+    }
+    const itemSchema = z.object({
+      kind: z.enum(issueSuggestionKinds),
+      suggestedValue: z.string().min(1).max(500),
+      reason: z.string().max(1000).nullable().optional(),
+    });
+    const bodySchema = z.object({
+      kind: z.enum(issueSuggestionKinds).optional(),
+      suggestedValue: z.string().min(1).max(500).optional(),
+      reason: z.string().max(1000).nullable().optional(),
+      suggestions: z.array(itemSchema).max(20).optional(),
+    });
+    const parsed = bodySchema.safeParse(rawJson);
+    if (!parsed.success) {
+      return apiError(c, 400, "VALIDATION_ERROR", parsed.error.message);
+    }
+    const body = parsed.data;
+    const candidates: Array<{
+      kind: IssueSuggestionKind;
+      suggestedValue: string;
+      reason: string | null;
+    }> = [];
+    if (body.kind && body.suggestedValue) {
+      candidates.push({
+        kind: body.kind,
+        suggestedValue: body.suggestedValue,
+        reason: body.reason ?? null,
+      });
+    }
+    if (body.suggestions) {
+      for (const s of body.suggestions) {
+        candidates.push({
+          kind: s.kind,
+          suggestedValue: s.suggestedValue,
+          reason: s.reason ?? null,
+        });
+      }
+    }
+
+    const uuidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    for (const cand of candidates) {
+      if (uuidRe.test(cand.suggestedValue)) {
+        if (cand.kind === "label") {
+          const [l] = await db
+            .select({ id: labels.id })
+            .from(labels)
+            .where(
+              and(
+                eq(labels.id, cand.suggestedValue),
+                eq(labels.workspaceId, ws.id),
+              ),
+            );
+          if (!l) {
+            throw new HttpError(
+              422,
+              "INVALID_SUGGESTION",
+              "label not in workspace",
+            );
+          }
+        } else if (cand.kind === "project") {
+          const [p] = await db
+            .select({ id: projects.id })
+            .from(projects)
+            .where(
+              and(
+                eq(projects.id, cand.suggestedValue),
+                eq(projects.workspaceId, ws.id),
+              ),
+            );
+          if (!p) {
+            throw new HttpError(
+              422,
+              "INVALID_SUGGESTION",
+              "project not in workspace",
+            );
+          }
+        } else if (cand.kind === "team") {
+          const [t] = await db
+            .select({ id: teams.id })
+            .from(teams)
+            .where(
+              and(
+                eq(teams.id, cand.suggestedValue),
+                eq(teams.workspaceId, ws.id),
+              ),
+            );
+          if (!t) {
+            throw new HttpError(
+              422,
+              "INVALID_SUGGESTION",
+              "team not in workspace",
+            );
+          }
+        } else if (cand.kind === "assignee") {
+          const [m] = await db
+            .select({ userId: workspaceMembers.userId })
+            .from(workspaceMembers)
+            .where(
+              and(
+                eq(workspaceMembers.workspaceId, ws.id),
+                eq(workspaceMembers.userId, cand.suggestedValue),
+              ),
+            );
+          const [a] = await db
+            .select({ id: agents.id })
+            .from(agents)
+            .where(
+              and(
+                eq(agents.id, cand.suggestedValue),
+                eq(agents.workspaceId, ws.id),
+              ),
+            );
+          if (!m && !a) {
+            throw new HttpError(
+              422,
+              "INVALID_SUGGESTION",
+              "assignee not in workspace",
+            );
+          }
+        } else if (cand.kind === "duplicate") {
+          const [other] = await db
+            .select({ id: issues.id })
+            .from(issues)
+            .where(
+              and(
+                eq(issues.id, cand.suggestedValue),
+                eq(issues.workspaceId, ws.id),
+              ),
+            );
+          if (!other) {
+            throw new HttpError(
+              422,
+              "INVALID_SUGGESTION",
+              "duplicate issue not in workspace",
+            );
+          }
+        }
+      }
+    }
+
+    if (candidates.length === 0) {
+      const textBlob = `${issue.title} ${issue.description ?? ""}`.toLowerCase();
+      const wsLabels = await db
+        .select()
+        .from(labels)
+        .where(eq(labels.workspaceId, ws.id))
+        .orderBy(asc(labels.createdAt));
+      for (const l of wsLabels) {
+        if (textBlob.includes(l.name.toLowerCase())) {
+          candidates.push({
+            kind: "label",
+            suggestedValue: l.name,
+            reason: `matches label "${l.name}"`,
+          });
+        }
+      }
+      if (candidates.length === 0 && wsLabels[0]) {
+        candidates.push({
+          kind: "label",
+          suggestedValue: wsLabels[0].name,
+          reason: "workspace label candidate",
+        });
+      }
+      const wsProjects = await db
+        .select()
+        .from(projects)
+        .where(eq(projects.workspaceId, ws.id))
+        .orderBy(asc(projects.createdAt));
+      for (const p of wsProjects) {
+        if (textBlob.includes(p.name.toLowerCase())) {
+          candidates.push({
+            kind: "project",
+            suggestedValue: p.id,
+            reason: `matches project "${p.name}"`,
+          });
+        }
+      }
+      if (candidates.length === 0) {
+        candidates.push({
+          kind: "team",
+          suggestedValue: issue.teamId,
+          reason: "default team routing",
+        });
+      }
+    }
+
+    for (const cand of candidates) {
+      await db
+        .insert(issueSuggestions)
+        .values({
+          workspaceId: ws.id,
+          issueId: issue.id,
+          kind: cand.kind,
+          suggestedValue: cand.suggestedValue,
+          reason: cand.reason,
+          state: "pending",
+        })
+        .onConflictDoNothing();
+    }
+
+    const rows = await db
+      .select()
+      .from(issueSuggestions)
+      .where(
+        and(
+          eq(issueSuggestions.workspaceId, ws.id),
+          eq(issueSuggestions.issueId, issue.id),
+        ),
+      )
+      .orderBy(asc(issueSuggestions.createdAt));
+    const matched =
+      (candidates[0] &&
+        rows.find(
+          (r) =>
+            r.kind === candidates[0]!.kind &&
+            r.suggestedValue === candidates[0]!.suggestedValue,
+        )) ??
+      rows[0];
+    return c.json(
+      {
+        ...(matched ?? {}),
+        suggestion: matched ?? null,
+        suggestions: rows,
+      },
+      201,
+    );
+  })
+  .patch(
+    "/workspaces/:ws/issues/:key/suggestions/:sid",
+    zValidator(
+      "json",
+      z.object({
+        state: z.enum(["accepted", "dismissed"]),
+        dismissedReason: z.string().max(1000).nullable().optional(),
+      }),
+    ),
+    async (c) => {
+      const ws = await requireWorkspace(c);
+      const actor = actorFromHeaders(c);
+      const issue = await findIssue(ws.id, c.req.param("key"));
+      const sid = c.req.param("sid");
+      const body = c.req.valid("json");
+
+      const [existing] = await db
+        .select()
+        .from(issueSuggestions)
+        .where(
+          and(
+            eq(issueSuggestions.id, sid),
+            eq(issueSuggestions.workspaceId, ws.id),
+            eq(issueSuggestions.issueId, issue.id),
+          ),
+        );
+      if (!existing) {
+        throw new HttpError(404, "NOT_FOUND", "suggestion not found");
+      }
+
+      const [updated] = await db
+        .update(issueSuggestions)
+        .set({
+          state: body.state,
+          dismissedReason:
+            body.state === "dismissed" ? (body.dismissedReason ?? null) : null,
+        })
+        .where(eq(issueSuggestions.id, existing.id))
+        .returning();
+
+      const uuidRe =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (body.state === "accepted") {
+        if (existing.kind === "label") {
+          const [label] = await db
+            .select({ id: labels.id })
+            .from(labels)
+            .where(
+              and(
+                eq(labels.workspaceId, ws.id),
+                uuidRe.test(existing.suggestedValue)
+                  ? or(
+                      eq(labels.id, existing.suggestedValue),
+                      eq(labels.name, existing.suggestedValue),
+                    )
+                  : eq(labels.name, existing.suggestedValue),
+              ),
+            );
+          if (label) {
+            await db
+              .insert(issueLabels)
+              .values({ issueId: issue.id, labelId: label.id })
+              .onConflictDoNothing();
+          }
+        } else if (existing.kind === "project") {
+          const [proj] = await db
+            .select({ id: projects.id })
+            .from(projects)
+            .where(
+              and(
+                eq(projects.workspaceId, ws.id),
+                uuidRe.test(existing.suggestedValue)
+                  ? or(
+                      eq(projects.id, existing.suggestedValue),
+                      eq(projects.name, existing.suggestedValue),
+                    )
+                  : eq(projects.name, existing.suggestedValue),
+              ),
+            );
+          if (proj) {
+            await db
+              .update(issues)
+              .set({ projectId: proj.id })
+              .where(eq(issues.id, issue.id));
+          }
+        } else if (existing.kind === "team") {
+          const [team] = await db
+            .select({ id: teams.id })
+            .from(teams)
+            .where(
+              and(
+                eq(teams.workspaceId, ws.id),
+                uuidRe.test(existing.suggestedValue)
+                  ? or(
+                      eq(teams.id, existing.suggestedValue),
+                      eq(teams.key, existing.suggestedValue),
+                    )
+                  : eq(teams.key, existing.suggestedValue),
+              ),
+            );
+          if (team) {
+            await db
+              .update(issues)
+              .set({ teamId: team.id })
+              .where(eq(issues.id, issue.id));
+          }
+        } else if (
+          existing.kind === "assignee" &&
+          uuidRe.test(existing.suggestedValue)
+        ) {
+          await db
+            .update(issues)
+            .set({
+              assigneeType: "human",
+              assigneeId: existing.suggestedValue,
+            })
+            .where(eq(issues.id, issue.id));
+        } else if (existing.kind === "duplicate") {
+          await db
+            .update(issues)
+            .set({ state: "duplicate" })
+            .where(eq(issues.id, issue.id));
+        }
+      }
+
+      await db.insert(events).values({
+        workspaceId: ws.id,
+        entityType: "issue",
+        entityId: issue.id,
+        action:
+          body.state === "accepted"
+            ? "suggestion_accepted"
+            : "suggestion_dismissed",
+        actorType: actor.type,
+        actorId: actor.id,
+        after: {
+          suggestionId: updated!.id,
+          kind: updated!.kind,
+          suggestedValue: updated!.suggestedValue,
+          state: updated!.state,
+          dismissedReason: updated!.dismissedReason,
+        },
+      });
+
+      return c.json({ ...updated!, suggestion: updated! });
+    },
+  )
+  // ── Plan L5: Issue relations ───────────────────────────────────
+  .get("/workspaces/:ws/issues/:key/relations", async (c) => {
+    const ws = await requireWorkspace(c);
+    const issue = await findIssue(ws.id, c.req.param("key"));
+    const rows = await db
+      .select()
+      .from(issueRelations)
+      .where(
+        and(
+          eq(issueRelations.workspaceId, ws.id),
+          or(
+            eq(issueRelations.sourceIssueId, issue.id),
+            eq(issueRelations.targetIssueId, issue.id),
+          ),
+        ),
+      )
+      .orderBy(asc(issueRelations.createdAt));
+    return c.json({ relations: rows });
+  })
+  .post(
+    "/workspaces/:ws/issues/:key/relations",
+    zValidator(
+      "json",
+      z
+        .object({
+          targetIssueId: z.uuid().optional(),
+          targetIssueKey: z.string().min(1).max(32).optional(),
+          targetKey: z.string().min(1).max(32).optional(),
+          relationType: z.enum(issueRelationTypes),
+        })
+        .refine(
+          (v) => Boolean(v.targetIssueId || v.targetIssueKey || v.targetKey),
+          { message: "targetIssueId or targetIssueKey is required" },
+        ),
+    ),
+    async (c) => {
+      const ws = await requireWorkspace(c);
+      const actor = actorFromHeaders(c);
+      const issue = await findIssue(ws.id, c.req.param("key"));
+      const body = c.req.valid("json");
+
+      if (body.targetIssueId && body.targetIssueId === issue.id) {
+        throw new HttpError(
+          409,
+          "SELF_RELATION",
+          "an issue cannot relate to itself",
+        );
+      }
+      const targetKey = body.targetIssueKey ?? body.targetKey;
+      if (targetKey && targetKey === issue.key) {
+        throw new HttpError(
+          409,
+          "SELF_RELATION",
+          "an issue cannot relate to itself",
+        );
+      }
+
+      let target: typeof issues.$inferSelect | undefined;
+      if (body.targetIssueId) {
+        const [found] = await db
+          .select()
+          .from(issues)
+          .where(
+            and(
+              eq(issues.id, body.targetIssueId),
+              eq(issues.workspaceId, ws.id),
+            ),
+          );
+        if (!found) {
+          throw new HttpError(
+            422,
+            "INVALID_TARGET",
+            "target issue not in workspace",
+          );
+        }
+        target = found;
+      } else if (targetKey) {
+        target = await findIssue(ws.id, targetKey);
+      }
+
+      if (!target || target.id === issue.id) {
+        throw new HttpError(
+          409,
+          "SELF_RELATION",
+          "an issue cannot relate to itself",
+        );
+      }
+
+      if (body.relationType === "blocks") {
+        const blockEdges = await db
+          .select({
+            sourceIssueId: issueRelations.sourceIssueId,
+            targetIssueId: issueRelations.targetIssueId,
+          })
+          .from(issueRelations)
+          .where(
+            and(
+              eq(issueRelations.workspaceId, ws.id),
+              eq(issueRelations.relationType, "blocks"),
+            ),
+          );
+        const adj = new Map<string, string[]>();
+        for (const e of blockEdges) {
+          const list = adj.get(e.sourceIssueId) ?? [];
+          list.push(e.targetIssueId);
+          adj.set(e.sourceIssueId, list);
+        }
+        const visited = new Set<string>([target.id]);
+        const queue: string[] = [target.id];
+        while (queue.length > 0) {
+          const cur = queue.shift()!;
+          if (cur === issue.id) {
+            throw new HttpError(
+              409,
+              "BLOCKS_CYCLE",
+              "blocks relation would create a cycle",
+            );
+          }
+          for (const nxt of adj.get(cur) ?? []) {
+            if (!visited.has(nxt)) {
+              visited.add(nxt);
+              queue.push(nxt);
+            }
+          }
+        }
+      }
+
+      await db
+        .insert(issueRelations)
+        .values({
+          workspaceId: ws.id,
+          sourceIssueId: issue.id,
+          targetIssueId: target.id,
+          relationType: body.relationType,
+        })
+        .onConflictDoNothing();
+
+      const [row] = await db
+        .select()
+        .from(issueRelations)
+        .where(
+          and(
+            eq(issueRelations.workspaceId, ws.id),
+            eq(issueRelations.sourceIssueId, issue.id),
+            eq(issueRelations.targetIssueId, target.id),
+            eq(issueRelations.relationType, body.relationType),
+          ),
+        );
+
+      if (body.relationType === "duplicate" && issue.state !== "duplicate") {
+        await db
+          .update(issues)
+          .set({ state: "duplicate" })
+          .where(and(eq(issues.id, issue.id), eq(issues.workspaceId, ws.id)));
+        await db.insert(events).values({
+          workspaceId: ws.id,
+          entityType: "issue",
+          entityId: issue.id,
+          action: "state_changed",
+          actorType: actor.type,
+          actorId: actor.id,
+          before: { state: issue.state },
+          after: { state: "duplicate", duplicateOf: target.key },
+        });
+      }
+
+      await db.insert(events).values({
+        workspaceId: ws.id,
+        entityType: "issue",
+        entityId: issue.id,
+        action: "relation_created",
+        actorType: actor.type,
+        actorId: actor.id,
+        after: {
+          relationId: row!.id,
+          targetIssueId: target.id,
+          relationType: body.relationType,
+        },
+      });
+
+      return c.json({ ...row!, relation: row! }, 201);
+    },
+  )
+  .delete("/workspaces/:ws/issues/:key/relations/:rid", async (c) => {
+    const ws = await requireWorkspace(c);
+    const actor = actorFromHeaders(c);
+    const issue = await findIssue(ws.id, c.req.param("key"));
+    const rid = c.req.param("rid");
+    const [deleted] = await db
+      .delete(issueRelations)
+      .where(
+        and(
+          eq(issueRelations.id, rid),
+          eq(issueRelations.workspaceId, ws.id),
+          or(
+            eq(issueRelations.sourceIssueId, issue.id),
+            eq(issueRelations.targetIssueId, issue.id),
+          ),
+        ),
+      )
+      .returning({ id: issueRelations.id });
+    if (!deleted) {
+      throw new HttpError(404, "NOT_FOUND", "relation not found");
+    }
+    await db.insert(events).values({
+      workspaceId: ws.id,
+      entityType: "issue",
+      entityId: issue.id,
+      action: "relation_deleted",
+      actorType: actor.type,
+      actorId: actor.id,
+      after: { relationId: deleted.id },
+    });
     return c.json({ ok: true });
   });
 

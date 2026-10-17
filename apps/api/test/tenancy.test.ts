@@ -21,7 +21,15 @@ import { newSession, seedEntities, seedTenant, type Entities, type Tenant } from
 // `reason` marks tables with no tenant-reachable endpoint.
 const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
   agent_keys: { ops: ["GET /v1/workspaces/{ws}/agents/{id}/keys", "POST /v1/workspaces/{ws}/agents/{id}/keys"] },
-  agents: { ops: ["GET /v1/workspaces/{ws}/agents", "POST /v1/workspaces/{ws}/agents", "POST /v1/workspaces/{ws}/agents/{id}/keys"] },
+  agents: {
+    ops: [
+      "GET /v1/workspaces/{ws}/agents",
+      "POST /v1/workspaces/{ws}/agents",
+      "PATCH /v1/workspaces/{ws}/agents",
+      "PATCH /v1/workspaces/{ws}/agents/{id}",
+      "POST /v1/workspaces/{ws}/agents/{id}/keys",
+    ],
+  },
   auth_providers: {
     ops: [],
     reason:
@@ -54,6 +62,7 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
     ops: [
       "GET /v1/workspaces/{ws}/events",
       "GET /v1/workspaces/{ws}/events/stream",
+      "GET /v1/workspaces/{ws}/sync",
       "GET /v1/workspaces/{ws}/issues/{key}/events",
       "GET /v1/workspaces/{ws}/insights",
     ],
@@ -76,6 +85,20 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
     ],
   },
   issue_external_refs: { ops: ["POST /v1/workspaces/{ws}/import/linear", "GET /v1/workspaces/{ws}/issues/{key}"] },
+  issue_relations: {
+    ops: [
+      "GET /v1/workspaces/{ws}/issues/{key}/relations",
+      "POST /v1/workspaces/{ws}/issues/{key}/relations",
+      "DELETE /v1/workspaces/{ws}/issues/{key}/relations/{rid}",
+    ],
+  },
+  issue_suggestions: {
+    ops: [
+      "GET /v1/workspaces/{ws}/issues/{key}/suggestions",
+      "POST /v1/workspaces/{ws}/issues/{key}/suggestions",
+      "PATCH /v1/workspaces/{ws}/issues/{key}/suggestions/{sid}",
+    ],
+  },
   notifications: {
     ops: [
       "GET /v1/workspaces/{ws}/notifications",
@@ -152,6 +175,12 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
       "POST /v1/workspaces/{ws}/webhook-endpoints",
       "PATCH /v1/workspaces/{ws}/webhook-endpoints/{id}",
       "DELETE /v1/workspaces/{ws}/webhook-endpoints/{id}",
+    ],
+  },
+  workflow_definitions: {
+    ops: [
+      "GET /v1/workspaces/{ws}/workflows",
+      "POST /v1/workspaces/{ws}/workflows",
     ],
   },
   workspace_members: {
@@ -295,7 +324,7 @@ describe("tenancy: static coverage", () => {
     const stale = Object.keys(TABLE_ENDPOINTS).filter((t) => !tenantTables.includes(t));
     expect(missing, "tenant-scoped tables with no entry in TABLE_ENDPOINTS").toEqual([]);
     expect(stale, "TABLE_ENDPOINTS entries for tables that no longer have workspace_id").toEqual([]);
-    expect(tenantTables.length).toBe(31);
+    expect(tenantTables.length).toBe(34);
   });
 
   it("every table either lists swept endpoints or justifies having none", () => {
@@ -336,7 +365,7 @@ describe("tenancy: static coverage", () => {
 });
 
 const wsOps = Object.keys(OPERATIONS).filter((op) => op.includes("{ws}"));
-const idOps = wsOps.filter((op) => /\{(id|key|mid)\}/.test(op));
+const idOps = wsOps.filter((op) => /\{(id|key|mid|sid|rid)\}/.test(op));
 
 describe("tenancy: slug sweep (A credentials against B's workspace)", () => {
   it.each(wsOps.flatMap((op) => ATTACKERS.map((who) => ({ op, who }))))(
@@ -432,12 +461,14 @@ describe("tenancy: cross-tenant references in A's writes", () => {
     { name: "issue under B's parent", table: "issues", build: () => ({ method: "POST", path: `${ws()}/issues`, body: { title: "x", parentId: EB.issue.id } }) },
     { name: "issue assigned to B's user", table: "issues", build: () => ({ method: "POST", path: `${ws()}/issues`, body: { title: "x", assigneeType: "human", assigneeId: B.people.member.id } }) },
     { name: "issue assigned to B's agent", table: "issues", build: () => ({ method: "POST", path: `${ws()}/issues`, body: { title: "x", assigneeType: "agent", assigneeId: B.agent.id } }) },
+    { name: "issue delegated to B's agent", table: "issues", build: () => ({ method: "POST", path: `${ws()}/issues`, body: { title: "x", delegateType: "agent", delegateId: B.agent.id } }) },
     { name: "issue with B's label", table: "issue_labels", mayIgnore: true, build: () => ({ method: "POST", path: `${ws()}/issues`, body: { title: "x", labelIds: [EB.label.id] } }) },
     { name: "issue in B's team key", table: "issues", build: () => ({ method: "POST", path: `${ws()}/issues`, body: { title: "x", teamKey: B.team.key } }) },
     { name: "patch A issue to B's project", table: "issues", build: () => ({ method: "PATCH", path: `${ws()}/issues/${EA.issue.key}`, body: { projectId: EB.project.id } }) },
     { name: "patch A issue to B's cycle", table: "issues", build: () => ({ method: "PATCH", path: `${ws()}/issues/${EA.issue.key}`, body: { cycleId: EB.cycle.id } }) },
     { name: "patch A issue parent to B's issue", table: "issues", build: () => ({ method: "PATCH", path: `${ws()}/issues/${EA.issue.key}`, body: { parentId: EB.issue.id } }) },
     { name: "patch A issue assignee to B's user", table: "issues", build: () => ({ method: "PATCH", path: `${ws()}/issues/${EA.issue.key}`, body: { assigneeType: "human", assigneeId: B.people.owner.id } }) },
+    { name: "patch A issue delegate to B's agent", table: "issues", build: () => ({ method: "PATCH", path: `${ws()}/issues/${EA.issue.key}`, body: { delegateType: "agent", delegateId: B.agent.id } }) },
     { name: "cycle for B's team key", table: "cycles", build: () => ({ method: "POST", path: `${ws()}/cycles`, body: { teamKey: B.team.key, startsAt: "2026-11-01T00:00:00.000Z", endsAt: "2026-11-14T00:00:00.000Z" } }) },
     { name: "project for B's team key", table: "projects", build: () => ({ method: "POST", path: `${ws()}/projects`, body: { name: "x", teamKey: B.team.key } }) },
     { name: "milestone on B's project", table: "project_milestones", build: () => ({ method: "POST", path: `${ws()}/projects/${EB.project.id}/milestones`, body: { title: "x" } }) },
@@ -470,11 +501,14 @@ describe("tenancy: cross-tenant references in A's writes", () => {
     { name: "disconnect B's repo", table: "github_repos", build: () => ({ method: "POST", path: `${ws()}/github/repos/disconnect`, body: { fullName: EB.github.repo.fullName } }) },
     { name: "linear import into B's team", table: "issue_external_refs", build: () => ({ method: "POST", path: `${ws()}/import/linear`, body: { teamKey: B.team.key, csv: "ID,Title,Status\nL-1,x,Todo\n" } }) },
     { name: "bind B's github installation", table: "github_installations", build: () => ({ method: "POST", path: `${ws()}/github/setup`, body: { installationId: EB.github.installation.installationId } }) },
+    { name: "suggestion with B's label", table: "issue_suggestions", build: () => ({ method: "POST", path: `${ws()}/issues/${EA.issue.key}/suggestions`, body: { kind: "label", suggestedValue: EB.label.id } }) },
+    { name: "relation to B's issue", table: "issue_relations", build: () => ({ method: "POST", path: `${ws()}/issues/${EA.issue.key}/relations`, body: { targetIssueId: EB.issue.id, relationType: "related" } }) },
+    { name: "workflow dispatching B's agent", table: "workflow_definitions", build: () => ({ method: "POST", path: `${ws()}/workflows`, body: { name: "bad-wf", trigger: "issue.transition", condition: { to: "in_review" }, action: { type: "dispatch", agentId: B.agent.id } } }) },
   ];
 
   it("covers every tenant table that has endpoints", () => {
     const probed = new Set(probes.map((p) => p.table));
-    for (const table of ["issues", "issue_labels", "cycles", "projects", "project_milestones", "invites", "agent_keys", "dispatches", "dispatch_events", "agent_sessions", "agent_activities", "webhook_deliveries", "webhook_endpoints", "workspace_members", "user_tokens", "views", "teams", "slack_links", "comments", "github_repos", "issue_external_refs", "github_installations"]) {
+    for (const table of ["issues", "issue_labels", "cycles", "projects", "project_milestones", "invites", "agent_keys", "dispatches", "dispatch_events", "agent_sessions", "agent_activities", "webhook_deliveries", "webhook_endpoints", "workspace_members", "user_tokens", "views", "teams", "slack_links", "comments", "github_repos", "issue_external_refs", "github_installations", "issue_suggestions", "issue_relations", "workflow_definitions"]) {
       expect(probed.has(table), table).toBe(true);
     }
   });

@@ -1,8 +1,11 @@
 import { z } from "zod";
 import {
+  agentActivityContentSchema,
+  agentSignals,
   ISSUE_SOURCES,
   ISSUE_STATES,
   PRIORITIES,
+  type AgentActivityContent,
   type IssueState,
   type Priority,
 } from "@tallyline/types";
@@ -48,6 +51,7 @@ interface AgentRow {
   name: string;
   harness: string;
   capabilities: string[];
+  skills?: string[];
 }
 
 interface MemberRow {
@@ -98,6 +102,34 @@ interface FeedEvent {
   issueKey: string | null;
   issueTitle: string | null;
   after: unknown;
+  createdAt: string;
+}
+
+interface AgentSessionRow {
+  id: string;
+  workspaceId: string;
+  dispatchId: string;
+  issueId: string;
+  agentId: string;
+  status: string;
+  plan: Record<string, unknown> | null;
+  pullRequests: string[];
+  lastActivityAt: string | null;
+  endedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AgentActivityRow {
+  id: number;
+  sessionId: string;
+  workspaceId: string;
+  type: AgentActivityContent["type"];
+  content: Record<string, unknown>;
+  ephemeral: boolean;
+  signal: string | null;
+  actorType: string;
+  actorId: string | null;
   createdAt: string;
 }
 
@@ -521,16 +553,22 @@ export const toolDefs: ToolDef[] = [
   defineTool({
     name: "list_agents",
     description: "List registered agent identities in the workspace.",
-    inputSchema: {},
+    inputSchema: {
+      skill: z.string().optional(),
+    },
     readOnly: true,
-    handler: async (_args, client) => {
-      const res = await client.apiGet<{ agents: AgentRow[] }>("/agents");
+    handler: async (args, client) => {
+      const res = await client.apiGet<{ agents: AgentRow[] }>(
+        "/agents",
+        args.skill ? { skill: args.skill } : undefined,
+      );
       return {
         agents: res.agents.map((a) => ({
           id: a.id,
           name: a.name,
           harness: a.harness,
           capabilities: a.capabilities,
+          skills: a.skills ?? [],
         })),
       };
     },
@@ -662,6 +700,96 @@ export const toolDefs: ToolDef[] = [
           createdAt: e.createdAt,
         })),
         nextCursor: res.nextCursor,
+      };
+    },
+  }),
+
+  defineTool({
+    name: "session_get",
+    description:
+      "Fetch an agent session by id along with its typed activity log.",
+    inputSchema: {
+      id: uuid,
+    },
+    readOnly: true,
+    handler: async (args, client) => {
+      const res = await client.apiGet<{
+        session: AgentSessionRow;
+        activities: AgentActivityRow[];
+      }>(`/agent-sessions/${encodeURIComponent(args.id)}`);
+      return {
+        session: res.session,
+        activities: res.activities,
+      };
+    },
+  }),
+
+  defineTool({
+    name: "session_post_activity",
+    description:
+      "Post a typed activity (thought, action, elicitation, response, error, prompt) to an agent session. Agents use thought to acknowledge within 10s, elicitation to ask for input, and response with final=true to complete.",
+    inputSchema: {
+      id: uuid,
+      content: agentActivityContentSchema,
+      ephemeral: z.boolean().optional(),
+      signal: z.enum(agentSignals).optional(),
+    },
+    handler: async (args, client) => {
+      const res = await client.apiPost<{
+        session: AgentSessionRow;
+        activity: AgentActivityRow;
+      }>(`/agent-sessions/${encodeURIComponent(args.id)}/activities`, {
+        content: args.content,
+        ...(args.ephemeral !== undefined ? { ephemeral: args.ephemeral } : {}),
+        ...(args.signal !== undefined ? { signal: args.signal } : {}),
+      });
+      return {
+        session: res.session,
+        activity: res.activity,
+      };
+    },
+  }),
+
+  defineTool({
+    name: "session_elicit",
+    description:
+      "Ask a human for input on an agent session — posts an 'elicitation' activity, transitions the session to 'awaitingInput', and mirrors the question onto the issue comment thread.",
+    inputSchema: {
+      id: uuid,
+      body: z.string().min(1).max(4000),
+    },
+    handler: async (args, client) => {
+      const res = await client.apiPost<{
+        session: AgentSessionRow;
+        activity: AgentActivityRow;
+      }>(`/agent-sessions/${encodeURIComponent(args.id)}/activities`, {
+        content: { type: "elicitation", body: args.body },
+      });
+      return {
+        session: res.session,
+        activity: res.activity,
+      };
+    },
+  }),
+
+  defineTool({
+    name: "session_reply",
+    description:
+      "Reply to an agent session awaiting input — posts a 'prompt' activity and resumes the session to 'active'.",
+    inputSchema: {
+      id: uuid,
+      body: z.string().min(1).max(4000),
+    },
+    handler: async (args, client) => {
+      const res = await client.apiPost<{
+        session: AgentSessionRow;
+        activity: AgentActivityRow;
+      }>(`/agent-sessions/${encodeURIComponent(args.id)}/activities`, {
+        content: { type: "prompt", body: args.body },
+      });
+      return {
+        session: res.session,
+        activity: res.activity,
       };
     },
   }),

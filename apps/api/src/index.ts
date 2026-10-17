@@ -19,6 +19,7 @@ import { authRoutes, requireSession } from "./routes/auth.js";
 import { assistRoutes } from "./routes/assist.js";
 import { dispatchRoutes } from "./routes/dispatches.js";
 import { agentSessionRoutes } from "./routes/agent-sessions.js";
+import { workflowRoutes } from "./routes/workflows.js";
 import { eventRoutes } from "./routes/events.js";
 import { githubPublicRoutes, githubRoutes } from "./routes/github.js";
 import { importRoutes } from "./routes/import.js";
@@ -92,6 +93,7 @@ export const app = new Hono()
   .route("/v1", webhookEndpointRoutes)
   .route("/v1", dispatchRoutes)
   .route("/v1", agentSessionRoutes)
+  .route("/v1", workflowRoutes)
   .route("/v1", assistRoutes)
   .onError((err, c) => {
     if (err instanceof HttpError) {

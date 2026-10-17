@@ -9,6 +9,7 @@ import {
 import { db } from "../db/client.js";
 import { events, issues, teams } from "../db/schema.js";
 import { mirrorIssueState } from "./github-sync.js";
+import { evaluateIssueTransitionLoops } from "./loops.js";
 import { notifyUsers, staffUserIds } from "./notifications.js";
 import { queueDeliveries } from "./outbound.js";
 import { track } from "./background.js";
@@ -158,6 +159,12 @@ export async function transitionIssue(
       { kind: "review_pending", issueId: updated.id, actor },
     );
   }
+  await evaluateIssueTransitionLoops({
+    workspaceId,
+    issue: updated,
+    fromState,
+    toState: to,
+  });
   // best-effort GitHub mirror after commit — never blocks, never throws;
   // inbound-originated transitions (via=github) skip inside (#60)
   track(
