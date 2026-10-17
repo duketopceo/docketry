@@ -18,11 +18,11 @@ adopt a real icon set — all optimized for operators who keep the app open for 
 
 - **Objective:** every reachable state of the app (loading, empty, error, degraded, concurrent)
   is an intentional designed surface per `docs/design/silver-lining.md` §16; typography is
-  Atkinson Hyperlegible Pro + Commit Mono; icons are Phosphor.
+  Atkinson Hyperlegible Next + Commit Mono; icons are Phosphor.
 - **Product authority:** `DESIGN.md` + `docs/design/silver-lining.md` §4, §16, §17 as amended in
   this pass — the contract is now written; the units below make the code true to it.
 - **Decisions settled (2026-10-15):**
-  - Sans = **Atkinson Hyperlegible Pro** via `@fontsource/atkinson-hyperlegible-next` (the Pro
+  - Sans = **Atkinson Hyperlegible Next** via `@fontsource/atkinson-hyperlegible-next` (the Pro
     release; weights 400–700). Replaces `@fontsource-variable/inter`.
   - Mono = **Commit Mono** via `@fontsource/commit-mono` (400/500/700). Replaces
     `@fontsource-variable/jetbrains-mono`.
@@ -56,7 +56,7 @@ adopt a real icon set — all optimized for operators who keep the app open for 
   `apps/web/app/(auth)` surfaces inherit automatically.
 - **Spec:** `@fontsource/atkinson-hyperlegible-next` weights 400/500/600 + matching italics;
   `@fontsource/commit-mono` 400/500/700. Static per-weight imports (no variable package exists).
-  `--font-sans: "Atkinson Hyperlegible Pro", system-ui, -apple-system, "Segoe UI", sans-serif`;
+  `--font-sans: "Atkinson Hyperlegible Next", system-ui, -apple-system, "Segoe UI", sans-serif`;
   `--font-mono: "Commit Mono", ui-monospace, SFMono-Regular, Menlo, monospace`. Feature settings
   drop to `"kern"` — Atkinson has no `cv11`/`ss01`/`tnum`.
 - **Numeric columns:** anywhere `tnum` did the work (counts, estimates, durations, cycle

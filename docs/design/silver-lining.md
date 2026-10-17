@@ -78,7 +78,7 @@ The ceiling exists for comfort: past about 16:1 on a dark canvas, text starts to
 ## 4. Typography
 
 - **Faces:**
-  - **Atkinson Hyperlegible Pro** for interface text, self-hosted (`@fontsource/atkinson-hyperlegible-next`), `font-feature-settings: "kern"`. It is chosen for legibility over long sessions — maximum character discrimination (l/I/1, O/0, rn/m) at 11–15px — not for how it screenshots. True italics for prose emphasis.
+  - **Atkinson Hyperlegible Next** for interface text, self-hosted (`@fontsource/atkinson-hyperlegible-next`), `font-feature-settings: "kern"`. It is chosen for legibility over long sessions — maximum character discrimination (l/I/1, O/0, rn/m) at 11–15px — not for how it screenshots. True italics for prose emphasis.
   - **Commit Mono** for issue keys, IDs, hashes, code and log lines — and for tabular numerals anywhere (counts, estimates, durations). Numerals that describe data are data; the mono face is the data face. Self-hosted (`@fontsource/commit-mono`).
   - **No template faces.** The primary UI face is a deliberate, licensed pick — never a platform default (Inter, Roboto, Geist, SF/system-ui) serving as the branded face. A face earns its place on legibility over hours and letterform distinction, not familiarity.
   - No third face.

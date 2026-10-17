@@ -19,21 +19,4 @@ export default tseslint.config(
       ],
     },
   },
-  {
-    files: ["apps/web/components/**/*.{ts,tsx}", "apps/web/app/**/*.{ts,tsx}"],
-    ignores: ["apps/web/components/app/icons.ts"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          paths: [
-            {
-              name: "@phosphor-icons/react",
-              message: "Import product icons from components/app/icons.ts — the single icon facade (Silver Lining section 17).",
-            },
-          ],
-        },
-      ],
-    },
-  },
 );

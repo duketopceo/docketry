@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: tallyline-design-system
-description: "An operator-first dark console for an agent-native issue tracker. The canvas is near-black (#06080c) with a cool silver cast; a four-step surface ladder carries elevation; and every card, row, and panel wears a 1px metallic hairline — the 'silver lining' that carries the product's signature edge. The single chromatic accent is signal azure (#339fee), reserved for primary actions, links, focus, and the four-point glint glyph that marks agent provenance. Status is a fixed 4-color system (red / amber / green / neutral); blue is never a status color. Typography is Atkinson Hyperlegible Pro for UI and Commit Mono for issue IDs and code, tuned to 13px body density with 32–40px rows. Depth comes from hairlines, not shadows. The lining is functional decoration: it is literally brightest where things go wrong, and a lit lining always ships with a recommended action."
+description: "An operator-first dark console for an agent-native issue tracker. The canvas is near-black (#06080c) with a cool silver cast; a four-step surface ladder carries elevation; and every card, row, and panel wears a 1px metallic hairline — the 'silver lining' that carries the product's signature edge. The single chromatic accent is signal azure (#339fee), reserved for primary actions, links, focus, and the four-point glint glyph that marks agent provenance. Status is a fixed 4-color system (red / amber / green / neutral); blue is never a status color. Typography is Atkinson Hyperlegible Next for UI and Commit Mono for issue IDs and code, tuned to 13px body density with 32–40px rows. Depth comes from hairlines, not shadows. The lining is functional decoration: it is literally brightest where things go wrong, and a lit lining always ships with a recommended action."
 
 colors:
   # --- Dark theme (default) ---
@@ -59,55 +59,55 @@ colors:
 
 typography:
   display:
-    fontFamily: "Atkinson Hyperlegible Pro"
+    fontFamily: "Atkinson Hyperlegible Next"
     fontSize: 24px
     fontWeight: 600
     lineHeight: 1.25
     letterSpacing: -0.4px
   headline:
-    fontFamily: "Atkinson Hyperlegible Pro"
+    fontFamily: "Atkinson Hyperlegible Next"
     fontSize: 17px
     fontWeight: 600
     lineHeight: 1.35
     letterSpacing: -0.2px
   title:
-    fontFamily: "Atkinson Hyperlegible Pro"
+    fontFamily: "Atkinson Hyperlegible Next"
     fontSize: 15px
     fontWeight: 500
     lineHeight: 1.4
     letterSpacing: -0.1px
   body-lg:
-    fontFamily: "Atkinson Hyperlegible Pro"
+    fontFamily: "Atkinson Hyperlegible Next"
     fontSize: 14px
     fontWeight: 400
     lineHeight: 1.55
     letterSpacing: 0
   body:
-    fontFamily: "Atkinson Hyperlegible Pro"
+    fontFamily: "Atkinson Hyperlegible Next"
     fontSize: 13px
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: 0
   body-strong:
-    fontFamily: "Atkinson Hyperlegible Pro"
+    fontFamily: "Atkinson Hyperlegible Next"
     fontSize: 13px
     fontWeight: 500
     lineHeight: 1.5
     letterSpacing: 0
   caption:
-    fontFamily: "Atkinson Hyperlegible Pro"
+    fontFamily: "Atkinson Hyperlegible Next"
     fontSize: 12px
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: 0.1px
   micro:
-    fontFamily: "Atkinson Hyperlegible Pro"
+    fontFamily: "Atkinson Hyperlegible Next"
     fontSize: 11px
     fontWeight: 500
     lineHeight: 1.3
     letterSpacing: 0.4px
   button:
-    fontFamily: "Atkinson Hyperlegible Pro"
+    fontFamily: "Atkinson Hyperlegible Next"
     fontSize: 13px
     fontWeight: 500
     lineHeight: 1.25
@@ -335,7 +335,7 @@ The second signature is the **glint** — a four-point sparkle glyph (`{componen
 - **Fixed 4-color status** — red `#f06a6a` urgent/blocked, amber `#f59e0b` attention/pending, green `#10b981` healthy/done, neutral `#9ca3af` inactive/archive. No fifth status color, ever.
 - **Glint = agent provenance** — a 4-point star, rendered at 12/16/20px, always static.
 - **Density as a feature** — `{density.row}` 36px default (32 compact / 40 comfortable), 4px spacing base, hairlines instead of shadows.
-- **Atkinson Hyperlegible Pro + Commit Mono** — UI and provenance-of-data (IDs, SHAs, branch names, tabular numerals) respectively. Deliberate licensed picks, never platform defaults.
+- **Atkinson Hyperlegible Next + Commit Mono** — UI and provenance-of-data (IDs, SHAs, branch names, tabular numerals) respectively. Deliberate licensed picks, never platform defaults.
 
 ## Colors
 
@@ -395,7 +395,7 @@ A complete inverse set for documentation, emails, print-exported issues, and the
 ## Typography
 
 ### Font Family
-- **Atkinson Hyperlegible Pro** — all UI text, self-hosted via `@fontsource/atkinson-hyperlegible-next` (weights 400/500/600/700, true italics). Chosen for character discrimination at small sizes over long sessions — it is the anti-template pick, deliberately not Inter/Geist/system-ui. `font-feature-settings: "kern"` globally.
+- **Atkinson Hyperlegible Next** — all UI text, self-hosted via `@fontsource/atkinson-hyperlegible-next` (weights 400/500/600/700, true italics). Chosen for character discrimination at small sizes over long sessions — it is the anti-template pick, deliberately not Inter/Geist/system-ui. `font-feature-settings: "kern"` globally.
 - **Commit Mono** — issue IDs (`TLY-1234`), commit SHAs, branch names, inline code, keycap legends, log/console output, and tabular numerals anywhere (counts, estimates, durations — numerals that describe data are data). Self-hosted via `@fontsource/commit-mono` (400/500/700). Fallback `ui-monospace, SF Mono, Menlo`.
 - Fallback stack for Atkinson: `system-ui, -apple-system, "Segoe UI", sans-serif`.
 

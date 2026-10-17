@@ -9,8 +9,15 @@ export function SlowNote({ className = "" }: { className?: string }) {
     return () => clearTimeout(t);
   }, []);
   if (!slow) return null;
+  // aria-busy=false exempts this subtree from the skeleton's busy
+  // status region so the delayed message is actually announced.
   return (
-    <p className={`flex items-center gap-2 px-4 pb-3 text-2xs text-ink-3 ${className}`}>
+    <p
+      role="status"
+      aria-live="polite"
+      aria-busy="false"
+      className={`flex items-center gap-2 px-4 pb-3 text-2xs text-ink-3 ${className}`}
+    >
       Still loading — the API is slow to answer.
       <button
         type="button"
