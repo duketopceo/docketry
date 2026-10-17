@@ -1,10 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { ModalFrame } from "./app/dialog-frames";
 import { useEffect, useState } from "react";
 
 // the shortcut sheet loads on first `?`; only the listener ships in the shell
-const KeymapDialog = dynamic(() => import("./keymap-dialog").then((m) => m.KeymapDialog), { ssr: false });
+const KeymapDialog = dynamic(() => import("./keymap-dialog").then((m) => m.KeymapDialog), { ssr: false, loading: () => <ModalFrame /> });
 
 function isTypingTarget(t: EventTarget | null): boolean {
   return t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || (t instanceof HTMLElement && t.isContentEditable);

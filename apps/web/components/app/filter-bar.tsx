@@ -10,6 +10,7 @@ import { usePicker, type PickerOption } from "./picker";
 import { useMeta } from "./providers";
 import { useToast } from "./toast";
 import { Kbd } from "./ui";
+import { IconX } from "./icons";
 
 const SOURCES = ["web", "github", "slack", "api", "voice"];
 const DIMS = [
@@ -196,7 +197,7 @@ export function FilterBar({ title, count, hint, dims, display: showDisplay = tru
                 <span className="text-ink-subtle">{p.label}</span> {p.text}
               </button>
               <button type="button" onClick={() => go({ [p.dim]: Array.isArray(filters[p.dim]) ? [] : null } as Partial<Filters>)} aria-label={`Remove ${p.label} filter`} className="flex h-full w-6 items-center justify-center hover:bg-surface-2">
-                <svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden><path d="M2 2l6 6M8 2l-6 6" /></svg>
+                <IconX size={10} aria-hidden />
               </button>
             </span>
           ))}

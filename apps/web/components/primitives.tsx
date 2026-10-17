@@ -1,6 +1,7 @@
 import type { IssueState, Priority } from "@tallyline/types";
 import type { ReactNode } from "react";
 import type { ActorRef } from "@/lib/actors";
+import { PRIORITY_ICONS } from "./app/icons";
 import { TallyMark } from "./tally-mark";
 
 // DESIGN.md signature primitives — the "silver lining" system.
@@ -79,49 +80,15 @@ export function PriorityIcon({
   priority: Priority;
   size?: number;
 }) {
-  if (priority === "urgent") {
-    return (
-      <svg
-        width={size}
-        height={size}
-        viewBox="0 0 12 12"
-        className="shrink-0 fill-urgent"
-        role="img"
-        aria-label="urgent"
-      >
-        <rect width="12" height="12" rx="3" />
-        <path
-          d="M6 2.5v4.2M6 9.4v.1"
-          stroke="var(--sl-on-accent)"
-          strokeWidth="1.6"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
-  const level =
-    priority === "high" ? 3 : priority === "medium" ? 2 : priority === "low" ? 1 : 0;
+  const Icon = PRIORITY_ICONS[priority];
+  const tone = priority === "urgent" ? "text-urgent" : "text-ink-subtle";
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 12 12"
-      className="shrink-0 text-ink-subtle"
+    <Icon
+      size={size}
+      className={`shrink-0 ${tone}`}
       role="img"
       aria-label={priority === "none" ? "no priority" : priority}
-    >
-      {[0, 1, 2].map((i) => (
-        <rect
-          key={i}
-          x={1 + i * 4}
-          y={8 - i * 3}
-          width="2.4"
-          height={4 + i * 3}
-          rx="0.8"
-          className={i < level ? "fill-current" : "fill-lining"}
-        />
-      ))}
-    </svg>
+    />
   );
 }
 

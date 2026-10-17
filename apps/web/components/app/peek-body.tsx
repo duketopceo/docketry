@@ -9,6 +9,7 @@ import { useIssueEditors } from "./pickers";
 import { useNames, usePeek } from "./providers";
 import { SessionBadge } from "./session-badge";
 import { Assignee, Glint, Kbd, PriorityGlyph, Skeleton, StateGlyph } from "./ui";
+import { IconX } from "./icons";
 
 export interface IssueDetail {
   key: string;
@@ -127,7 +128,7 @@ export function PeekBody({ issueKey }: { issueKey: string }) {
         <span className="font-mono text-[12px] text-ink-muted">{issueKey}</span>
         <Link href={`/issues/${issueKey}`} className="ml-auto text-[12px] text-accent hover:text-accent-hover">Open full <Kbd>⏎</Kbd></Link>
         <button type="button" onClick={close} aria-label="Close peek" className="flex h-7 w-7 items-center justify-center rounded-sm text-ink-muted hover:bg-surface-2 hover:text-ink">
-          <svg width="14" height="14" viewBox="0 0 14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden><path d="M3 3l8 8M11 3l-8 8" /></svg>
+          <IconX size={14} aria-hidden />
         </button>
       </header>
       <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-4 py-4">

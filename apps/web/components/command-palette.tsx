@@ -1,13 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { ModalFrame } from "./app/dialog-frames";
 import { useEffect, useState } from "react";
 
 export { recordRecent } from "@/lib/recent";
 
 // cmdk and the palette UI load on first use; only this hotkey listener ships
 // in the initial bundle (route JS budget, Silver Lining section 8).
-const PaletteDialog = dynamic(() => import("./command-palette-dialog").then((m) => m.PaletteDialog), { ssr: false });
+const PaletteDialog = dynamic(() => import("./command-palette-dialog").then((m) => m.PaletteDialog), { ssr: false, loading: () => <ModalFrame /> });
 
 function isTypingTarget(t: EventTarget | null): boolean {
   return t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || (t instanceof HTMLElement && t.isContentEditable);
