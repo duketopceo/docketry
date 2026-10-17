@@ -12,11 +12,13 @@ import { openApiDoc } from "./openapi.js";
 import { sweepExpiredCycles } from "./services/cycles.js";
 import { sweepDeliveries } from "./services/outbound.js";
 import { sweepStaleDispatches } from "./services/dispatch.js";
+import { sweepStaleSessions } from "./services/agent-sessions.js";
 import { agentRoutes } from "./routes/agents.js";
 import { notificationRoutes } from "./routes/notifications.js";
 import { authRoutes, requireSession } from "./routes/auth.js";
 import { assistRoutes } from "./routes/assist.js";
 import { dispatchRoutes } from "./routes/dispatches.js";
+import { agentSessionRoutes } from "./routes/agent-sessions.js";
 import { eventRoutes } from "./routes/events.js";
 import { githubPublicRoutes, githubRoutes } from "./routes/github.js";
 import { importRoutes } from "./routes/import.js";
@@ -89,6 +91,7 @@ export const app = new Hono()
   .route("/v1", importRoutes)
   .route("/v1", webhookEndpointRoutes)
   .route("/v1", dispatchRoutes)
+  .route("/v1", agentSessionRoutes)
   .route("/v1", assistRoutes)
   .onError((err, c) => {
     if (err instanceof HttpError) {
@@ -122,6 +125,18 @@ if (process.env.NODE_ENV !== "test") {
       console.error("dispatch sweep failed", err),
     );
   }, 30_000).unref();
+  // agent session sweep: pending past ack window / active past idle window
+  // single-flight: a slow sweep must not overlap the next tick
+  let sessionSweepRunning = false;
+  setInterval(() => {
+    if (sessionSweepRunning) return;
+    sessionSweepRunning = true;
+    void sweepStaleSessions()
+      .catch((err) => console.error("session sweep failed", err))
+      .finally(() => {
+        sessionSweepRunning = false;
+      });
+  }, 10_000).unref();
   // cycle boundary sweep: complete expired active cycles unattended
   setInterval(() => {
     void sweepExpiredCycles().catch((err) =>

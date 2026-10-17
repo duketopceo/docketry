@@ -38,6 +38,8 @@ const TABLE_ENDPOINTS: Record<string, { ops: string[]; reason?: string }> = {
       "POST /v1/workspaces/{ws}/cycles/{id}/complete",
     ],
   },
+  agent_activities: { ops: ["GET /v1/workspaces/{ws}/agent-sessions/{id}", "POST /v1/workspaces/{ws}/agent-sessions/{id}/activities"] },
+  agent_sessions: { ops: ["GET /v1/workspaces/{ws}/issues/{key}/agent-sessions", "GET /v1/workspaces/{ws}/agent-sessions/{id}", "POST /v1/workspaces/{ws}/agent-sessions/{id}/activities", "PATCH /v1/workspaces/{ws}/agent-sessions/{id}"] },
   dispatch_events: { ops: ["GET /v1/workspaces/{ws}/dispatches/{id}/events", "POST /v1/workspaces/{ws}/dispatches/{id}/events", "GET /v1/workspaces/{ws}/issues/{key}/sessions"] },
   dispatches: {
     ops: [
@@ -293,7 +295,7 @@ describe("tenancy: static coverage", () => {
     const stale = Object.keys(TABLE_ENDPOINTS).filter((t) => !tenantTables.includes(t));
     expect(missing, "tenant-scoped tables with no entry in TABLE_ENDPOINTS").toEqual([]);
     expect(stale, "TABLE_ENDPOINTS entries for tables that no longer have workspace_id").toEqual([]);
-    expect(tenantTables.length).toBe(29);
+    expect(tenantTables.length).toBe(31);
   });
 
   it("every table either lists swept endpoints or justifies having none", () => {
@@ -445,6 +447,9 @@ describe("tenancy: cross-tenant references in A's writes", () => {
     { name: "report B's dispatch", table: "dispatches", build: () => ({ method: "POST", path: `${ws()}/dispatches/${EB.dispatch.id}/report`, body: { outcome: "failed" } }) },
     { name: "append to B's dispatch log", table: "dispatch_events", build: () => ({ method: "POST", path: `${ws()}/dispatches/${EB.dispatch.id}/events`, body: { events: [{ kind: "note", message: "x" }] } }) },
     { name: "read B's dispatch log", table: "dispatch_events", build: () => ({ method: "GET", path: `${ws()}/dispatches/${EB.dispatch.id}/events` }) },
+    { name: "read B's agent session", table: "agent_sessions", build: () => ({ method: "GET", path: `${ws()}/agent-sessions/${EB.agentSession.id}` }) },
+    { name: "post activity to B's agent session", table: "agent_activities", build: () => ({ method: "POST", path: `${ws()}/agent-sessions/${EB.agentSession.id}/activities`, body: { content: { type: "prompt", body: "x" } } }) },
+    { name: "patch B's agent session", table: "agent_sessions", build: () => ({ method: "PATCH", path: `${ws()}/agent-sessions/${EB.agentSession.id}`, body: { pullRequests: ["https://github.com/x/y/pull/9"] } }) },
     { name: "B's webhook deliveries", table: "webhook_deliveries", mayIgnore: true, build: () => ({ method: "GET", path: `${ws()}/webhook-endpoints/${EB.endpoint.id}/deliveries` }) },
     { name: "patch B's webhook endpoint", table: "webhook_endpoints", build: () => ({ method: "PATCH", path: `${ws()}/webhook-endpoints/${EB.endpoint.id}`, body: { enabled: false } }) },
     { name: "delete B's webhook endpoint", table: "webhook_endpoints", build: () => ({ method: "DELETE", path: `${ws()}/webhook-endpoints/${EB.endpoint.id}` }) },
@@ -469,7 +474,7 @@ describe("tenancy: cross-tenant references in A's writes", () => {
 
   it("covers every tenant table that has endpoints", () => {
     const probed = new Set(probes.map((p) => p.table));
-    for (const table of ["issues", "issue_labels", "cycles", "projects", "project_milestones", "invites", "agent_keys", "dispatches", "dispatch_events", "webhook_deliveries", "webhook_endpoints", "workspace_members", "user_tokens", "views", "teams", "slack_links", "comments", "github_repos", "issue_external_refs", "github_installations"]) {
+    for (const table of ["issues", "issue_labels", "cycles", "projects", "project_milestones", "invites", "agent_keys", "dispatches", "dispatch_events", "agent_sessions", "agent_activities", "webhook_deliveries", "webhook_endpoints", "workspace_members", "user_tokens", "views", "teams", "slack_links", "comments", "github_repos", "issue_external_refs", "github_installations"]) {
       expect(probed.has(table), table).toBe(true);
     }
   });
