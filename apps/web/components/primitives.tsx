@@ -1,10 +1,8 @@
 import type { IssueState, Priority } from "@tallyline/types";
 import type { ReactNode } from "react";
 import type { ActorRef } from "@/lib/actors";
-import { IconHigh, IconLow, IconMedium, IconNoPriority, IconUrgent } from "./app/icons";
+import { PRIORITY_ICONS } from "./app/icons";
 import { TallyMark } from "./tally-mark";
-
-const PRIORITY_ICONS = { none: IconNoPriority, low: IconLow, medium: IconMedium, high: IconHigh, urgent: IconUrgent };
 
 // DESIGN.md signature primitives — the "silver lining" system.
 // Sparkle = agent provenance ONLY. Render it where an agent acted, never as decoration.

@@ -1,6 +1,6 @@
 import type { IssueState, Priority } from "@tallyline/types";
 import { initials, PRIORITY_LABEL, STATE_LABEL } from "@/lib/format";
-import { IconHigh, IconLow, IconMedium, IconNoPriority, IconUrgent, STATE_ICONS } from "./icons";
+import { PRIORITY_ICONS, STATE_ICONS } from "./icons";
 
 // Status is never colour-only: every state has its own shape (Silver Lining
 // section 5). Glyphs are 14px strokes that stay readable at 16px.
@@ -20,8 +20,6 @@ export function StateGlyph({ state, size = 14, labelled = true }: { state: Issue
   const a11y = labelled ? { role: "img", "aria-label": STATE_LABEL[state] } : { "aria-hidden": true };
   return <Glyph size={size} className={`shrink-0 ${STATE_TONE[state]}`} {...a11y} />;
 }
-
-const PRIORITY_ICONS = { none: IconNoPriority, low: IconLow, medium: IconMedium, high: IconHigh, urgent: IconUrgent };
 
 export function PriorityGlyph({ priority, size = 14 }: { priority: Priority; size?: number }) {
   const Icon = PRIORITY_ICONS[priority];

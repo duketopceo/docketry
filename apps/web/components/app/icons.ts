@@ -83,6 +83,23 @@ export const NAV_ICONS = {
 } as const;
 
 // Issue-state vocabulary: ring family, filled progressively.
+import {
+  CellSignalHigh,
+  CellSignalLow,
+  CellSignalMedium,
+  CellSignalNone,
+  Warning,
+} from "@phosphor-icons/react";
+import type { Priority } from "@tallyline/types";
+
+export const PRIORITY_ICONS: Record<Priority, typeof Warning> = {
+  none: CellSignalNone,
+  low: CellSignalLow,
+  medium: CellSignalMedium,
+  high: CellSignalHigh,
+  urgent: Warning,
+};
+
 export const STATE_ICONS: Record<IssueState, typeof Circle> = {
   triage: Funnel,
   backlog: CircleDashed,
