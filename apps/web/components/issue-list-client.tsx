@@ -12,6 +12,7 @@ import { useMeta, useNames, usePeek } from "./app/providers";
 import { Assignee, Glint, Kbd, PriorityGlyph, StateGlyph } from "./app/ui";
 import { PRIORITY_LABEL, relTime, STATE_LABEL } from "@/lib/format";
 import { apiQuery, parseFilters } from "@/lib/filters";
+import { IconCheck, IconPeek } from "./app/icons";
 
 export interface ListLabel {
   id: string;
@@ -400,7 +401,7 @@ function Row({
         className={`${ctl} ${!(isSelected || anySelected) ? "max-sm:hidden" : ""} ${isSelected || anySelected || isCursor ? "opacity-100" : "opacity-0 focus-visible:opacity-100 group-hover:opacity-100"}`}
       >
         <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-xs border ${isSelected ? "border-accent bg-accent text-on-accent" : "border-control"}`}>
-          {isSelected && <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden><path d="M2 5.3l2 2 4-4.3" /></svg>}
+          {isSelected && <IconCheck size={10} weight="bold" aria-hidden />}
         </span>
       </button>
       <button type="button" tabIndex={tab} className={ctl} onClick={(e) => editors.pickPriority(e.currentTarget, [like])} aria-label={`Priority ${PRIORITY_LABEL[m.priority]}, change`}>
@@ -428,7 +429,7 @@ function Row({
       {mode === "triage" && issue.source && <span className="hidden shrink-0 rounded-full border border-lining px-2 text-[11px] text-ink-muted sm:inline">{issue.source}</span>}
       {agentFiled && <span title={`Filed by ${names.actor("agent", issue.creatorId)}`}><Glint size={12} label={`Filed by agent ${names.actor("agent", issue.creatorId)}`} /></span>}
       <button type="button" tabIndex={tab} onClick={onPeek} aria-label={`Peek ${issue.key}`} aria-pressed={peekOpen} className={`${ctl} text-ink-subtle opacity-0 focus-visible:opacity-100 group-hover:opacity-100 max-sm:hidden`}>
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden><rect x="1.5" y="2.5" width="11" height="9" rx="1.5" /><path d="M8.5 2.5v9" /></svg>
+        <IconPeek size={14} aria-hidden />
       </button>
       <button type="button" tabIndex={tab} className={ctl} onClick={(e) => editors.pickAssignee(e.currentTarget, [like])} aria-label={`Assignee ${assignee ?? "none"}, change`}>
         <Assignee type={m.assigneeType} name={assignee} />

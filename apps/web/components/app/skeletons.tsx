@@ -1,4 +1,5 @@
 import { Skeleton } from "./ui";
+import { SlowNote } from "./slow-note";
 
 // Skeletons match final geometry (36px rows, 48px header) so nothing shifts
 // when data lands, and nothing animates at rest.
@@ -28,6 +29,7 @@ export function ListSkeleton({ title, rows = 14 }: { title: string; rows?: numbe
           </div>
         ))}
       </div>
+      <SlowNote />
     </div>
   );
 }
@@ -52,6 +54,7 @@ export function BoardSkeleton() {
     <div className="flex min-h-0 flex-1 flex-col" role="status" aria-busy="true" aria-label="Loading Board">
       <HeaderSkeleton title="Board" />
       <BoardColumnsSkeleton />
+      <SlowNote />
     </div>
   );
 }
@@ -66,6 +69,7 @@ export function DetailSkeleton() {
         <Skeleton className="h-40 w-full" />
         <Skeleton className="h-24 w-full" />
       </div>
+      <SlowNote />
     </div>
   );
 }
@@ -78,6 +82,7 @@ export function PanelSkeleton({ title }: { title: string }) {
         <Skeleton className="h-40 w-full" />
         <Skeleton className="h-40 w-full" />
       </div>
+      <SlowNote />
     </div>
   );
 }

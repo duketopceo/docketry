@@ -1,10 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { ModalFrame } from "./app/dialog-frames";
 import { useEffect, useState } from "react";
 
 // the form loads on first use; only the `c` listener ships in the shell
-const QuickCreateDialog = dynamic(() => import("./quick-create-dialog").then((m) => m.QuickCreateDialog), { ssr: false });
+const QuickCreateDialog = dynamic(() => import("./quick-create-dialog").then((m) => m.QuickCreateDialog), { ssr: false, loading: () => <ModalFrame /> });
 
 function isTypingTarget(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
